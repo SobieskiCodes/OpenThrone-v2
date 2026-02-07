@@ -31,6 +31,13 @@ export {
 } from './formatting';
 
 export {
+  ItemTypes,
+  getItemDefinition,
+  getItemsByUsage,
+  getItemsByUsageAndType,
+} from './items';
+
+export {
   BattleUpgrades,
   getBattleUpgradesByType,
 } from './battle-upgrades';

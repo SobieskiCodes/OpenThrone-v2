@@ -59,6 +59,9 @@ export enum StructureUpgradeType {
   SPY = 'SPY',
   SENTRY = 'SENTRY',
   ARMORY = 'ARMORY',
+  ECONOMY = 'ECONOMY',
+  HOUSE = 'HOUSE',
+  FORT = 'FORT',
 }
 
 export enum AccountStatus {

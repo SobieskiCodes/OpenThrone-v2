@@ -1,5 +1,14 @@
 # OpenThrone v2 - Rebuild Plan
 
+good refrence point for ai development / concept around interacting with the api
+https://github.com/MattGibney/DarkThrone/commit/9c4d7e01c1bae2b95c21bb9b4c6332401e8af34e
+Two interesting tidbits from my perspective are;
+- Never call the API directly from frontend apps; always use `@darkthrone/client-library`.
+- Never define request/response shapes outside `@darkthrone/interfaces`.
+I like the concept of buildin md docs for the agent to know how to use the repo - but also the concept of not exposing the api is clever as shit :) (while staying event based)
+
+
+
 ## 1. Why Rebuild
 
 The current codebase is a working POC with ~83 API routes, 80+ components, and 14+ database tables all living inside a single Next.js app. It works, but it has accumulated structural debt:
