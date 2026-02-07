@@ -1,0 +1,573 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum AccountStatus {
+  ACTIVE
+  VACATION
+  CLOSED
+  IDLE
+  RESET
+  BANNED
+  TIMEOUT
+  SUSPENDED
+}
+
+enum PermissionType {
+  ADMINISTRATOR
+  MODERATOR
+}
+
+enum ChatRole {
+  ADMIN
+  MEMBER
+}
+
+enum PlayerRace {
+  UNDEAD
+  HUMAN
+  GOBLIN
+  ELF
+}
+
+enum PlayerClass {
+  FIGHTER
+  CLERIC
+  ASSASSIN
+  THIEF
+}
+
+enum UnitType {
+  CITIZEN
+  WORKER
+  OFFENSE
+  DEFENSE
+  SPY
+  SENTRY
+}
+
+enum ItemType {
+  WEAPON
+  HELM
+  ARMOR
+  BOOTS
+  BRACERS
+  SHIELD
+}
+
+enum ItemUsage {
+  OFFENSE
+  DEFENSE
+  SPY
+  SENTRY
+}
+
+enum BattleUpgradeType {
+  OFFENSE
+  DEFENSE
+  SPY
+  SENTRY
+}
+
+enum StructureUpgradeType {
+  OFFENSE
+  SPY
+  SENTRY
+  ARMORY
+}
+
+enum BonusPointType {
+  OFFENSE
+  DEFENSE
+  INTEL
+  PRICES
+  INCOME
+}
+
+enum BankTransferType {
+  ECONOMY
+  PLAYER_TRANSFER
+  WAR_SPOILS
+  SALE
+  RECRUITMENT
+  FORT_REPAIR
+  DAILY_RECRUIT
+}
+
+enum SocialRelationType {
+  FRIEND
+  ALLY
+  ENEMY
+}
+
+enum SocialStatus {
+  REQUESTED
+  ACCEPTED
+  ENDED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model Player {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  display_name  String        @unique
+  password_hash String
+  race          PlayerRace
+  player_class  PlayerClass   @map("class")
+  locale        String        @default("en-US")
+  avatar        String?       @default("SHIELD")
+  bio           String        @default("")
+  color_scheme  String?
+  recruit_link  String        @unique @default(uuid())
+  status        AccountStatus @default(ACTIVE)
+  last_active   DateTime?     @db.Timestamptz(3)
+  created_at    DateTime      @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime      @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  economy             PlayerEconomy?
+  units               PlayerUnit[]
+  items               PlayerItem[]
+  battle_upgrades     PlayerBattleUpgrade[]
+  structure_upgrades  PlayerStructureUpgrade[]
+  fortification       PlayerFortification?
+  bonus_points        PlayerBonusPoint[]
+  stats               PlayerStats?
+
+  attacks_made        AttackLog[]          @relation("attacker")
+  attacks_received    AttackLog[]          @relation("defender")
+  attack_log_acl      AttackLogAcl[]
+
+  recruit_history_from RecruitHistory[]    @relation("recruit_from")
+  recruit_history_to   RecruitHistory[]    @relation("recruit_to")
+
+  social_initiated    Social[]             @relation("social_player")
+  social_received     Social[]             @relation("social_friend")
+
+  alliance_led        Alliance[]           @relation("alliance_leader")
+  alliance_membership AllianceMembership[]
+
+  permission_grants   PermissionGrant[]
+  password_resets     PasswordReset[]
+
+  status_history      AccountStatusHistory[] @relation("status_user")
+  admin_actions       AccountStatusHistory[] @relation("status_admin")
+
+  blog_posts          BlogPost[]
+  post_read_status    PostReadStatus[]
+
+  chat_rooms_created  ChatRoom[]
+  chat_participants   ChatRoomParticipant[]
+  chat_messages       ChatMessage[]
+  chat_reactions      ChatMessageReaction[]
+  chat_read_status    ChatMessageReadStatus[]
+
+  @@index([created_at])
+  @@map("players")
+}
+
+model PlayerEconomy {
+  id            Int    @id @default(autoincrement())
+  player_id     String @unique
+  gold          BigInt @default(25000)
+  gold_in_bank  BigInt @default(0)
+  attack_turns  Int    @default(50)
+  house_level   Int    @default(0)
+  economy_level Int    @default(0)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@map("player_economy")
+}
+
+model PlayerUnit {
+  id        Int      @id @default(autoincrement())
+  player_id String
+  unit_type UnitType
+  level     Int
+  quantity  Int      @default(0)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@unique([player_id, unit_type, level])
+  @@index([player_id])
+  @@map("player_units")
+}
+
+model PlayerItem {
+  id        Int       @id @default(autoincrement())
+  player_id String
+  item_type ItemType
+  usage     ItemUsage
+  level     Int
+  quantity  Int       @default(0)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@unique([player_id, item_type, usage, level])
+  @@index([player_id])
+  @@map("player_items")
+}
+
+model PlayerBattleUpgrade {
+  id           Int               @id @default(autoincrement())
+  player_id    String
+  upgrade_type BattleUpgradeType
+  level        Int               @default(1)
+  quantity     Int               @default(0)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@unique([player_id, upgrade_type])
+  @@index([player_id])
+  @@map("player_battle_upgrades")
+}
+
+model PlayerStructureUpgrade {
+  id           Int                  @id @default(autoincrement())
+  player_id    String
+  upgrade_type StructureUpgradeType
+  level        Int                  @default(1)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@unique([player_id, upgrade_type])
+  @@index([player_id])
+  @@map("player_structure_upgrades")
+}
+
+model PlayerFortification {
+  id        Int    @id @default(autoincrement())
+  player_id String @unique
+  fort_level Int   @default(1)
+  hitpoints  Int   @default(50)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@map("player_fortification")
+}
+
+model PlayerBonusPoint {
+  id         Int            @id @default(autoincrement())
+  player_id  String
+  bonus_type BonusPointType
+  level      Int            @default(0)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@unique([player_id, bonus_type])
+  @@index([player_id])
+  @@map("player_bonus_points")
+}
+
+model PlayerStats {
+  id           Int      @id @default(autoincrement())
+  player_id    String   @unique
+  experience   Int      @default(0)
+  rank         Int      @default(0)
+  offense      Int      @default(0)
+  defense      Int      @default(0)
+  spy          Int      @default(0)
+  sentry       Int      @default(0)
+  killing_str  Int      @default(1)
+  defense_str  Int      @default(1)
+  spying_str   Int      @default(1)
+  sentry_str   Int      @default(1)
+  updated_at   DateTime @updatedAt @db.Timestamptz(3)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@map("player_stats")
+}
+
+model AttackLog {
+  id          Int       @id @default(autoincrement())
+  attacker_id String
+  defender_id String
+  timestamp   DateTime? @db.Timestamptz(3)
+  winner      String
+  stats       Json
+  type        String    @default("attack")
+
+  attacker     Player          @relation("attacker", fields: [attacker_id], references: [id])
+  defender     Player          @relation("defender", fields: [defender_id], references: [id])
+  acl          AttackLogAcl[]
+  chatMessages ChatMessage[]
+
+  @@index([attacker_id])
+  @@index([defender_id])
+  @@index([timestamp])
+  @@map("attack_log")
+}
+
+model AttackLogAcl {
+  id                    Int    @id @default(autoincrement())
+  attack_log_id         Int
+  shared_with_user_id   String?
+  shared_with_alliance_id Int?
+
+  attack_log AttackLog @relation(fields: [attack_log_id], references: [id])
+  user       Player?   @relation(fields: [shared_with_user_id], references: [id])
+  alliance   Alliance? @relation(fields: [shared_with_alliance_id], references: [id])
+
+  @@map("attack_log_acl")
+}
+
+model BankHistory {
+  id                Int              @id @default(autoincrement())
+  gold_amount       BigInt
+  from_user_id      String
+  from_account_type String
+  to_user_id        String
+  to_account_type   String
+  date_time         DateTime?        @db.Timestamptz(3)
+  history_type      BankTransferType
+  stats             Json?            @default("[]")
+
+  @@index([from_user_id, to_user_id, date_time])
+  @@map("bank_history")
+}
+
+model RecruitHistory {
+  id        Int       @id @default(autoincrement())
+  from_user String?
+  to_user   String
+  ip_addr   String
+  timestamp DateTime? @db.Timestamptz(3)
+
+  from_player Player? @relation("recruit_from", fields: [from_user], references: [id])
+  to_player   Player  @relation("recruit_to", fields: [to_user], references: [id])
+
+  @@index([to_user, from_user, timestamp])
+  @@map("recruit_history")
+}
+
+model Social {
+  id                Int                @id @default(autoincrement())
+  player_id         String
+  friend_id         String
+  relationship_type SocialRelationType
+  status            SocialStatus       @default(REQUESTED)
+  request_date      DateTime           @default(now()) @db.Timestamptz(3)
+  acceptance_date   DateTime?          @db.Timestamptz(3)
+  end_date          DateTime?          @db.Timestamptz(3)
+
+  player Player @relation("social_player", fields: [player_id], references: [id])
+  friend Player @relation("social_friend", fields: [friend_id], references: [id])
+
+  @@index([player_id])
+  @@index([friend_id])
+  @@map("social")
+}
+
+model Alliance {
+  id                Int      @id @default(autoincrement())
+  name              String
+  leader_id         String
+  avatar            String?
+  motto             String?
+  is_public         Boolean  @default(true)
+  require_auth      Boolean  @default(false)
+  closed_enrollment Boolean  @default(false)
+  gold_in_bank      BigInt?  @default(0)
+  slug              String?
+  banner_img        String?
+  created_at        DateTime @default(now()) @db.Timestamptz(3)
+  updated_at        DateTime @updatedAt @db.Timestamptz(3)
+
+  leader      Player               @relation("alliance_leader", fields: [leader_id], references: [id])
+  memberships AllianceMembership[]
+  roles       AllianceRole[]
+  attack_acl  AttackLogAcl[]
+  chat_rooms  ChatRoom[]
+
+  @@map("alliances")
+}
+
+model AllianceMembership {
+  id          Int      @id @default(autoincrement())
+  alliance_id Int
+  user_id     String
+  role_id     Int
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @updatedAt @db.Timestamptz(3)
+
+  alliance Alliance     @relation(fields: [alliance_id], references: [id])
+  user     Player       @relation(fields: [user_id], references: [id])
+  role     AllianceRole @relation(fields: [role_id], references: [id])
+
+  @@unique([alliance_id, user_id])
+  @@map("alliance_memberships")
+}
+
+model AllianceRole {
+  id          Int      @id @default(autoincrement())
+  name        String
+  alliance_id Int
+  permissions Json?    @default("{\"canInvite\": false, \"canKick\": false, \"canManageRoles\": false, \"canManageBank\": false, \"canPostAnnouncements\": false}")
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @updatedAt @db.Timestamptz(3)
+
+  alliance    Alliance             @relation(fields: [alliance_id], references: [id])
+  memberships AllianceMembership[]
+
+  @@map("alliance_roles")
+}
+
+model PermissionGrant {
+  id         Int            @id @default(autoincrement())
+  type       PermissionType
+  user_id    String
+  created_at DateTime       @default(now())
+
+  user Player @relation(fields: [user_id], references: [id])
+
+  @@map("permission_grants")
+}
+
+model PasswordReset {
+  id                Int      @id @default(autoincrement())
+  user_id           String
+  verification_code String
+  created_at        DateTime @default(now()) @db.Timestamptz(3)
+  status            Int      @default(0) // 0=Active, 1=Used, 2=Expired
+  type              String   @default("PASSWORD")
+  old_email         String?
+
+  user Player @relation(fields: [user_id], references: [id])
+
+  @@map("password_resets")
+}
+
+model AccountStatusHistory {
+  id         Int           @id @default(autoincrement())
+  user_id    String
+  status     AccountStatus
+  start_date DateTime      @default(now()) @db.Timestamptz(3)
+  end_date   DateTime?     @db.Timestamptz(3)
+  reason     String?
+  admin_id   String?
+  created_at DateTime      @default(now()) @db.Timestamptz(3)
+  updated_at DateTime      @updatedAt @db.Timestamptz(3)
+
+  user  Player  @relation("status_user", fields: [user_id], references: [id])
+  admin Player? @relation("status_admin", fields: [admin_id], references: [id])
+
+  @@index([user_id, start_date])
+  @@map("account_status_history")
+}
+
+model BlogPost {
+  id           Int      @id @default(autoincrement())
+  title        String
+  content      String
+  posted_by_id String
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
+  updated_at   DateTime @updatedAt @db.Timestamptz(3)
+
+  posted_by       Player           @relation(fields: [posted_by_id], references: [id])
+  post_read_status PostReadStatus[]
+
+  @@map("blog_posts")
+}
+
+model PostReadStatus {
+  post_id      Int
+  user_id      String
+  last_read_at DateTime @db.Timestamptz(3)
+
+  post BlogPost @relation(fields: [post_id], references: [id])
+  user Player   @relation(fields: [user_id], references: [id])
+
+  @@id([post_id, user_id])
+  @@map("post_read_status")
+}
+
+model ChatRoom {
+  id            Int      @id @default(autoincrement())
+  name          String?
+  is_private    Boolean  @default(true)
+  created_by_id String
+  alliance_id   Int?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  created_by   Player              @relation(fields: [created_by_id], references: [id])
+  alliance     Alliance?           @relation(fields: [alliance_id], references: [id])
+  participants ChatRoomParticipant[]
+  messages     ChatMessage[]
+
+  @@map("chat_rooms")
+}
+
+model ChatRoomParticipant {
+  id        Int      @id @default(autoincrement())
+  room_id   Int
+  user_id   String
+  role      ChatRole @default(MEMBER)
+  can_write Boolean  @default(true)
+  joined_at DateTime @default(now())
+
+  room ChatRoom @relation(fields: [room_id], references: [id])
+  user Player   @relation(fields: [user_id], references: [id])
+
+  @@unique([room_id, user_id])
+  @@map("chat_room_participants")
+}
+
+model ChatMessage {
+  id            Int      @id @default(autoincrement())
+  room_id       Int
+  sender_id     String
+  content       String
+  message_type  String   @default("TEXT")
+  reply_to_id   Int?
+  shared_log_id Int?
+  sent_at       DateTime @default(now())
+
+  room       ChatRoom              @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  sender     Player                @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+  reply_to   ChatMessage?          @relation("message_replies", fields: [reply_to_id], references: [id])
+  replies    ChatMessage[]         @relation("message_replies")
+  shared_log AttackLog?            @relation(fields: [shared_log_id], references: [id], onDelete: SetNull)
+  reactions  ChatMessageReaction[]
+  read_status ChatMessageReadStatus[]
+
+  @@index([room_id, sent_at])
+  @@map("chat_messages")
+}
+
+model ChatMessageReaction {
+  id         Int      @id @default(autoincrement())
+  message_id Int
+  user_id    String
+  reaction   String
+  created_at DateTime @default(now())
+
+  message ChatMessage @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user    Player      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([message_id, user_id, reaction])
+  @@map("chat_message_reactions")
+}
+
+model ChatMessageReadStatus {
+  message_id Int
+  user_id    String
+  read_at    DateTime @updatedAt
+
+  message ChatMessage @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user    Player      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([message_id, user_id])
+  @@index([user_id])
+  @@map("chat_message_read_status")
+}

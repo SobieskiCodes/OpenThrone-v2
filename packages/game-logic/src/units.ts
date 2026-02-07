@@ -1,0 +1,176 @@
+import type { UnitDefinition } from '@openthrone/shared';
+import { UnitType } from '@openthrone/shared';
+
+export const UnitTypes: UnitDefinition[] = [
+  {
+    name: 'Citizen',
+    type: UnitType.CITIZEN,
+    level: 1,
+    bonus: 0,
+    cost: 0,
+    fortLevel: 1,
+    hp: 10,
+    killingStrength: 2,
+    defenseStrength: 1,
+  },
+  {
+    name: 'Worker',
+    type: UnitType.WORKER,
+    level: 1,
+    bonus: 65,
+    cost: 2000,
+    fortLevel: 1,
+    hp: 20,
+    killingStrength: 3,
+    defenseStrength: 1,
+  },
+  {
+    name: 'Soldier',
+    type: UnitType.OFFENSE,
+    level: 1,
+    bonus: 3,
+    cost: 1500,
+    fortLevel: 1,
+    hp: 10,
+    killingStrength: 5,
+    defenseStrength: 2,
+  },
+  {
+    name: 'Knight',
+    type: UnitType.OFFENSE,
+    level: 2,
+    bonus: 20,
+    cost: 10000,
+    fortLevel: 4,
+    hp: 20,
+    killingStrength: 15,
+    defenseStrength: 5,
+  },
+  {
+    name: 'Berserker',
+    type: UnitType.OFFENSE,
+    level: 3,
+    bonus: 50,
+    cost: 25000,
+    fortLevel: 7,
+    hp: 30,
+    killingStrength: 40,
+    defenseStrength: 10,
+  },
+  {
+    name: 'Guard',
+    type: UnitType.DEFENSE,
+    level: 1,
+    bonus: 3,
+    cost: 1500,
+    fortLevel: 1,
+    hp: 10,
+    killingStrength: 3,
+    defenseStrength: 5,
+  },
+  {
+    name: 'Archer',
+    type: UnitType.DEFENSE,
+    level: 2,
+    bonus: 20,
+    cost: 10000,
+    fortLevel: 4,
+    hp: 20,
+    killingStrength: 15,
+    defenseStrength: 5,
+  },
+  {
+    name: 'Royal Guard',
+    type: UnitType.DEFENSE,
+    level: 3,
+    bonus: 50,
+    cost: 25000,
+    fortLevel: 7,
+    hp: 30,
+    killingStrength: 40,
+    defenseStrength: 10,
+  },
+  {
+    name: 'Spy',
+    type: UnitType.SPY,
+    level: 1,
+    bonus: 3,
+    cost: 1500,
+    fortLevel: 1,
+    hp: 10,
+    killingStrength: 3,
+    defenseStrength: 1,
+  },
+  {
+    name: 'Infiltrator',
+    type: UnitType.SPY,
+    level: 2,
+    bonus: 20,
+    cost: 10000,
+    fortLevel: 8,
+    hp: 20,
+    killingStrength: 5,
+    defenseStrength: 2,
+  },
+  {
+    name: 'Assassin',
+    type: UnitType.SPY,
+    level: 3,
+    bonus: 50,
+    cost: 25000,
+    fortLevel: 12,
+    hp: 30,
+    killingStrength: 270,
+    defenseStrength: 225,
+  },
+  {
+    name: 'Sentry',
+    type: UnitType.SENTRY,
+    level: 1,
+    bonus: 3,
+    cost: 1500,
+    fortLevel: 1,
+    hp: 10,
+    killingStrength: 3,
+    defenseStrength: 5,
+  },
+  {
+    name: 'Sentinel',
+    type: UnitType.SENTRY,
+    level: 2,
+    bonus: 20,
+    cost: 10000,
+    fortLevel: 8,
+    hp: 20,
+    killingStrength: 15,
+    defenseStrength: 20,
+  },
+  {
+    name: 'Inquisitor',
+    type: UnitType.SENTRY,
+    level: 3,
+    bonus: 50,
+    cost: 25000,
+    fortLevel: 12,
+    hp: 30,
+    killingStrength: 225,
+    defenseStrength: 250,
+  },
+];
+
+/**
+ * Returns a unit definition matching the given type and level.
+ */
+export function getUnitByTypeAndLevel(
+  type: UnitType,
+  level: number,
+): UnitDefinition | undefined {
+  return UnitTypes.find((u) => u.type === type && u.level === level);
+}
+
+/**
+ * Returns all unit definitions of the given type.
+ */
+export function getUnitsOfType(type: UnitType): UnitDefinition[] {
+  return UnitTypes.filter((u) => u.type === type);
+}

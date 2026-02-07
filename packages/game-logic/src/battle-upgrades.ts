@@ -1,0 +1,110 @@
+import type { BattleUpgradeDefinition } from '@openthrone/shared';
+import { BattleUpgradeType } from '@openthrone/shared';
+
+export const BattleUpgrades: BattleUpgradeDefinition[] = [
+  {
+    type: BattleUpgradeType.OFFENSE,
+    name: 'Steeds',
+    siegeUpgradeLevel: 6,
+    level: 1,
+    bonus: 200,
+    cost: 100000,
+    unitsCovered: 1,
+    minUnitLevel: 2,
+    killingStrength: 150,
+    defenseStrength: 50,
+  },
+  {
+    type: BattleUpgradeType.OFFENSE,
+    name: 'War Elephant',
+    siegeUpgradeLevel: 6,
+    level: 2,
+    bonus: 1000,
+    cost: 5000000,
+    unitsCovered: 1,
+    minUnitLevel: 2,
+    killingStrength: 750,
+    defenseStrength: 250,
+  },
+  {
+    type: BattleUpgradeType.DEFENSE,
+    name: 'Guard Tower',
+    siegeUpgradeLevel: 6,
+    level: 1,
+    bonus: 200,
+    cost: 100000,
+    unitsCovered: 5,
+    minUnitLevel: 2,
+    killingStrength: 50,
+    defenseStrength: 150,
+  },
+  {
+    type: BattleUpgradeType.DEFENSE,
+    name: 'Catapult',
+    siegeUpgradeLevel: 6,
+    level: 2,
+    bonus: 1000,
+    cost: 5000000,
+    unitsCovered: 1,
+    minUnitLevel: 2,
+    killingStrength: 250,
+    defenseStrength: 750,
+  },
+  {
+    type: BattleUpgradeType.SPY,
+    name: 'Disguise Clothes',
+    siegeUpgradeLevel: 6,
+    level: 1,
+    bonus: 200,
+    cost: 100000,
+    unitsCovered: 1,
+    minUnitLevel: 2,
+    killingStrength: 50,
+    defenseStrength: 150,
+  },
+  {
+    type: BattleUpgradeType.SPY,
+    name: 'Informant',
+    siegeUpgradeLevel: 6,
+    level: 2,
+    bonus: 1000,
+    cost: 5000000,
+    unitsCovered: 1,
+    minUnitLevel: 2,
+    killingStrength: 250,
+    defenseStrength: 750,
+  },
+  {
+    type: BattleUpgradeType.SENTRY,
+    name: 'Guard Dog',
+    siegeUpgradeLevel: 6,
+    level: 1,
+    bonus: 200,
+    cost: 100000,
+    unitsCovered: 1,
+    minUnitLevel: 2,
+    killingStrength: 50,
+    defenseStrength: 150,
+  },
+  {
+    type: BattleUpgradeType.SENTRY,
+    name: 'Watch Tower',
+    siegeUpgradeLevel: 6,
+    level: 2,
+    bonus: 1000,
+    cost: 5000000,
+    unitsCovered: 5,
+    minUnitLevel: 2,
+    killingStrength: 250,
+    defenseStrength: 750,
+  },
+];
+
+/**
+ * Returns all battle upgrade definitions of the given type.
+ */
+export function getBattleUpgradesByType(
+  type: BattleUpgradeType,
+): BattleUpgradeDefinition[] {
+  return BattleUpgrades.filter((b) => b.type === type);
+}

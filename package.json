@@ -1,0 +1,24 @@
+{
+  "name": "openthrone-v2",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "db:push": "turbo db:push",
+    "db:seed": "turbo db:seed",
+    "db:generate": "turbo db:generate",
+    "db:migrate": "turbo db:migrate",
+    "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.8.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
