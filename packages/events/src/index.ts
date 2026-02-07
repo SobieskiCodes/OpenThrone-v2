@@ -4,4 +4,5 @@ export * from './combat.events';
 export * from './social.events';
 export * from './account.events';
 export * from './structures.events';
+export * from './recruitment.events';
 export * from './system.events';

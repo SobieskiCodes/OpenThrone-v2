@@ -48,7 +48,7 @@ const navItems = [
     ],
   },
   { label: 'Community', href: '/community' },
-  { label: 'Recruitment', href: '/recruitment' },
+  { label: 'Recruitment', href: '/recruit' },
 ];
 
 export default function GameLayout({ children }: { children: React.ReactNode }) {

@@ -43,6 +43,14 @@ export {
 } from './battle-upgrades';
 
 export {
+  RECRUIT_LINK_CITIZENS_BONUS,
+  RECRUIT_LINK_IP_COOLDOWN_HOURS,
+  RECRUIT_LINK_MAX_PER_DAY,
+  calculateAutoRecruitCitizens,
+  calculateRecruitLinkBonus,
+} from './recruitment';
+
+export {
   EconomyUpgrades,
   OffensiveUpgrades,
   SpyUpgrades,

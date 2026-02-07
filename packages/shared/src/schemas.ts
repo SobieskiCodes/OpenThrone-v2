@@ -131,6 +131,12 @@ export const repairFortSchema = z.object({
   points: z.number().int().min(1),
 });
 
+// ─── Recruitment Schemas ─────────────────────────────────────────────
+
+export const claimRecruitLinkSchema = z.object({
+  captchaToken: z.string().optional(),
+});
+
 // ─── Alliance Schemas ────────────────────────────────────────────────
 
 export const createAllianceSchema = z.object({
@@ -171,6 +177,7 @@ export type UnequipItemDto = z.infer<typeof unequipItemSchema>;
 export type PurchaseStructureUpgradeDto = z.infer<typeof purchaseStructureUpgradeSchema>;
 export type PurchaseBattleUpgradeDto = z.infer<typeof purchaseBattleUpgradeSchema>;
 export type RepairFortDto = z.infer<typeof repairFortSchema>;
+export type ClaimRecruitLinkDto = z.infer<typeof claimRecruitLinkSchema>;
 export type CreateAllianceDto = z.infer<typeof createAllianceSchema>;
 export type SendMessageDto = z.infer<typeof sendMessageSchema>;
 export type CreateChatRoomDto = z.infer<typeof createChatRoomSchema>;
