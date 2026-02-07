@@ -10,6 +10,9 @@ import {
   Button,
   Divider,
   ScrollArea,
+  ActionIcon,
+  useMantineColorScheme,
+  useComputedColorScheme,
 } from '@mantine/core';
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -52,6 +55,12 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const { data: session } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const { setColorScheme } = useMantineColorScheme();
+  const computedColorScheme = useComputedColorScheme('dark');
+
+  const toggleColorScheme = () => {
+    setColorScheme(computedColorScheme === 'dark' ? 'light' : 'dark');
+  };
 
   const handleLogout = async () => {
     await signOut({ redirect: false });
@@ -67,11 +76,21 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Title order={3}>OpenThrone</Title>
-          {session?.user?.name && (
-            <Text size="sm" c="dimmed">
-              Welcome, {session.user.name}
-            </Text>
-          )}
+          <Group gap="sm">
+            {session?.user?.name && (
+              <Text size="sm" c="dimmed">
+                Welcome, {session.user.name}
+              </Text>
+            )}
+            <ActionIcon
+              variant="default"
+              size="lg"
+              onClick={toggleColorScheme}
+              aria-label="Toggle color scheme"
+            >
+              {computedColorScheme === 'dark' ? '\u2600' : '\u263E'}
+            </ActionIcon>
+          </Group>
         </Group>
       </AppShell.Header>
 
