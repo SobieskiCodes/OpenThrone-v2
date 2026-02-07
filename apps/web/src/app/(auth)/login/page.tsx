@@ -35,13 +35,20 @@ export default function LoginPage() {
         redirect: false,
       });
 
-      if (result?.ok) {
-        router.push('/home');
-      } else {
-        setError('Invalid email or password. Please try again.');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[login] signIn result:', result);
       }
-    } catch {
-      setError('An unexpected error occurred. Please try again.');
+
+      if (result?.error) {
+        setError('Invalid email or password. Please try again.');
+      } else {
+        router.push('/home');
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[login] signIn error:', err);
+      }
+      setError('Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -30,23 +30,22 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    // Check if email already exists (case-insensitive)
+    // Check if email already exists (case-insensitive via lowercase)
     const existingEmail = await this.prisma.player.findFirst({
       where: {
-        email: { equals: dto.email, mode: 'insensitive' },
+        email: dto.email.toLowerCase(),
       },
     });
     if (existingEmail) {
       throw new ConflictException('Email already in use');
     }
 
-    // Check if display_name already exists (case-insensitive)
-    const existingName = await this.prisma.player.findFirst({
-      where: {
-        display_name: { equals: dto.displayName, mode: 'insensitive' },
-      },
-    });
-    if (existingName) {
+    // Check if display_name already exists (case-insensitive via LOWER() - works on both SQLite and PostgreSQL)
+    const existingName = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
+      `SELECT id FROM players WHERE LOWER(display_name) = LOWER(?) LIMIT 1`,
+      dto.displayName,
+    );
+    if (existingName.length > 0) {
       throw new ConflictException('Display name already in use');
     }
 
@@ -141,10 +140,10 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    // Find player by email (case-insensitive)
+    // Find player by email (stored lowercase)
     const player = await this.prisma.player.findFirst({
       where: {
-        email: { equals: dto.email, mode: 'insensitive' },
+        email: dto.email.toLowerCase(),
       },
     });
     if (!player) {
@@ -213,7 +212,7 @@ export class AuthService {
     // Find player by email - always return success to prevent email enumeration
     const player = await this.prisma.player.findFirst({
       where: {
-        email: { equals: dto.email, mode: 'insensitive' },
+        email: dto.email.toLowerCase(),
       },
     });
 

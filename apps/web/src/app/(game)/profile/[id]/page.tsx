@@ -23,25 +23,30 @@ interface PlayerProfile {
   displayName: string;
   race: string;
   class: string;
-  experience: number;
-  rank: number;
-  offense: number;
-  defense: number;
-  spy: number;
-  sentry: number;
-  fortLevel: number;
   bio: string | null;
   createdAt: string;
+  stats: {
+    experience: number;
+    rank: number;
+    offense: number;
+    defense: number;
+    spy: number;
+    sentry: number;
+    level: number;
+  } | null;
+  fortification: {
+    fortLevel: number;
+  } | null;
 }
 
 export default function PlayerProfilePage() {
   const params = useParams<{ id: string }>();
-  const api = useApi();
+  const { api, isReady } = useApi();
 
   const { data: player, isLoading } = useQuery<PlayerProfile>({
     queryKey: ['player', params.id],
     queryFn: () => api.get(`/player/${params.id}`),
-    enabled: !!params.id,
+    enabled: !!params.id && isReady,
   });
 
   if (isLoading || !player) {
@@ -58,8 +63,16 @@ export default function PlayerProfilePage() {
     );
   }
 
-  const level = getLevelForXP(player.experience);
-  const fort = getFortificationByLevel(player.fortLevel);
+  const experience = player.stats?.experience ?? 0;
+  const rank = player.stats?.rank ?? 0;
+  const offense = player.stats?.offense ?? 0;
+  const defense = player.stats?.defense ?? 0;
+  const spy = player.stats?.spy ?? 0;
+  const sentry = player.stats?.sentry ?? 0;
+  const fortLevel = player.fortification?.fortLevel ?? 1;
+
+  const level = getLevelForXP(experience);
+  const fort = getFortificationByLevel(fortLevel);
   const fortName = fort?.name ?? 'Unknown';
   const memberSince = new Date(player.createdAt).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -79,9 +92,9 @@ export default function PlayerProfilePage() {
             <Stack gap="xs" style={{ flex: 1 }}>
               <Group justify="space-between" align="center">
                 <Title order={2}>{player.displayName}</Title>
-                {player.rank > 0 && (
+                {rank > 0 && (
                   <Badge variant="filled" color="yellow" size="lg">
-                    Rank #{player.rank}
+                    Rank #{rank}
                   </Badge>
                 )}
               </Group>
@@ -117,25 +130,25 @@ export default function PlayerProfilePage() {
                 <Text size="sm" c="dimmed">
                   Offense
                 </Text>
-                <Text fw={600}>{toLocale(player.offense)}</Text>
+                <Text fw={600}>{toLocale(offense)}</Text>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                   Defense
                 </Text>
-                <Text fw={600}>{toLocale(player.defense)}</Text>
+                <Text fw={600}>{toLocale(defense)}</Text>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                   Spy
                 </Text>
-                <Text fw={600}>{toLocale(player.spy)}</Text>
+                <Text fw={600}>{toLocale(spy)}</Text>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                   Sentry
                 </Text>
-                <Text fw={600}>{toLocale(player.sentry)}</Text>
+                <Text fw={600}>{toLocale(sentry)}</Text>
               </Group>
             </Stack>
           </Paper>
@@ -154,7 +167,7 @@ export default function PlayerProfilePage() {
                 <Text size="sm" c="dimmed">
                   Level
                 </Text>
-                <Text fw={600}>{player.fortLevel}</Text>
+                <Text fw={600}>{fortLevel}</Text>
               </Group>
             </Stack>
           </Paper>

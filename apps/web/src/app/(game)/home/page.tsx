@@ -32,25 +32,32 @@ interface PlayerData {
   displayName: string;
   race: string;
   class: string;
-  experience: number;
-  gold: number;
-  goldInBank: number;
-  attackTurns: number;
-  fortLevel: number;
-  fortHitpoints: number;
-  offense: number;
-  defense: number;
-  spy: number;
-  sentry: number;
+  economy: {
+    gold: string;
+    goldInBank: string;
+    attackTurns: number;
+  };
+  stats: {
+    experience: number;
+    offense: number;
+    defense: number;
+    spy: number;
+    sentry: number;
+  };
+  fortification: {
+    fortLevel: number;
+    hitpoints: number;
+  };
   units: PlayerUnit[];
 }
 
 export default function DashboardPage() {
-  const api = useApi();
+  const { api, isReady } = useApi();
 
   const { data: player, isLoading } = useQuery<PlayerData>({
     queryKey: ['player', 'me'],
     queryFn: () => api.get('/player/me'),
+    enabled: isReady,
   });
 
   if (isLoading || !player) {
@@ -68,19 +75,30 @@ export default function DashboardPage() {
     );
   }
 
-  const level = getLevelForXP(player.experience);
+  const experience = player.stats?.experience ?? 0;
+  const gold = Number(player.economy?.gold ?? 0);
+  const goldInBank = Number(player.economy?.goldInBank ?? 0);
+  const attackTurns = player.economy?.attackTurns ?? 0;
+  const fortLevel = player.fortification?.fortLevel ?? 1;
+  const fortHitpoints = player.fortification?.hitpoints ?? 0;
+  const offense = player.stats?.offense ?? 0;
+  const defense = player.stats?.defense ?? 0;
+  const spy = player.stats?.spy ?? 0;
+  const sentry = player.stats?.sentry ?? 0;
+
+  const level = getLevelForXP(experience);
   const currentLevelXP = getXPForLevel(level);
-  const xpToNext = getXPToNextLevel(player.experience);
+  const xpToNext = getXPToNextLevel(experience);
   const nextLevelXP = getXPForLevel(level + 1);
   const xpProgress =
     nextLevelXP > currentLevelXP
-      ? ((player.experience - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100
+      ? ((experience - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100
       : 100;
 
-  const fort = getFortificationByLevel(player.fortLevel);
+  const fort = getFortificationByLevel(fortLevel);
   const fortName = fort?.name ?? 'Unknown';
   const fortMaxHp = fort?.hitpoints ?? 1;
-  const fortHpPercent = Math.min(100, (player.fortHitpoints / fortMaxHp) * 100);
+  const fortHpPercent = Math.min(100, (fortHitpoints / fortMaxHp) * 100);
   const goldPerTurn = fort?.goldPerTurn ?? 0;
 
   const totalUnits = player.units?.reduce((sum, u) => sum + u.quantity, 0) ?? 0;
@@ -117,7 +135,7 @@ export default function DashboardPage() {
                     XP Progress
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {toLocale(player.experience)} / {toLocale(nextLevelXP || player.experience)}
+                    {toLocale(experience)} / {toLocale(nextLevelXP || experience)}
                   </Text>
                 </Group>
                 <Progress value={xpProgress} size="sm" color="blue" />
@@ -136,19 +154,19 @@ export default function DashboardPage() {
                 <Text size="sm" c="dimmed">
                   Gold
                 </Text>
-                <Text fw={600}>{toLocale(player.gold)}</Text>
+                <Text fw={600}>{toLocale(gold)}</Text>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                   Gold in Bank
                 </Text>
-                <Text fw={600}>{toLocale(player.goldInBank)}</Text>
+                <Text fw={600}>{toLocale(goldInBank)}</Text>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                   Attack Turns
                 </Text>
-                <Text fw={600}>{toLocale(player.attackTurns)}</Text>
+                <Text fw={600}>{toLocale(attackTurns)}</Text>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
@@ -169,25 +187,25 @@ export default function DashboardPage() {
                 <Text size="sm" c="dimmed">
                   Offense
                 </Text>
-                <Text fw={600}>{toLocale(player.offense)}</Text>
+                <Text fw={600}>{toLocale(offense)}</Text>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                   Defense
                 </Text>
-                <Text fw={600}>{toLocale(player.defense)}</Text>
+                <Text fw={600}>{toLocale(defense)}</Text>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                   Spy
                 </Text>
-                <Text fw={600}>{toLocale(player.spy)}</Text>
+                <Text fw={600}>{toLocale(spy)}</Text>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
                   Sentry
                 </Text>
-                <Text fw={600}>{toLocale(player.sentry)}</Text>
+                <Text fw={600}>{toLocale(sentry)}</Text>
               </Group>
             </Stack>
           </Paper>
@@ -222,7 +240,7 @@ export default function DashboardPage() {
                   Fort
                 </Text>
                 <Text fw={600}>
-                  {fortName} (Level {player.fortLevel})
+                  {fortName} (Level {fortLevel})
                 </Text>
               </Group>
               <div>
@@ -231,7 +249,7 @@ export default function DashboardPage() {
                     Hitpoints
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {toLocale(player.fortHitpoints)} / {toLocale(fortMaxHp)}
+                    {toLocale(fortHitpoints)} / {toLocale(fortMaxHp)}
                   </Text>
                 </Group>
                 <Progress

@@ -3,134 +3,31 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-// ─── Enums ───────────────────────────────────────────────────────────────────
-
-enum AccountStatus {
-  ACTIVE
-  VACATION
-  CLOSED
-  IDLE
-  RESET
-  BANNED
-  TIMEOUT
-  SUSPENDED
-}
-
-enum PermissionType {
-  ADMINISTRATOR
-  MODERATOR
-}
-
-enum ChatRole {
-  ADMIN
-  MEMBER
-}
-
-enum PlayerRace {
-  UNDEAD
-  HUMAN
-  GOBLIN
-  ELF
-}
-
-enum PlayerClass {
-  FIGHTER
-  CLERIC
-  ASSASSIN
-  THIEF
-}
-
-enum UnitType {
-  CITIZEN
-  WORKER
-  OFFENSE
-  DEFENSE
-  SPY
-  SENTRY
-}
-
-enum ItemType {
-  WEAPON
-  HELM
-  ARMOR
-  BOOTS
-  BRACERS
-  SHIELD
-}
-
-enum ItemUsage {
-  OFFENSE
-  DEFENSE
-  SPY
-  SENTRY
-}
-
-enum BattleUpgradeType {
-  OFFENSE
-  DEFENSE
-  SPY
-  SENTRY
-}
-
-enum StructureUpgradeType {
-  OFFENSE
-  SPY
-  SENTRY
-  ARMORY
-}
-
-enum BonusPointType {
-  OFFENSE
-  DEFENSE
-  INTEL
-  PRICES
-  INCOME
-}
-
-enum BankTransferType {
-  ECONOMY
-  PLAYER_TRANSFER
-  WAR_SPOILS
-  SALE
-  RECRUITMENT
-  FORT_REPAIR
-  DAILY_RECRUIT
-}
-
-enum SocialRelationType {
-  FRIEND
-  ALLY
-  ENEMY
-}
-
-enum SocialStatus {
-  REQUESTED
-  ACCEPTED
-  ENDED
-}
-
 // ─── Models ──────────────────────────────────────────────────────────────────
+// Note: Enums are enforced at the application layer (Zod schemas + TypeScript enums
+// in @openthrone/shared). This keeps the schema portable across SQLite, PostgreSQL,
+// MySQL, etc. When deploying to PostgreSQL, you can optionally re-add native enums.
 
 model Player {
-  id            String        @id @default(uuid())
-  email         String        @unique
-  display_name  String        @unique
+  id            String   @id @default(uuid())
+  email         String   @unique
+  display_name  String   @unique
   password_hash String
-  race          PlayerRace
-  player_class  PlayerClass   @map("class")
-  locale        String        @default("en-US")
-  avatar        String?       @default("SHIELD")
-  bio           String        @default("")
+  race          String   // PlayerRace: UNDEAD, HUMAN, GOBLIN, ELF
+  player_class  String   @map("class") // PlayerClass: FIGHTER, CLERIC, ASSASSIN, THIEF
+  locale        String   @default("en-US")
+  avatar        String?  @default("SHIELD")
+  bio           String   @default("")
   color_scheme  String?
-  recruit_link  String        @unique @default(uuid())
-  status        AccountStatus @default(ACTIVE)
-  last_active   DateTime?     @db.Timestamptz(3)
-  created_at    DateTime      @default(now()) @db.Timestamptz(3)
-  updated_at    DateTime      @updatedAt @db.Timestamptz(3)
+  recruit_link  String   @unique @default(uuid())
+  status        String   @default("ACTIVE") // AccountStatus
+  last_active   DateTime?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
 
   // Relations
   economy             PlayerEconomy?
@@ -189,11 +86,11 @@ model PlayerEconomy {
 }
 
 model PlayerUnit {
-  id        Int      @id @default(autoincrement())
+  id        Int    @id @default(autoincrement())
   player_id String
-  unit_type UnitType
+  unit_type String // UnitType: CITIZEN, WORKER, OFFENSE, DEFENSE, SPY, SENTRY
   level     Int
-  quantity  Int      @default(0)
+  quantity  Int    @default(0)
 
   player Player @relation(fields: [player_id], references: [id])
 
@@ -203,12 +100,12 @@ model PlayerUnit {
 }
 
 model PlayerItem {
-  id        Int       @id @default(autoincrement())
+  id        Int    @id @default(autoincrement())
   player_id String
-  item_type ItemType
-  usage     ItemUsage
+  item_type String // ItemType: WEAPON, HELM, ARMOR, BOOTS, BRACERS, SHIELD
+  usage     String // ItemUsage: OFFENSE, DEFENSE, SPY, SENTRY
   level     Int
-  quantity  Int       @default(0)
+  quantity  Int    @default(0)
 
   player Player @relation(fields: [player_id], references: [id])
 
@@ -218,11 +115,11 @@ model PlayerItem {
 }
 
 model PlayerBattleUpgrade {
-  id           Int               @id @default(autoincrement())
+  id           Int    @id @default(autoincrement())
   player_id    String
-  upgrade_type BattleUpgradeType
-  level        Int               @default(1)
-  quantity     Int               @default(0)
+  upgrade_type String // BattleUpgradeType: OFFENSE, DEFENSE, SPY, SENTRY
+  level        Int    @default(1)
+  quantity     Int    @default(0)
 
   player Player @relation(fields: [player_id], references: [id])
 
@@ -232,10 +129,10 @@ model PlayerBattleUpgrade {
 }
 
 model PlayerStructureUpgrade {
-  id           Int                  @id @default(autoincrement())
+  id           Int    @id @default(autoincrement())
   player_id    String
-  upgrade_type StructureUpgradeType
-  level        Int                  @default(1)
+  upgrade_type String // StructureUpgradeType: OFFENSE, SPY, SENTRY, ARMORY
+  level        Int    @default(1)
 
   player Player @relation(fields: [player_id], references: [id])
 
@@ -256,10 +153,10 @@ model PlayerFortification {
 }
 
 model PlayerBonusPoint {
-  id         Int            @id @default(autoincrement())
+  id         Int    @id @default(autoincrement())
   player_id  String
-  bonus_type BonusPointType
-  level      Int            @default(0)
+  bonus_type String // BonusPointType: OFFENSE, DEFENSE, INTEL, PRICES, INCOME
+  level      Int    @default(0)
 
   player Player @relation(fields: [player_id], references: [id])
 
@@ -281,7 +178,7 @@ model PlayerStats {
   defense_str  Int      @default(1)
   spying_str   Int      @default(1)
   sentry_str   Int      @default(1)
-  updated_at   DateTime @updatedAt @db.Timestamptz(3)
+  updated_at   DateTime @updatedAt
 
   player Player @relation(fields: [player_id], references: [id])
 
@@ -292,9 +189,9 @@ model AttackLog {
   id          Int       @id @default(autoincrement())
   attacker_id String
   defender_id String
-  timestamp   DateTime? @db.Timestamptz(3)
+  timestamp   DateTime?
   winner      String
-  stats       Json
+  stats       String    // JSON stored as text for SQLite compat
   type        String    @default("attack")
 
   attacker     Player          @relation("attacker", fields: [attacker_id], references: [id])
@@ -322,15 +219,15 @@ model AttackLogAcl {
 }
 
 model BankHistory {
-  id                Int              @id @default(autoincrement())
+  id                Int    @id @default(autoincrement())
   gold_amount       BigInt
   from_user_id      String
   from_account_type String
   to_user_id        String
   to_account_type   String
-  date_time         DateTime?        @db.Timestamptz(3)
-  history_type      BankTransferType
-  stats             Json?            @default("[]")
+  date_time         DateTime?
+  history_type      String // BankTransferType
+  stats             String?  @default("[]") // JSON stored as text
 
   @@index([from_user_id, to_user_id, date_time])
   @@map("bank_history")
@@ -341,7 +238,7 @@ model RecruitHistory {
   from_user String?
   to_user   String
   ip_addr   String
-  timestamp DateTime? @db.Timestamptz(3)
+  timestamp DateTime?
 
   from_player Player? @relation("recruit_from", fields: [from_user], references: [id])
   to_player   Player  @relation("recruit_to", fields: [to_user], references: [id])
@@ -351,14 +248,14 @@ model RecruitHistory {
 }
 
 model Social {
-  id                Int                @id @default(autoincrement())
+  id                Int      @id @default(autoincrement())
   player_id         String
   friend_id         String
-  relationship_type SocialRelationType
-  status            SocialStatus       @default(REQUESTED)
-  request_date      DateTime           @default(now()) @db.Timestamptz(3)
-  acceptance_date   DateTime?          @db.Timestamptz(3)
-  end_date          DateTime?          @db.Timestamptz(3)
+  relationship_type String   // SocialRelationType: FRIEND, ALLY, ENEMY
+  status            String   @default("REQUESTED") // SocialStatus
+  request_date      DateTime @default(now())
+  acceptance_date   DateTime?
+  end_date          DateTime?
 
   player Player @relation("social_player", fields: [player_id], references: [id])
   friend Player @relation("social_friend", fields: [friend_id], references: [id])
@@ -380,8 +277,8 @@ model Alliance {
   gold_in_bank      BigInt?  @default(0)
   slug              String?
   banner_img        String?
-  created_at        DateTime @default(now()) @db.Timestamptz(3)
-  updated_at        DateTime @updatedAt @db.Timestamptz(3)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
 
   leader      Player               @relation("alliance_leader", fields: [leader_id], references: [id])
   memberships AllianceMembership[]
@@ -397,8 +294,8 @@ model AllianceMembership {
   alliance_id Int
   user_id     String
   role_id     Int
-  created_at  DateTime @default(now()) @db.Timestamptz(3)
-  updated_at  DateTime @updatedAt @db.Timestamptz(3)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
   alliance Alliance     @relation(fields: [alliance_id], references: [id])
   user     Player       @relation(fields: [user_id], references: [id])
@@ -412,9 +309,9 @@ model AllianceRole {
   id          Int      @id @default(autoincrement())
   name        String
   alliance_id Int
-  permissions Json?    @default("{\"canInvite\": false, \"canKick\": false, \"canManageRoles\": false, \"canManageBank\": false, \"canPostAnnouncements\": false}")
-  created_at  DateTime @default(now()) @db.Timestamptz(3)
-  updated_at  DateTime @updatedAt @db.Timestamptz(3)
+  permissions String?  @default("{\"canInvite\": false, \"canKick\": false, \"canManageRoles\": false, \"canManageBank\": false, \"canPostAnnouncements\": false}")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
   alliance    Alliance             @relation(fields: [alliance_id], references: [id])
   memberships AllianceMembership[]
@@ -423,10 +320,10 @@ model AllianceRole {
 }
 
 model PermissionGrant {
-  id         Int            @id @default(autoincrement())
-  type       PermissionType
+  id         Int      @id @default(autoincrement())
+  type       String   // PermissionType: ADMINISTRATOR, MODERATOR
   user_id    String
-  created_at DateTime       @default(now())
+  created_at DateTime @default(now())
 
   user Player @relation(fields: [user_id], references: [id])
 
@@ -437,7 +334,7 @@ model PasswordReset {
   id                Int      @id @default(autoincrement())
   user_id           String
   verification_code String
-  created_at        DateTime @default(now()) @db.Timestamptz(3)
+  created_at        DateTime @default(now())
   status            Int      @default(0) // 0=Active, 1=Used, 2=Expired
   type              String   @default("PASSWORD")
   old_email         String?
@@ -448,15 +345,15 @@ model PasswordReset {
 }
 
 model AccountStatusHistory {
-  id         Int           @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   user_id    String
-  status     AccountStatus
-  start_date DateTime      @default(now()) @db.Timestamptz(3)
-  end_date   DateTime?     @db.Timestamptz(3)
+  status     String   // AccountStatus
+  start_date DateTime @default(now())
+  end_date   DateTime?
   reason     String?
   admin_id   String?
-  created_at DateTime      @default(now()) @db.Timestamptz(3)
-  updated_at DateTime      @updatedAt @db.Timestamptz(3)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   user  Player  @relation("status_user", fields: [user_id], references: [id])
   admin Player? @relation("status_admin", fields: [admin_id], references: [id])
@@ -470,8 +367,8 @@ model BlogPost {
   title        String
   content      String
   posted_by_id String
-  created_at   DateTime @default(now()) @db.Timestamptz(3)
-  updated_at   DateTime @updatedAt @db.Timestamptz(3)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 
   posted_by       Player           @relation(fields: [posted_by_id], references: [id])
   post_read_status PostReadStatus[]
@@ -482,7 +379,7 @@ model BlogPost {
 model PostReadStatus {
   post_id      Int
   user_id      String
-  last_read_at DateTime @db.Timestamptz(3)
+  last_read_at DateTime
 
   post BlogPost @relation(fields: [post_id], references: [id])
   user Player   @relation(fields: [user_id], references: [id])
@@ -512,7 +409,7 @@ model ChatRoomParticipant {
   id        Int      @id @default(autoincrement())
   room_id   Int
   user_id   String
-  role      ChatRole @default(MEMBER)
+  role      String   @default("MEMBER") // ChatRole: ADMIN, MEMBER
   can_write Boolean  @default(true)
   joined_at DateTime @default(now())
 

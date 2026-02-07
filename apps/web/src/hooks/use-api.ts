@@ -1,19 +1,22 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect } from 'react';
 import { api } from '@/lib/api-client';
 
 export function useApi() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
-  useEffect(() => {
-    if (session) {
-      api.setToken((session as any).accessToken ?? null);
-    } else {
-      api.setToken(null);
-    }
-  }, [session]);
+  // Set token synchronously before any queries fire
+  const token = (session as any)?.accessToken ?? null;
+  api.setToken(token);
 
-  return api;
+  // Expose whether the session is ready so queries can wait
+  const isReady = status !== 'loading' && !!token;
+
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('[useApi]', { status, hasToken: !!token, isReady });
+  }
+
+  // Return the actual api instance (spreading a class loses prototype methods)
+  return { api, isReady };
 }
