@@ -4,6 +4,12 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 
+interface JwtPayload {
+  sub: string;
+  email: string;
+  displayName: string;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -17,14 +23,30 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
-    // TODO: Implement full user lookup and attach permissions
-    // - Fetch user from database by payload.sub
-    // - Attach permissions/roles to the returned user object
-    const user = { id: payload.sub, email: payload.email };
-    if (!user) {
+  async validate(payload: JwtPayload) {
+    // Look up the player by ID
+    const player = await this.prisma.player.findUnique({
+      where: { id: payload.sub },
+    });
+
+    if (!player) {
       throw new UnauthorizedException();
     }
-    return user;
+
+    // Fetch permissions
+    const permissionGrants = await this.prisma.permissionGrant.findMany({
+      where: { user_id: player.id },
+    });
+    const permissions = permissionGrants.map((g) => g.type);
+
+    return {
+      id: player.id,
+      email: player.email,
+      displayName: player.display_name,
+      race: player.race,
+      class: player.player_class,
+      colorScheme: player.color_scheme,
+      permissions,
+    };
   }
 }

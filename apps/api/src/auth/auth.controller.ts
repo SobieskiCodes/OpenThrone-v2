@@ -1,43 +1,53 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, UsePipes } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from '../common/decorators/public.decorator';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  RegisterDto,
+  LoginDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from '@openthrone/shared';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Public()
   @Post('register')
-  async register(@Body() body: any) {
-    // TODO: Add Zod validation pipe for registration DTO
-    return this.authService.register(body);
+  @Public()
+  @UsePipes(new ZodValidationPipe(registerSchema))
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
-  @Public()
   @Post('login')
-  async login(@Body() body: any) {
-    // TODO: Add Zod validation pipe for login DTO
-    return this.authService.login(body);
+  @Public()
+  @UsePipes(new ZodValidationPipe(loginSchema))
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
 
-  @Public()
   @Post('verify-email')
-  async verifyEmail(@Body() body: any) {
-    // TODO: Add Zod validation pipe for email verification DTO
+  @Public()
+  async verifyEmail(@Body() body: unknown) {
     return this.authService.verifyEmail(body);
   }
 
-  @Public()
   @Post('forgot-password')
-  async forgotPassword(@Body() body: any) {
-    // TODO: Add Zod validation pipe for forgot password DTO
-    return this.authService.forgotPassword(body);
+  @Public()
+  @UsePipes(new ZodValidationPipe(forgotPasswordSchema))
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
   }
 
-  @Public()
   @Post('reset-password')
-  async resetPassword(@Body() body: any) {
-    // TODO: Add Zod validation pipe for reset password DTO
-    return this.authService.resetPassword(body);
+  @Public()
+  @UsePipes(new ZodValidationPipe(resetPasswordSchema))
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 }

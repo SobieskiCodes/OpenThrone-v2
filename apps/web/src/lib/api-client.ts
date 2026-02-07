@@ -2,20 +2,30 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 class ApiClient {
   private baseUrl: string;
+  private token: string | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
 
+  setToken(token: string | null) {
+    this.token = token;
+  }
+
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}/api${path}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...((options.headers as Record<string, string>) || {}),
+    };
+
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      credentials: 'include',
+      headers,
     });
 
     if (!response.ok) {

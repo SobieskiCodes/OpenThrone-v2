@@ -1,32 +1,64 @@
-import { Controller, Get, Patch, Post, Param, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Param,
+  Body,
+  UsePipes,
+} from '@nestjs/common';
 import { PlayerService } from './player.service';
 import { CurrentPlayer } from '../common/decorators/current-player.decorator';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import {
+  updateProfileSchema,
+  UpdateProfileDto,
+  allocateBonusPointsSchema,
+  AllocateBonusPointsDto,
+  changePasswordSchema,
+  ChangePasswordDto,
+} from '@openthrone/shared';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('player')
 export class PlayerController {
   constructor(private readonly playerService: PlayerService) {}
 
   @Get('me')
-  async getMe(@CurrentPlayer() player: any) {
-    // TODO: Return full player profile for the authenticated user
-    return this.playerService.getPlayer(player.id);
+  async getMe(@CurrentPlayer('id') playerId: string) {
+    return this.playerService.getFullProfile(playerId);
   }
 
   @Get(':id')
-  async getPlayer(@Param('id') id: string) {
-    // TODO: Return public player profile
-    return this.playerService.getPlayer(id);
+  @Public()
+  async getPublicProfile(@Param('id') id: string) {
+    return this.playerService.getPublicProfile(id);
   }
 
   @Patch('me')
-  async updateMe(@CurrentPlayer() player: any, @Body() body: any) {
-    // TODO: Add Zod validation pipe for update DTO
-    return this.playerService.updatePlayer(player.id, body);
+  @UsePipes(new ZodValidationPipe(updateProfileSchema))
+  async updateProfile(
+    @CurrentPlayer('id') playerId: string,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.playerService.updateProfile(playerId, dto);
   }
 
   @Post('me/bonus-points')
-  async claimBonusPoints(@CurrentPlayer() player: any) {
-    // TODO: Implement bonus points claim logic
-    return this.playerService.claimBonusPoints(player.id);
+  @UsePipes(new ZodValidationPipe(allocateBonusPointsSchema))
+  async allocateBonusPoints(
+    @CurrentPlayer('id') playerId: string,
+    @Body() dto: AllocateBonusPointsDto,
+  ) {
+    return this.playerService.allocateBonusPoints(playerId, dto);
+  }
+
+  @Post('me/change-password')
+  @UsePipes(new ZodValidationPipe(changePasswordSchema))
+  async changePassword(
+    @CurrentPlayer('id') playerId: string,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.playerService.changePassword(playerId, dto);
   }
 }
