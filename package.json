@@ -2,6 +2,7 @@
   "name": "openthrone-v2",
   "private": true,
   "scripts": {
+    "kill-dev": "node scripts/kill-dev.js",
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",

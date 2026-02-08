@@ -67,6 +67,9 @@ model Player {
   chat_reactions      ChatMessageReaction[]
   chat_read_status    ChatMessageReadStatus[]
 
+  mail_sent           Mail[]
+  mail_received       MailRecipient[]
+
   @@index([created_at])
   @@map("players")
 }
@@ -467,4 +470,52 @@ model ChatMessageReadStatus {
   @@id([message_id, user_id])
   @@index([user_id])
   @@map("chat_message_read_status")
+}
+
+model Mail {
+  id         Int      @id @default(autoincrement())
+  sender_id  String?
+  subject    String
+  body       String
+  mail_type  String   // MailType: SYSTEM, PLAYER, ALLIANCE
+  metadata   String?  // JSON stored as text for SQLite compat
+  created_at DateTime @default(now())
+
+  sender     Player?        @relation(fields: [sender_id], references: [id])
+  recipients MailRecipient[]
+
+  @@index([sender_id])
+  @@index([created_at])
+  @@map("mail")
+}
+
+model MailRecipient {
+  id         Int       @id @default(autoincrement())
+  mail_id    Int
+  player_id  String
+  is_read    Boolean   @default(false)
+  is_deleted Boolean   @default(false)
+  read_at    DateTime?
+
+  mail   Mail   @relation(fields: [mail_id], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@unique([mail_id, player_id])
+  @@index([player_id, is_deleted, is_read])
+  @@map("mail_recipients")
+}
+
+model JobLog {
+  id                Int       @id @default(autoincrement())
+  job_name          String    // "turn_tick", "daily_tick", "account_status"
+  status            String    // "RUNNING", "COMPLETED", "FAILED"
+  started_at        DateTime  @default(now())
+  finished_at       DateTime?
+  duration_ms       Int?
+  players_processed Int       @default(0)
+  error_message     String?
+  details           String?   // JSON summary
+
+  @@index([job_name, started_at])
+  @@map("job_logs")
 }

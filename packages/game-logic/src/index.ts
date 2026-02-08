@@ -50,6 +50,21 @@ export {
   calculateRecruitLinkBonus,
 } from './recruitment';
 
+export { calculateGoldPerTurn } from './economy';
+
+export {
+  calculateFullStats,
+  calculateGoldPerTurnBreakdown,
+  calculateCitizensPerDayBreakdown,
+} from './stats';
+export type {
+  StatBreakdown,
+  FullStatBreakdown,
+  GoldPerTurnBreakdown,
+  CitizensPerDayBreakdown,
+  StatCalcInput,
+} from './stats';
+
 export {
   EconomyUpgrades,
   OffensiveUpgrades,

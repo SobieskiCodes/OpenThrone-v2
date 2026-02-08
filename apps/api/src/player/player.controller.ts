@@ -4,8 +4,8 @@ import {
   Patch,
   Post,
   Param,
+  Query,
   Body,
-  UsePipes,
 } from '@nestjs/common';
 import { PlayerService } from './player.service';
 import { CurrentPlayer } from '../common/decorators/current-player.decorator';
@@ -24,9 +24,19 @@ import { Public } from '../common/decorators/public.decorator';
 export class PlayerController {
   constructor(private readonly playerService: PlayerService) {}
 
+  @Get('search')
+  async searchPlayers(@Query('q') q: string) {
+    return this.playerService.searchPlayers(q || '');
+  }
+
   @Get('me')
   async getMe(@CurrentPlayer('id') playerId: string) {
     return this.playerService.getFullProfile(playerId);
+  }
+
+  @Get('me/stat-breakdown')
+  async getStatBreakdown(@CurrentPlayer('id') playerId: string) {
+    return this.playerService.getStatBreakdown(playerId);
   }
 
   @Get(':id')
@@ -36,28 +46,25 @@ export class PlayerController {
   }
 
   @Patch('me')
-  @UsePipes(new ZodValidationPipe(updateProfileSchema))
   async updateProfile(
     @CurrentPlayer('id') playerId: string,
-    @Body() dto: UpdateProfileDto,
+    @Body(new ZodValidationPipe(updateProfileSchema)) dto: UpdateProfileDto,
   ) {
     return this.playerService.updateProfile(playerId, dto);
   }
 
   @Post('me/bonus-points')
-  @UsePipes(new ZodValidationPipe(allocateBonusPointsSchema))
   async allocateBonusPoints(
     @CurrentPlayer('id') playerId: string,
-    @Body() dto: AllocateBonusPointsDto,
+    @Body(new ZodValidationPipe(allocateBonusPointsSchema)) dto: AllocateBonusPointsDto,
   ) {
     return this.playerService.allocateBonusPoints(playerId, dto);
   }
 
   @Post('me/change-password')
-  @UsePipes(new ZodValidationPipe(changePasswordSchema))
   async changePassword(
     @CurrentPlayer('id') playerId: string,
-    @Body() dto: ChangePasswordDto,
+    @Body(new ZodValidationPipe(changePasswordSchema)) dto: ChangePasswordDto,
   ) {
     return this.playerService.changePassword(playerId, dto);
   }

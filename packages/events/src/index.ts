@@ -6,3 +6,4 @@ export * from './account.events';
 export * from './structures.events';
 export * from './recruitment.events';
 export * from './system.events';
+export * from './mail.events';

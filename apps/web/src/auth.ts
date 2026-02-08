@@ -36,6 +36,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             race: data.player.race,
             playerClass: data.player.class,
             colorScheme: data.player.colorScheme,
+            permissions: data.player.permissions ?? [],
           };
         } catch (err) {
           if (isDev) console.error('[auth] authorize error:', err);
@@ -60,6 +61,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.race = (user as any).race;
         token.playerClass = (user as any).playerClass;
         token.colorScheme = (user as any).colorScheme;
+        token.permissions = (user as any).permissions;
       }
       return token;
     },
@@ -69,6 +71,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       (session as any).race = token.race;
       (session as any).playerClass = token.playerClass;
       (session as any).colorScheme = token.colorScheme;
+      (session as any).permissions = token.permissions;
       return session;
     },
   },

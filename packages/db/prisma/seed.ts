@@ -1,88 +1,135 @@
-import { PrismaClient, PlayerRace, PlayerClass, UnitType, BonusPointType } from '@prisma/client';
-import { createHash } from 'crypto';
+import { PrismaClient } from '@prisma/client';
+import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
-/**
- * Simple password hash using SHA-256.
- * In production, use bcrypt or argon2 instead.
- */
-function hashPassword(password: string): string {
-  return createHash('sha256').update(password).digest('hex');
+const RACES = ['HUMAN', 'ELF', 'GOBLIN', 'UNDEAD'] as const;
+const CLASSES = ['FIGHTER', 'CLERIC', 'ASSASSIN', 'THIEF'] as const;
+const BONUS_TYPES = ['OFFENSE', 'DEFENSE', 'INTEL', 'PRICES', 'INCOME'] as const;
+
+interface TestPlayer {
+  email: string;
+  displayName: string;
+  password: string;
+  race: string;
+  playerClass: string;
+  bio: string;
+  gold: bigint;
 }
+
+const TEST_PLAYERS: TestPlayer[] = [
+  {
+    email: 'testplayer1@openthrone.dev',
+    displayName: 'TestKnight',
+    password: 'password123',
+    race: 'HUMAN',
+    playerClass: 'FIGHTER',
+    bio: 'A brave human fighter ready for battle.',
+    gold: BigInt(50000),
+  },
+  {
+    email: 'testplayer2@openthrone.dev',
+    displayName: 'ShadowLeaf',
+    password: 'password123',
+    race: 'ELF',
+    playerClass: 'ASSASSIN',
+    bio: 'A stealthy elf assassin lurking in the shadows.',
+    gold: BigInt(30000),
+  },
+  {
+    email: 'testplayer3@openthrone.dev',
+    displayName: 'GrimReaper',
+    password: 'password123',
+    race: 'UNDEAD',
+    playerClass: 'CLERIC',
+    bio: 'An undead cleric who commands dark forces.',
+    gold: BigInt(40000),
+  },
+  {
+    email: 'testplayer4@openthrone.dev',
+    displayName: 'SkullCrusher',
+    password: 'password123',
+    race: 'GOBLIN',
+    playerClass: 'FIGHTER',
+    bio: 'A goblin fighter with a nasty temper.',
+    gold: BigInt(35000),
+  },
+  {
+    email: 'testplayer5@openthrone.dev',
+    displayName: 'IronFist',
+    password: 'password123',
+    race: 'HUMAN',
+    playerClass: 'THIEF',
+    bio: 'A human thief who steals from the rich.',
+    gold: BigInt(60000),
+  },
+  {
+    email: 'testplayer6@openthrone.dev',
+    displayName: 'MoonWhisper',
+    password: 'password123',
+    race: 'ELF',
+    playerClass: 'CLERIC',
+    bio: 'An elf cleric attuned to the moonlight.',
+    gold: BigInt(45000),
+  },
+];
 
 async function main() {
   console.log('Seeding database...');
 
-  // ─── Player 1: Human Fighter ────────────────────────────────────────────────
+  const players: { id: string; displayName: string }[] = [];
 
-  const player1 = await prisma.player.create({
-    data: {
-      email: 'testplayer1@openthrone.dev',
-      display_name: 'TestKnight',
-      password_hash: hashPassword('password123'),
-      race: PlayerRace.HUMAN,
-      player_class: PlayerClass.FIGHTER,
-      bio: 'A brave human fighter ready for battle.',
-    },
-  });
+  for (const tp of TEST_PLAYERS) {
+    const passwordHash = await argon2.hash(tp.password);
 
-  console.log(`Created player: ${player1.display_name} (${player1.id})`);
+    const player = await prisma.player.create({
+      data: {
+        email: tp.email,
+        display_name: tp.displayName,
+        password_hash: passwordHash,
+        race: tp.race,
+        player_class: tp.playerClass,
+        bio: tp.bio,
+        last_active: new Date(),
+      },
+    });
 
-  // ─── Player 2: Elf Assassin ─────────────────────────────────────────────────
+    players.push({ id: player.id, displayName: player.display_name });
+    console.log(`Created player: ${player.display_name} (${player.id})`);
 
-  const player2 = await prisma.player.create({
-    data: {
-      email: 'testplayer2@openthrone.dev',
-      display_name: 'ShadowLeaf',
-      password_hash: hashPassword('password456'),
-      race: PlayerRace.ELF,
-      player_class: PlayerClass.ASSASSIN,
-      bio: 'A stealthy elf assassin lurking in the shadows.',
-    },
-  });
+    // Economy
+    await prisma.playerEconomy.create({
+      data: {
+        player_id: player.id,
+        gold: tp.gold,
+        gold_in_bank: BigInt(0),
+        attack_turns: 50,
+      },
+    });
 
-  console.log(`Created player: ${player2.display_name} (${player2.id})`);
+    // Units (50 citizens)
+    await prisma.playerUnit.create({
+      data: {
+        player_id: player.id,
+        unit_type: 'CITIZEN',
+        level: 1,
+        quantity: 50,
+      },
+    });
 
-  // ─── Player Economy ─────────────────────────────────────────────────────────
+    // Fortification
+    await prisma.playerFortification.create({
+      data: {
+        player_id: player.id,
+        fort_level: 1,
+        hitpoints: 50,
+      },
+    });
 
-  await prisma.playerEconomy.createMany({
-    data: [
-      { player_id: player1.id, gold: BigInt(25000), gold_in_bank: BigInt(0), attack_turns: 50 },
-      { player_id: player2.id, gold: BigInt(25000), gold_in_bank: BigInt(0), attack_turns: 50 },
-    ],
-  });
-
-  console.log('Created player economies.');
-
-  // ─── Player Units (50 citizens each) ────────────────────────────────────────
-
-  await prisma.playerUnit.createMany({
-    data: [
-      { player_id: player1.id, unit_type: UnitType.CITIZEN, level: 1, quantity: 50 },
-      { player_id: player2.id, unit_type: UnitType.CITIZEN, level: 1, quantity: 50 },
-    ],
-  });
-
-  console.log('Created player units (50 citizens each).');
-
-  // ─── Player Fortifications ──────────────────────────────────────────────────
-
-  await prisma.playerFortification.createMany({
-    data: [
-      { player_id: player1.id, fort_level: 1, hitpoints: 50 },
-      { player_id: player2.id, fort_level: 1, hitpoints: 50 },
-    ],
-  });
-
-  console.log('Created player fortifications.');
-
-  // ─── Player Stats ───────────────────────────────────────────────────────────
-
-  await prisma.playerStats.createMany({
-    data: [
-      {
-        player_id: player1.id,
+    // Stats
+    await prisma.playerStats.create({
+      data: {
+        player_id: player.id,
         experience: 0,
         rank: 0,
         offense: 0,
@@ -94,45 +141,21 @@ async function main() {
         spying_str: 1,
         sentry_str: 1,
       },
-      {
-        player_id: player2.id,
-        experience: 0,
-        rank: 0,
-        offense: 0,
-        defense: 0,
-        spy: 0,
-        sentry: 0,
-        killing_str: 1,
-        defense_str: 1,
-        spying_str: 1,
-        sentry_str: 1,
-      },
-    ],
-  });
+    });
 
-  console.log('Created player stats.');
+    // Bonus points
+    for (const bonusType of BONUS_TYPES) {
+      await prisma.playerBonusPoint.create({
+        data: {
+          player_id: player.id,
+          bonus_type: bonusType,
+          level: 0,
+        },
+      });
+    }
+  }
 
-  // ─── Player Bonus Points ────────────────────────────────────────────────────
-
-  const bonusTypes = [
-    BonusPointType.OFFENSE,
-    BonusPointType.DEFENSE,
-    BonusPointType.INTEL,
-    BonusPointType.PRICES,
-    BonusPointType.INCOME,
-  ];
-
-  const bonusData = [player1.id, player2.id].flatMap((playerId) =>
-    bonusTypes.map((bonusType) => ({
-      player_id: playerId,
-      bonus_type: bonusType,
-      level: 0,
-    }))
-  );
-
-  await prisma.playerBonusPoint.createMany({ data: bonusData });
-
-  console.log('Created player bonus points.');
+  console.log(`\nCreated ${players.length} players with economy, units, stats, and bonus points.`);
 
   // ─── Blog Post ──────────────────────────────────────────────────────────────
 
@@ -141,11 +164,36 @@ async function main() {
       title: 'Welcome to OpenThrone v2!',
       content:
         'Welcome to the next generation of OpenThrone. This version features a fully normalized database, improved performance, and a modern monorepo architecture. Prepare your armies and fortify your defenses!',
-      posted_by_id: player1.id,
+      posted_by_id: players[0].id,
     },
   });
 
   console.log(`Created blog post: "${blogPost.title}" (id: ${blogPost.id})`);
+
+  // ─── Admin Permission ──────────────────────────────────────────────────────
+
+  // Grant ADMINISTRATOR to first player
+  try {
+    await prisma.permissionGrant.create({
+      data: {
+        user_id: players[0].id,
+        type: 'ADMINISTRATOR',
+      },
+    });
+    console.log(`Granted ADMINISTRATOR to ${players[0].displayName}`);
+  } catch {
+    console.log('Admin permission already exists, skipping');
+  }
+
+  // ─── Print login info ─────────────────────────────────────────────────────
+
+  console.log('\n=== Test Login Credentials ===');
+  console.log('All passwords: password123');
+  console.log(`  ${players[0].displayName} — ${TEST_PLAYERS[0].email} (ADMIN)`);
+  for (const p of players.slice(1)) {
+    const tp = TEST_PLAYERS.find((t) => t.displayName === p.displayName)!;
+    console.log(`  ${p.displayName} — ${tp.email}`);
+  }
 
   console.log('\nSeeding complete!');
 }

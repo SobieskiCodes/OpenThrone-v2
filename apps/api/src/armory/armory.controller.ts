@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UsePipes } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import { ArmoryService } from './armory.service';
 import { CurrentPlayer } from '../common/decorators/current-player.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -19,14 +19,18 @@ export class ArmoryController {
   }
 
   @Post('equip')
-  @UsePipes(new ZodValidationPipe(equipItemSchema))
-  async equip(@CurrentPlayer() player: any, @Body() body: EquipItemDto) {
+  async equip(
+    @CurrentPlayer() player: any,
+    @Body(new ZodValidationPipe(equipItemSchema)) body: EquipItemDto,
+  ) {
     return this.armoryService.equip(player.id, body);
   }
 
   @Post('unequip')
-  @UsePipes(new ZodValidationPipe(unequipItemSchema))
-  async unequip(@CurrentPlayer() player: any, @Body() body: UnequipItemDto) {
+  async unequip(
+    @CurrentPlayer() player: any,
+    @Body(new ZodValidationPipe(unequipItemSchema)) body: UnequipItemDto,
+  ) {
     return this.armoryService.unequip(player.id, body);
   }
 }

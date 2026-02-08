@@ -240,7 +240,12 @@ export default function TrainingPage() {
                       </Text>
                     )}
                   </Table.Td>
-                  <Table.Td ta="right">+{def.bonus}%</Table.Td>
+                  <Table.Td ta="right">
+                    +{def.bonus}{' '}
+                    {def.type === UnitType.WORKER
+                      ? 'Gold/t'
+                      : UNIT_TYPE_LABELS[def.type] || def.type}
+                  </Table.Td>
                   <Table.Td ta="right">{toLocale(owned)}</Table.Td>
                   <Table.Td ta="right">
                     <NumberInput

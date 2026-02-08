@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UsePipes } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import { TrainingService } from './training.service';
 import { CurrentPlayer } from '../common/decorators/current-player.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -21,20 +21,26 @@ export class TrainingController {
   }
 
   @Post('train')
-  @UsePipes(new ZodValidationPipe(trainUnitsSchema))
-  async train(@CurrentPlayer() player: any, @Body() body: TrainUnitsDto) {
+  async train(
+    @CurrentPlayer() player: any,
+    @Body(new ZodValidationPipe(trainUnitsSchema)) body: TrainUnitsDto,
+  ) {
     return this.trainingService.train(player.id, body);
   }
 
   @Post('untrain')
-  @UsePipes(new ZodValidationPipe(untrainUnitsSchema))
-  async untrain(@CurrentPlayer() player: any, @Body() body: UntrainUnitsDto) {
+  async untrain(
+    @CurrentPlayer() player: any,
+    @Body(new ZodValidationPipe(untrainUnitsSchema)) body: UntrainUnitsDto,
+  ) {
     return this.trainingService.untrain(player.id, body);
   }
 
   @Post('convert')
-  @UsePipes(new ZodValidationPipe(convertUnitsSchema))
-  async convert(@CurrentPlayer() player: any, @Body() body: ConvertUnitsDto) {
+  async convert(
+    @CurrentPlayer() player: any,
+    @Body(new ZodValidationPipe(convertUnitsSchema)) body: ConvertUnitsDto,
+  ) {
     return this.trainingService.convert(player.id, body);
   }
 }

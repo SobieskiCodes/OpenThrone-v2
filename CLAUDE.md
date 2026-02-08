@@ -207,12 +207,12 @@ See `.env.example` for the full list. Key ones:
 | 3 | Training & Units | Done |
 | 4 | Armory & Items | Done |
 | 5 | Structures & Upgrades | Done |
-| 6 | Recruitment | In Progress |
-| 7 | Social & Alliances | Not Started |
-| 8 | Messaging & Chat | Not Started |
+| 6 | Recruitment | Done |
+| 7 | Social & Alliances | Done |
+| 8 | Messaging & Chat | Done |
 | 9 | Blog & Community | Not Started |
-| 10 | Scheduled Jobs (BullMQ) | Not Started |
-| 11 | Admin Panel | Not Started |
+| 10 | Scheduled Jobs (@nestjs/schedule) | Done |
+| 11 | Admin Panel | Done |
 | 12 | Battle Users & Rankings | Not Started |
 | 13 | Combat System (deferred) | Not Started |
 

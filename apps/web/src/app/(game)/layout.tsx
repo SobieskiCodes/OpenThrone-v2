@@ -11,12 +11,15 @@ import {
   Divider,
   ScrollArea,
   ActionIcon,
+  Badge,
   useMantineColorScheme,
   useComputedColorScheme,
 } from '@mantine/core';
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useApi } from '@/hooks/use-api';
 
 const navItems = [
   { label: 'Home', href: '/home' },
@@ -43,20 +46,43 @@ const navItems = [
     label: 'Social',
     children: [
       { label: 'Social', href: '/social' },
-      { label: 'Alliances', href: '/social/alliances' },
-      { label: 'Messaging', href: '/social/messaging' },
+      { label: 'Alliances', href: '/alliances' },
+      { label: 'Messaging', href: '/messaging' },
     ],
   },
   { label: 'Community', href: '/community' },
   { label: 'Recruitment', href: '/recruit' },
 ];
 
+const adminNavItems = [
+  {
+    label: 'Admin',
+    children: [
+      { label: 'Dashboard', href: '/admin' },
+      { label: 'Players', href: '/admin/players' },
+      { label: 'Jobs', href: '/admin/jobs' },
+    ],
+  },
+];
+
 export default function GameLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const { api, isReady } = useApi();
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme('dark');
+
+  const { data: unreadData } = useQuery<{ count: number }>({
+    queryKey: ['mail', 'unread-count'],
+    queryFn: () => api.get('/mail/unread-count'),
+    enabled: isReady,
+    refetchInterval: 60000,
+  });
+  const unreadCount = unreadData?.count ?? 0;
+  const permissions: string[] = (session as any)?.permissions ?? [];
+  const isAdmin = permissions.includes('ADMINISTRATOR');
+  const allNavItems = isAdmin ? [...navItems, ...adminNavItems] : navItems;
 
   const toggleColorScheme = () => {
     setColorScheme(computedColorScheme === 'dark' ? 'light' : 'dark');
@@ -111,7 +137,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
 
         <AppShell.Section grow component={ScrollArea}>
           <Stack gap={0}>
-            {navItems.map((item) =>
+            {allNavItems.map((item) =>
               item.children ? (
                 <NavLink
                   key={item.label}
@@ -122,7 +148,18 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
                   {item.children.map((child) => (
                     <NavLink
                       key={child.href}
-                      label={child.label}
+                      label={
+                        child.href === '/messaging' && unreadCount > 0 ? (
+                          <Group gap="xs">
+                            <span>{child.label}</span>
+                            <Badge size="xs" circle color="red" variant="filled">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </Badge>
+                          </Group>
+                        ) : (
+                          child.label
+                        )
+                      }
                       component={Link}
                       href={child.href}
                       active={pathname === child.href}

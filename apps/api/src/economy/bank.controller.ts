@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UsePipes } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { BankService } from './bank.service';
 import { CurrentPlayer } from '../common/decorators/current-player.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -34,14 +34,18 @@ export class BankController {
   }
 
   @Post('deposit')
-  @UsePipes(new ZodValidationPipe(bankDepositSchema))
-  async deposit(@CurrentPlayer() player: any, @Body() body: BankDepositDto) {
+  async deposit(
+    @CurrentPlayer() player: any,
+    @Body(new ZodValidationPipe(bankDepositSchema)) body: BankDepositDto,
+  ) {
     return this.bankService.deposit(player.id, body.amount);
   }
 
   @Post('withdraw')
-  @UsePipes(new ZodValidationPipe(bankWithdrawSchema))
-  async withdraw(@CurrentPlayer() player: any, @Body() body: BankWithdrawDto) {
+  async withdraw(
+    @CurrentPlayer() player: any,
+    @Body(new ZodValidationPipe(bankWithdrawSchema)) body: BankWithdrawDto,
+  ) {
     return this.bankService.withdraw(player.id, body.amount);
   }
 }

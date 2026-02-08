@@ -8,6 +8,14 @@ Two interesting tidbits from my perspective are;
 I like the concept of buildin md docs for the agent to know how to use the repo - but also the concept of not exposing the api is clever as shit :) (while staying event based)
 
 
+core philosphy
+“A slow, text-driven strategy game where power grows quietly, reputation spreads loudly, and every decision leaves a public scar.”
+Every action is public'
+
+badges/history/memories matter- 
+
+people should talk about people not features
+
 
 ## 1. Why Rebuild
 
@@ -614,14 +622,18 @@ Each phase delivers a working vertical slice. The POC stays live until v2 reache
 - [ ] Social page, alliance pages
 - [ ] Event: `FriendRequestSent`, `AllianceCreated`, `AllianceJoined`
 
-### Phase 8: Messaging & Chat
+### Phase 8: Messaging & Chat ✅
 **POC pages**: `/messaging`
 
-- [ ] `chat` NestJS module + WebSocket gateway
-- [ ] Chat rooms, DMs, alliance chat
-- [ ] Reactions, replies, read receipts
-- [ ] Real-time via Socket.IO gateway
-- [ ] Event: `MessageSent`, `ReactionAdded`
+- [x] `mail` NestJS module — inbox (system, player, alliance mail), send/read/delete
+- [x] Notification listener — auto-sends system mail on friend requests, alliance events, recruitment
+- [x] Unread badge in nav sidebar
+- [x] `chat` NestJS module + WebSocket gateway with JWT auth
+- [x] Chat rooms, DMs (with deduplication), alliance chat
+- [x] Reactions, replies, read receipts
+- [x] Real-time via Socket.IO gateway
+- [x] Event: `MessageSent`, `ReactionAdded`, `MailSentEvent`, `MailReadEvent`
+- [x] Frontend: Messaging page with Inbox tab + Chat tab (room list, message area, compose)
 
 ### Phase 9: Blog & Community
 **POC pages**: `/community`

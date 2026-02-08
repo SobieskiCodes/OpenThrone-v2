@@ -9,6 +9,9 @@ import {
   BattleUpgradeType,
   StructureUpgradeType,
   Locale,
+  SocialRelationshipType,
+  AccountStatus,
+  PermissionType,
 } from './enums';
 
 // ─── Auth Schemas ────────────────────────────────────────────────────
@@ -137,12 +140,42 @@ export const claimRecruitLinkSchema = z.object({
   captchaToken: z.string().optional(),
 });
 
+// ─── Social Schemas ─────────────────────────────────────────────────
+
+export const addFriendSchema = z.object({
+  friendId: z.string(),
+  relationshipType: z.nativeEnum(SocialRelationshipType),
+});
+
+export const respondToRequestSchema = z.object({
+  requestId: z.number().int(),
+  accept: z.boolean(),
+});
+
 // ─── Alliance Schemas ────────────────────────────────────────────────
 
 export const createAllianceSchema = z.object({
   name: z.string().min(3).max(50),
   motto: z.string().max(200).optional(),
   isPublic: z.boolean().default(true),
+});
+
+export const updateAllianceSchema = z.object({
+  motto: z.string().max(200).optional(),
+  isPublic: z.boolean().optional(),
+  closedEnrollment: z.boolean().optional(),
+});
+
+export const allianceDepositSchema = z.object({
+  amount: z.string().regex(/^\d+$/, 'Must be a positive integer string'),
+});
+
+// ─── Mail Schemas ───────────────────────────────────────────────────
+
+export const sendMailSchema = z.object({
+  recipientId: z.string(),
+  subject: z.string().min(1).max(100),
+  body: z.string().min(1).max(5000),
 });
 
 // ─── Chat Schemas ────────────────────────────────────────────────────
@@ -156,6 +189,44 @@ export const createChatRoomSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   participantIds: z.array(z.string()),
   isPrivate: z.boolean().default(true),
+});
+
+export const addParticipantsSchema = z.object({
+  participantIds: z.array(z.string()),
+});
+
+export const addReactionSchema = z.object({
+  messageId: z.number().int(),
+  reaction: z.string().max(10),
+});
+
+export const removeReactionSchema = z.object({
+  messageId: z.number().int(),
+  reaction: z.string(),
+});
+
+export const markMessagesAsReadSchema = z.object({
+  messageIds: z.array(z.number().int()),
+});
+
+// ─── Admin Schemas ──────────────────────────────────────────────────
+
+export const adminUpdatePlayerSchema = z.object({
+  gold: z.string().regex(/^\d+$/).optional(),
+  attackTurns: z.number().int().min(0).optional(),
+  status: z.nativeEnum(AccountStatus).optional(),
+  experience: z.number().int().min(0).optional(),
+});
+
+export const adminAccountActionSchema = z.object({
+  action: z.enum(['BAN', 'SUSPEND', 'CLOSE', 'ACTIVATE', 'VACATION', 'TIMEOUT']),
+  duration: z.number().int().min(1).optional(),
+  reason: z.string().max(500).optional(),
+});
+
+export const adminGrantPermissionSchema = z.object({
+  playerId: z.string(),
+  permissionType: z.nativeEnum(PermissionType),
 });
 
 // ─── Inferred Types ──────────────────────────────────────────────────
@@ -178,6 +249,18 @@ export type PurchaseStructureUpgradeDto = z.infer<typeof purchaseStructureUpgrad
 export type PurchaseBattleUpgradeDto = z.infer<typeof purchaseBattleUpgradeSchema>;
 export type RepairFortDto = z.infer<typeof repairFortSchema>;
 export type ClaimRecruitLinkDto = z.infer<typeof claimRecruitLinkSchema>;
+export type AddFriendDto = z.infer<typeof addFriendSchema>;
+export type RespondToRequestDto = z.infer<typeof respondToRequestSchema>;
 export type CreateAllianceDto = z.infer<typeof createAllianceSchema>;
+export type UpdateAllianceDto = z.infer<typeof updateAllianceSchema>;
+export type AllianceDepositDto = z.infer<typeof allianceDepositSchema>;
+export type SendMailDto = z.infer<typeof sendMailSchema>;
 export type SendMessageDto = z.infer<typeof sendMessageSchema>;
 export type CreateChatRoomDto = z.infer<typeof createChatRoomSchema>;
+export type AddParticipantsDto = z.infer<typeof addParticipantsSchema>;
+export type AddReactionDto = z.infer<typeof addReactionSchema>;
+export type RemoveReactionDto = z.infer<typeof removeReactionSchema>;
+export type MarkMessagesAsReadDto = z.infer<typeof markMessagesAsReadSchema>;
+export type AdminUpdatePlayerDto = z.infer<typeof adminUpdatePlayerSchema>;
+export type AdminAccountActionDto = z.infer<typeof adminAccountActionSchema>;
+export type AdminGrantPermissionDto = z.infer<typeof adminGrantPermissionSchema>;

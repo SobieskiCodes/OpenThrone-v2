@@ -9,7 +9,10 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
+import { ChatService } from './chat.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @WebSocketGateway({
   cors: {
@@ -23,50 +26,193 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   private readonly logger = new Logger(ChatGateway.name);
 
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
+
   afterInit() {
-    // TODO: Initialize WebSocket gateway
     this.logger.log('Chat WebSocket gateway initialized');
   }
 
-  handleConnection(client: Socket) {
-    // TODO: Authenticate WebSocket connection
-    // - Validate JWT token from handshake
-    // - Join player to their rooms
-    this.logger.log(`Client connected: ${client.id}`);
+  async handleConnection(client: Socket) {
+    try {
+      const token = client.handshake.auth?.token;
+      if (!token) {
+        this.logger.warn(`Client ${client.id} connected without token`);
+        client.disconnect();
+        return;
+      }
+
+      const payload = this.jwtService.verify(token);
+      const playerId = payload.sub;
+      if (!playerId) {
+        client.disconnect();
+        return;
+      }
+
+      // Attach player ID to socket data
+      client.data.playerId = playerId;
+
+      // Auto-join player to all their room channels
+      const participations = await this.prisma.chatRoomParticipant.findMany({
+        where: { user_id: playerId },
+        select: { room_id: true },
+      });
+
+      for (const p of participations) {
+        client.join(`room:${p.room_id}`);
+      }
+
+      this.logger.log(`Client ${client.id} (player: ${playerId}) connected, joined ${participations.length} rooms`);
+    } catch {
+      this.logger.warn(`Client ${client.id} auth failed`);
+      client.disconnect();
+    }
   }
 
   handleDisconnect(client: Socket) {
-    // TODO: Clean up on disconnect
-    this.logger.log(`Client disconnected: ${client.id}`);
+    this.logger.log(`Client ${client.id} disconnected`);
   }
 
   @SubscribeMessage('joinRoom')
-  handleJoinRoom(@MessageBody() roomId: string, @ConnectedSocket() client: Socket) {
-    // TODO: Implement room joining logic
-    // - Validate player has access to the room
-    // - Join socket to room
-    client.join(roomId);
-    return { event: 'joinedRoom', data: { roomId } };
+  async handleJoinRoom(
+    @MessageBody() roomId: number,
+    @ConnectedSocket() client: Socket,
+  ) {
+    const playerId = client.data.playerId;
+    if (!playerId) return;
+
+    try {
+      await this.chatService.validateRoomAccess(playerId, roomId);
+      client.join(`room:${roomId}`);
+      return { event: 'joinedRoom', data: { roomId } };
+    } catch {
+      return { event: 'error', data: { message: 'Access denied' } };
+    }
   }
 
   @SubscribeMessage('leaveRoom')
-  handleLeaveRoom(@MessageBody() roomId: string, @ConnectedSocket() client: Socket) {
-    // TODO: Implement room leaving logic
-    client.leave(roomId);
+  handleLeaveRoom(
+    @MessageBody() roomId: number,
+    @ConnectedSocket() client: Socket,
+  ) {
+    client.leave(`room:${roomId}`);
     return { event: 'leftRoom', data: { roomId } };
   }
 
-  @SubscribeMessage('message')
-  handleMessage(@MessageBody() data: { roomId: string; content: string }, @ConnectedSocket() client: Socket) {
-    // TODO: Implement real-time message handling
-    // - Validate and save message
-    // - Broadcast to room
-    this.server.to(data.roomId).emit('newMessage', {
-      roomId: data.roomId,
-      content: data.content,
-      senderId: client.id,
-      timestamp: new Date().toISOString(),
-    });
-    return { event: 'messageSent', data: { roomId: data.roomId } };
+  @SubscribeMessage('sendMessage')
+  async handleSendMessage(
+    @MessageBody() data: { roomId: number; content: string; replyToId?: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const playerId = client.data.playerId;
+    if (!playerId) return;
+
+    try {
+      const message = await this.chatService.sendMessage(
+        playerId,
+        data.roomId,
+        data.content,
+        data.replyToId,
+      );
+
+      this.server.to(`room:${data.roomId}`).emit('newMessage', message);
+      return { event: 'messageSent', data: { id: message.id } };
+    } catch (err: any) {
+      return { event: 'error', data: { message: err.message } };
+    }
+  }
+
+  @SubscribeMessage('addReaction')
+  async handleAddReaction(
+    @MessageBody() data: { messageId: number; reaction: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const playerId = client.data.playerId;
+    if (!playerId) return;
+
+    try {
+      await this.chatService.addReaction(playerId, data.messageId, data.reaction);
+
+      // Find which room this message is in to broadcast
+      const message = await this.prisma.chatMessage.findUnique({
+        where: { id: data.messageId },
+        select: { room_id: true },
+      });
+      if (message) {
+        this.server.to(`room:${message.room_id}`).emit('reactionAdded', {
+          messageId: data.messageId,
+          playerId,
+          reaction: data.reaction,
+        });
+      }
+
+      return { event: 'reactionAdded', data: { messageId: data.messageId } };
+    } catch (err: any) {
+      return { event: 'error', data: { message: err.message } };
+    }
+  }
+
+  @SubscribeMessage('removeReaction')
+  async handleRemoveReaction(
+    @MessageBody() data: { messageId: number; reaction: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const playerId = client.data.playerId;
+    if (!playerId) return;
+
+    try {
+      await this.chatService.removeReaction(playerId, data.messageId, data.reaction);
+
+      const message = await this.prisma.chatMessage.findUnique({
+        where: { id: data.messageId },
+        select: { room_id: true },
+      });
+      if (message) {
+        this.server.to(`room:${message.room_id}`).emit('reactionRemoved', {
+          messageId: data.messageId,
+          playerId,
+          reaction: data.reaction,
+        });
+      }
+
+      return { event: 'reactionRemoved', data: { messageId: data.messageId } };
+    } catch (err: any) {
+      return { event: 'error', data: { message: err.message } };
+    }
+  }
+
+  @SubscribeMessage('markAsRead')
+  async handleMarkAsRead(
+    @MessageBody() messageIds: number[],
+    @ConnectedSocket() client: Socket,
+  ) {
+    const playerId = client.data.playerId;
+    if (!playerId) return;
+
+    try {
+      await this.chatService.markAsRead(playerId, messageIds);
+
+      // Broadcast read receipts to the relevant rooms
+      if (messageIds.length > 0) {
+        const messages = await this.prisma.chatMessage.findMany({
+          where: { id: { in: messageIds } },
+          select: { room_id: true },
+        });
+        const roomIds = [...new Set(messages.map((m) => m.room_id))];
+        for (const roomId of roomIds) {
+          this.server.to(`room:${roomId}`).emit('messagesRead', {
+            playerId,
+            messageIds,
+          });
+        }
+      }
+
+      return { event: 'messagesRead', data: { count: messageIds.length } };
+    } catch (err: any) {
+      return { event: 'error', data: { message: err.message } };
+    }
   }
 }

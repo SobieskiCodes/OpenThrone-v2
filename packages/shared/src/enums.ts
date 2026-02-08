@@ -116,3 +116,15 @@ export enum SocialStatus {
   ACCEPTED = 'ACCEPTED',
   ENDED = 'ENDED',
 }
+
+export enum MailType {
+  SYSTEM = 'SYSTEM',
+  PLAYER = 'PLAYER',
+  ALLIANCE = 'ALLIANCE',
+}
+
+export enum ChatMessageType {
+  TEXT = 'TEXT',
+  ATTACK_LOG = 'ATTACK_LOG',
+  SYSTEM = 'SYSTEM',
+}

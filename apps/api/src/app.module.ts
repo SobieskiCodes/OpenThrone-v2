@@ -14,6 +14,7 @@ import { StructuresModule } from './structures/structures.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { SocialModule } from './social/social.module';
 import { AllianceModule } from './alliance/alliance.module';
+import { MailModule } from './mail/mail.module';
 import { ChatModule } from './chat/chat.module';
 import { BlogModule } from './blog/blog.module';
 import { AdminModule } from './admin/admin.module';
@@ -34,6 +35,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     RecruitmentModule,
     SocialModule,
     AllianceModule,
+    MailModule,
     ChatModule,
     BlogModule,
     AdminModule,

@@ -13,11 +13,12 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "typescript": "^5.8.0",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",
+    "argon2": "^0.41.0",
     "prisma": "^6.3.0"
   }
 }
