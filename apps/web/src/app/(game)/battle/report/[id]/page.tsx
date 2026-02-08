@@ -262,6 +262,10 @@ export default function BattleReportPage() {
   const hasBreakdown = !!stats.attackerBreakdown && !!stats.defenderBreakdown;
   const attackerWins = stats.attackerWins;
 
+  // You can only see the enemy's detailed stats if you won
+  const iWon = (report.isAttacker && attackerWins) || (!report.isAttacker && !attackerWins);
+  const showEnemyStats = iWon;
+
   return (
     <Container size="lg">
       <Stack gap="md">
@@ -302,9 +306,14 @@ export default function BattleReportPage() {
                   </Badge>
                 )}
               </Group>
-              {stats.attackerOffense != null && (
+              {stats.attackerOffense != null && (report.isAttacker || showEnemyStats) && (
                 <Badge size="lg" variant="filled" color="red" mt="xs">
                   Offense: {stats.attackerOffense.toLocaleString()}
+                </Badge>
+              )}
+              {stats.attackerOffense != null && !report.isAttacker && !showEnemyStats && (
+                <Badge size="lg" variant="filled" color="gray" mt="xs">
+                  Offense: ???
                 </Badge>
               )}
             </Stack>
@@ -341,9 +350,14 @@ export default function BattleReportPage() {
                   </Badge>
                 )}
               </Group>
-              {stats.defenderDefense != null && (
+              {stats.defenderDefense != null && (!report.isAttacker || showEnemyStats) && (
                 <Badge size="lg" variant="filled" color="blue" mt="xs">
                   Defense: {stats.defenderDefense.toLocaleString()}
+                </Badge>
+              )}
+              {stats.defenderDefense != null && report.isAttacker && !showEnemyStats && (
+                <Badge size="lg" variant="filled" color="gray" mt="xs">
+                  Defense: ???
                 </Badge>
               )}
             </Stack>
@@ -352,32 +366,43 @@ export default function BattleReportPage() {
 
         {/* ── Quick Stats ─────────────────────────────────── */}
         <OTCard>
-          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+          <SimpleGrid cols={{ base: 2, sm: showEnemyStats ? 4 : 2 }} spacing="xs">
             <Paper p="sm" withBorder ta="center">
               <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Result</Text>
               <Badge
                 variant="filled"
                 size="lg"
                 mt={4}
-                color={attackerWins ? 'green' : 'red'}
+                color={iWon ? 'green' : 'red'}
               >
-                {attackerWins ? 'Attacker Wins' : 'Defender Wins'}
+                {iWon ? 'Victory' : 'Defeat'}
               </Badge>
             </Paper>
-            <Paper p="sm" withBorder ta="center">
-              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Combat Ratio</Text>
-              <Text fw={700} size="lg" mt={4}>{stats.ratio}x</Text>
-            </Paper>
-            {stats.roll != null && (
+            {showEnemyStats ? (
+              <>
+                <Paper p="sm" withBorder ta="center">
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Combat Ratio</Text>
+                  <Text fw={700} size="lg" mt={4}>{stats.ratio}x</Text>
+                </Paper>
+                {stats.roll != null && (
+                  <Paper p="sm" withBorder ta="center">
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Strength Roll</Text>
+                    <Text fw={700} size="lg" mt={4}>{stats.roll}x</Text>
+                  </Paper>
+                )}
+                <Paper p="sm" withBorder ta="center">
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Shield</Text>
+                  <Text fw={700} size="lg" mt={4}>+{Math.round(stats.fortShield * 100)}%</Text>
+                </Paper>
+              </>
+            ) : (
               <Paper p="sm" withBorder ta="center">
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Strength Roll</Text>
-                <Text fw={700} size="lg" mt={4}>{stats.roll}x</Text>
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Combat Details</Text>
+                <Text fw={600} size="sm" mt={4} style={{ color: 'var(--ot-text-dim)' }}>
+                  Win the battle to reveal enemy stats
+                </Text>
               </Paper>
             )}
-            <Paper p="sm" withBorder ta="center">
-              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Shield</Text>
-              <Text fw={700} size="lg" mt={4}>+{Math.round(stats.fortShield * 100)}%</Text>
-            </Paper>
           </SimpleGrid>
         </OTCard>
 
@@ -411,18 +436,45 @@ export default function BattleReportPage() {
         {/* ── Detailed Breakdown Panels ───────────────────── */}
         {hasBreakdown ? (
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-            <BreakdownPanel
-              title="Attacker's Offense"
-              breakdown={stats.attackerBreakdown!}
-              statLabel="Offense"
-              color="red"
-            />
-            <BreakdownPanel
-              title="Defender's Defense"
-              breakdown={stats.defenderBreakdown!}
-              statLabel="Defense"
-              color="blue"
-            />
+            {/* Attacker's Offense — visible to attacker always, to defender only if they won */}
+            {(report.isAttacker || showEnemyStats) ? (
+              <BreakdownPanel
+                title="Attacker's Offense"
+                breakdown={stats.attackerBreakdown!}
+                statLabel="Offense"
+                color="red"
+              />
+            ) : (
+              <OTCard>
+                <Stack gap="md" align="center" justify="center" style={{ minHeight: 200 }}>
+                  <Text size="xl">&#128274;</Text>
+                  <OTSectionTitle>Attacker&apos;s Offense</OTSectionTitle>
+                  <Text size="sm" ta="center" style={{ color: 'var(--ot-text-dim)' }}>
+                    Enemy stats hidden — win the battle to reveal
+                  </Text>
+                </Stack>
+              </OTCard>
+            )}
+
+            {/* Defender's Defense — visible to defender always, to attacker only if they won */}
+            {(!report.isAttacker || showEnemyStats) ? (
+              <BreakdownPanel
+                title="Defender's Defense"
+                breakdown={stats.defenderBreakdown!}
+                statLabel="Defense"
+                color="blue"
+              />
+            ) : (
+              <OTCard>
+                <Stack gap="md" align="center" justify="center" style={{ minHeight: 200 }}>
+                  <Text size="xl">&#128274;</Text>
+                  <OTSectionTitle>Defender&apos;s Defense</OTSectionTitle>
+                  <Text size="sm" ta="center" style={{ color: 'var(--ot-text-dim)' }}>
+                    Enemy stats hidden — win the battle to reveal
+                  </Text>
+                </Stack>
+              </OTCard>
+            )}
           </SimpleGrid>
         ) : (
           <OTCard>
@@ -431,22 +483,24 @@ export default function BattleReportPage() {
               <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                 Detailed breakdown is not available for this battle log (recorded before the breakdown feature).
               </Text>
-              <SimpleGrid cols={2} spacing="xs">
-                <Group justify="space-between">
-                  <Text size="sm">Effective Defense</Text>
-                  <Text size="sm" fw={500}>{Math.round(stats.effectiveDefense).toLocaleString()}</Text>
-                </Group>
-                <Group justify="space-between">
-                  <Text size="sm">Fort Shield</Text>
-                  <Text size="sm" fw={500}>+{Math.round(stats.fortShield * 100)}%</Text>
-                </Group>
-              </SimpleGrid>
+              {showEnemyStats && (
+                <SimpleGrid cols={2} spacing="xs">
+                  <Group justify="space-between">
+                    <Text size="sm">Effective Defense</Text>
+                    <Text size="sm" fw={500}>{Math.round(stats.effectiveDefense).toLocaleString()}</Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm">Fort Shield</Text>
+                    <Text size="sm" fw={500}>+{Math.round(stats.fortShield * 100)}%</Text>
+                  </Group>
+                </SimpleGrid>
+              )}
             </Stack>
           </OTCard>
         )}
 
         {/* ── Combat Resolution ───────────────────────────── */}
-        {hasBreakdown && stats.roll != null && (
+        {hasBreakdown && stats.roll != null && showEnemyStats && (
           <OTCard>
             <OTSectionTitle>Combat Resolution</OTSectionTitle>
             <Stack gap="sm" mt="sm">
@@ -498,12 +552,13 @@ export default function BattleReportPage() {
 
         {/* ── Casualties ──────────────────────────────────── */}
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+          {/* Attacker Casualties — detailed for attacker, summary-only for defender who lost */}
           <OTCard>
             <OTSectionTitle>Attacker Casualties</OTSectionTitle>
             <Stack gap="xs" mt="sm">
               {stats.attackerCasualties.total === 0 ? (
                 <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>No casualties</Text>
-              ) : (
+              ) : (report.isAttacker || showEnemyStats) ? (
                 <>
                   <CasualtyRow label="Offense Units" count={stats.attackerCasualties.offenseUnits} />
                   <CasualtyRow label="Defense Units" count={stats.attackerCasualties.defenseUnits} />
@@ -518,16 +573,24 @@ export default function BattleReportPage() {
                     </Text>
                   </Group>
                 </>
+              ) : (
+                <Group justify="space-between">
+                  <Text size="sm" fw={700}>Total</Text>
+                  <Text size="sm" fw={700} style={{ color: 'var(--ot-danger)' }}>
+                    -{stats.attackerCasualties.total.toLocaleString()}
+                  </Text>
+                </Group>
               )}
             </Stack>
           </OTCard>
 
+          {/* Defender Casualties — detailed for defender, summary-only for attacker who lost */}
           <OTCard>
             <OTSectionTitle>Defender Casualties</OTSectionTitle>
             <Stack gap="xs" mt="sm">
               {stats.defenderCasualties.total === 0 ? (
                 <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>No casualties</Text>
-              ) : (
+              ) : (!report.isAttacker || showEnemyStats) ? (
                 <>
                   <CasualtyRow label="Defense Units" count={stats.defenderCasualties.defenseUnits} />
                   <CasualtyRow label="Offense Units" count={stats.defenderCasualties.offenseUnits} />
@@ -542,6 +605,13 @@ export default function BattleReportPage() {
                     </Text>
                   </Group>
                 </>
+              ) : (
+                <Group justify="space-between">
+                  <Text size="sm" fw={700}>Total</Text>
+                  <Text size="sm" fw={700} style={{ color: 'var(--ot-danger)' }}>
+                    -{stats.defenderCasualties.total.toLocaleString()}
+                  </Text>
+                </Group>
               )}
             </Stack>
           </OTCard>

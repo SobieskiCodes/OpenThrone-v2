@@ -257,8 +257,9 @@ export const battlePlayersQuerySchema = z.object({
   search: z.string().max(50).optional(),
   race: z.nativeEnum(PlayerRace).optional(),
   class: z.nativeEnum(PlayerClass).optional(),
-  sort: z.enum(['rank', 'offense', 'defense', 'gold', 'level']).default('rank'),
+  sort: z.enum(['rank', 'offense', 'defense', 'gold', 'level', 'population', 'fortLevel']).default('rank'),
   order: z.enum(['asc', 'desc']).default('asc'),
+  inRange: z.coerce.boolean().optional(),
 });
 
 export const battleRankingsQuerySchema = z.object({
@@ -283,7 +284,9 @@ export const battleHistoryQuerySchema = z.object({
 
 // ─── Combat Schemas ─────────────────────────────────────────────────
 
-export const attackSchema = z.object({});
+export const attackSchema = z.object({
+  turns: z.number().int().min(1).max(10).default(1),
+});
 
 export const spyMissionSchema = z.object({
   type: z.nativeEnum(SpyMissionType),

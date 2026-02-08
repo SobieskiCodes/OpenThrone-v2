@@ -8,6 +8,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   getLevelForXP,
+  getXPForLevel,
   calculateFullStats,
   calculateFullDetailedBreakdown,
   buildCombatProfile,
@@ -41,7 +42,7 @@ export class BattleService {
   // ─── Player List / Rankings / History (existing) ────────────────────
 
   async getPlayers(currentPlayerId: string, query: BattlePlayersQueryDto) {
-    const { page, limit, search, race, sort, order } = query;
+    const { page, limit, search, race, sort, order, inRange } = query;
     const playerClass = query.class;
 
     const where: any = {
@@ -59,6 +60,22 @@ export class BattleService {
       where.player_class = playerClass;
     }
 
+    // Filter to players within ±10 levels of attacker
+    if (inRange) {
+      const attackerStats = await this.prisma.playerStats.findUnique({
+        where: { player_id: currentPlayerId },
+        select: { experience: true },
+      });
+      const attackerLevel = getLevelForXP(attackerStats?.experience ?? 0);
+      const minLevel = Math.max(1, attackerLevel - 10);
+      const maxLevel = attackerLevel + 10;
+      const minXP = getXPForLevel(minLevel);
+      // For maxLevel, use the XP threshold of maxLevel+1 as exclusive upper bound
+      // If maxLevel+1 is beyond max, use a very large number
+      const maxXP = getXPForLevel(maxLevel + 1) || Number.MAX_SAFE_INTEGER;
+      where.stats = { experience: { gte: minXP, lt: maxXP } };
+    }
+
     const orderBy: any[] = [];
     const effectiveOrder = sort === 'rank' && order === 'asc' ? 'asc'
       : sort === 'rank' ? order
@@ -74,6 +91,11 @@ export class BattleService {
       orderBy.push({ economy: { gold: effectiveOrder } });
     } else if (sort === 'level') {
       orderBy.push({ stats: { experience: effectiveOrder } });
+    } else if (sort === 'population') {
+      // Population sort done post-query since it's derived from units
+      orderBy.push({ stats: { rank: 'asc' as const } });
+    } else if (sort === 'fortLevel') {
+      orderBy.push({ fortification: { fort_level: effectiveOrder } });
     }
 
     const [players, total] = await Promise.all([
@@ -91,6 +113,23 @@ export class BattleService {
       }),
       this.prisma.player.count({ where }),
     ]);
+
+    // Fetch today's attack counts for these targets in one query
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const playerIds = players.map((p) => p.id);
+    const attackCounts = await this.prisma.attackLog.groupBy({
+      by: ['defender_id'],
+      where: {
+        attacker_id: currentPlayerId,
+        defender_id: { in: playerIds },
+        type: 'attack',
+        timestamp: { gte: dayAgo },
+      },
+      _count: { id: true },
+    });
+    const attackCountMap = new Map(
+      attackCounts.map((ac) => [ac.defender_id, ac._count.id]),
+    );
 
     const data = players.map((p) => {
       const armySize = p.units
@@ -119,11 +158,20 @@ export class BattleService {
         gold: (p.economy?.gold ?? BigInt(0)).toString(),
         lastActive: p.last_active,
         status: p.status,
+        attacksToday: attackCountMap.get(p.id) ?? 0,
+        maxAttacksPerDay: DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h,
       };
+    });
+
+    // Also include attacker's available attack turns
+    const attackerEconomy = await this.prisma.playerEconomy.findUnique({
+      where: { player_id: currentPlayerId },
+      select: { attack_turns: true },
     });
 
     return {
       data,
+      attackTurns: attackerEconomy?.attack_turns ?? 0,
       pagination: {
         page,
         limit,
@@ -351,7 +399,7 @@ export class BattleService {
 
   // ─── Attack ─────────────────────────────────────────────────────────
 
-  async executeAttack(attackerId: string, defenderId: string) {
+  async executeAttack(attackerId: string, defenderId: string, turns: number = 1) {
     if (attackerId === defenderId) {
       throw new BadRequestException('You cannot attack yourself');
     }
@@ -368,9 +416,20 @@ export class BattleService {
       throw new BadRequestException('Target player is not active');
     }
 
-    // Check attack turns
-    if ((attackerPlayer.economy?.attack_turns ?? 0) < 1) {
-      throw new BadRequestException('No attack turns remaining');
+    // Check attack turns (need enough for requested turns)
+    if ((attackerPlayer.economy?.attack_turns ?? 0) < turns) {
+      throw new BadRequestException(
+        `Not enough attack turns (need ${turns}, have ${attackerPlayer.economy?.attack_turns ?? 0})`,
+      );
+    }
+
+    // Check level range (±10 levels)
+    const attackerLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
+    const defenderLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
+    if (Math.abs(attackerLevel - defenderLevel) > 10) {
+      throw new BadRequestException(
+        `Target is out of range (your level: ${attackerLevel}, their level: ${defenderLevel}, max difference: 10)`,
+      );
     }
 
     // Check offense units
@@ -404,52 +463,63 @@ export class BattleService {
     const attackerDetailedBreakdown = calculateFullDetailedBreakdown(attackerStatsInput);
     const defenderDetailedBreakdown = calculateFullDetailedBreakdown(defenderStatsInput);
 
-    // Resolve attack
+    // Resolve attack (single roll determines outcome; turns scale magnitude)
     const result = resolveAttack(attackerProfile, defenderProfile, DEFAULT_COMBAT_CONFIG);
+
+    // Scale results by turns used
+    const scaledGoldStolen = result.goldStolen * turns;
+    const scaledFortDamage = Math.min(
+      result.fortDamage * turns,
+      defenderPlayer.fortification?.hitpoints ?? 0,
+    );
+    const scaledAttackerXP = result.attackerXP * turns;
+    const scaledDefenderXP = result.defenderXP * turns;
+    const scaledAttackerCasualties = this.scaleCasualties(result.attackerCasualties, turns, attackerProfile);
+    const scaledDefenderCasualties = this.scaleCasualties(result.defenderCasualties, turns, defenderProfile);
 
     // Apply in transaction
     const log = await this.prisma.$transaction(async (tx) => {
-      // Deduct attack turn
+      // Deduct attack turns
       await tx.playerEconomy.update({
         where: { player_id: attackerId },
-        data: { attack_turns: { decrement: 1 } },
+        data: { attack_turns: { decrement: turns } },
       });
 
       // Apply attacker casualties (offense units, lowest level first)
-      await this.applyCasualties(tx, attackerId, 'OFFENSE', result.attackerCasualties.offenseUnits);
+      await this.applyCasualties(tx, attackerId, 'OFFENSE', scaledAttackerCasualties.offenseUnits);
 
       // Apply defender casualties
-      if (result.defenderCasualties.defenseUnits > 0) {
-        await this.applyCasualties(tx, defenderId, 'DEFENSE', result.defenderCasualties.defenseUnits);
+      if (scaledDefenderCasualties.defenseUnits > 0) {
+        await this.applyCasualties(tx, defenderId, 'DEFENSE', scaledDefenderCasualties.defenseUnits);
       }
-      if (result.defenderCasualties.offenseUnits > 0) {
-        await this.applyCasualties(tx, defenderId, 'OFFENSE', result.defenderCasualties.offenseUnits);
+      if (scaledDefenderCasualties.offenseUnits > 0) {
+        await this.applyCasualties(tx, defenderId, 'OFFENSE', scaledDefenderCasualties.offenseUnits);
       }
-      if (result.defenderCasualties.spyUnits > 0) {
-        await this.applyCasualties(tx, defenderId, 'SPY', result.defenderCasualties.spyUnits);
+      if (scaledDefenderCasualties.spyUnits > 0) {
+        await this.applyCasualties(tx, defenderId, 'SPY', scaledDefenderCasualties.spyUnits);
       }
-      if (result.defenderCasualties.sentryUnits > 0) {
-        await this.applyCasualties(tx, defenderId, 'SENTRY', result.defenderCasualties.sentryUnits);
+      if (scaledDefenderCasualties.sentryUnits > 0) {
+        await this.applyCasualties(tx, defenderId, 'SENTRY', scaledDefenderCasualties.sentryUnits);
       }
-      if (result.defenderCasualties.citizenUnits > 0) {
-        await this.applyCasualties(tx, defenderId, 'CITIZEN', result.defenderCasualties.citizenUnits);
+      if (scaledDefenderCasualties.citizenUnits > 0) {
+        await this.applyCasualties(tx, defenderId, 'CITIZEN', scaledDefenderCasualties.citizenUnits);
       }
 
       // Transfer gold
-      if (result.goldStolen > 0) {
+      if (scaledGoldStolen > 0) {
         await tx.playerEconomy.update({
           where: { player_id: attackerId },
-          data: { gold: { increment: BigInt(result.goldStolen) } },
+          data: { gold: { increment: BigInt(scaledGoldStolen) } },
         });
         await tx.playerEconomy.update({
           where: { player_id: defenderId },
-          data: { gold: { decrement: BigInt(result.goldStolen) } },
+          data: { gold: { decrement: BigInt(scaledGoldStolen) } },
         });
 
         // Bank history for gold theft
         await tx.bankHistory.create({
           data: {
-            gold_amount: BigInt(result.goldStolen),
+            gold_amount: BigInt(scaledGoldStolen),
             from_user_id: defenderId,
             from_account_type: 'HAND',
             to_user_id: attackerId,
@@ -461,9 +531,9 @@ export class BattleService {
       }
 
       // Fort damage
-      if (result.fortDamage > 0) {
+      if (scaledFortDamage > 0) {
         const currentHP = defenderPlayer.fortification?.hitpoints ?? 0;
-        const newHP = Math.max(0, currentHP - result.fortDamage);
+        const newHP = Math.max(0, currentHP - scaledFortDamage);
         await tx.playerFortification.update({
           where: { player_id: defenderId },
           data: { hitpoints: newHP },
@@ -473,11 +543,11 @@ export class BattleService {
       // XP
       await tx.playerStats.update({
         where: { player_id: attackerId },
-        data: { experience: { increment: result.attackerXP } },
+        data: { experience: { increment: scaledAttackerXP } },
       });
       await tx.playerStats.update({
         where: { player_id: defenderId },
-        data: { experience: { increment: result.defenderXP } },
+        data: { experience: { increment: scaledDefenderXP } },
       });
 
       // Create attack log
@@ -490,13 +560,14 @@ export class BattleService {
           timestamp: new Date(),
           stats: JSON.stringify({
             attackerWins: result.attackerWins,
+            turnsUsed: turns,
             ratio: Math.round(result.ratio * 100) / 100,
-            goldStolen: result.goldStolen,
-            fortDamage: result.fortDamage,
-            attackerCasualties: result.attackerCasualties,
-            defenderCasualties: result.defenderCasualties,
-            attackerXP: result.attackerXP,
-            defenderXP: result.defenderXP,
+            goldStolen: scaledGoldStolen,
+            fortDamage: scaledFortDamage,
+            attackerCasualties: scaledAttackerCasualties,
+            defenderCasualties: scaledDefenderCasualties,
+            attackerXP: scaledAttackerXP,
+            defenderXP: scaledDefenderXP,
             fortShield: Math.round(result.fortShield * 100) / 100,
             effectiveDefense: Math.round(result.effectiveDefense),
             roll: Math.round(result.roll * 1000) / 1000,
@@ -536,23 +607,24 @@ export class BattleService {
       'combat.attack',
       new AttackExecutedEvent(attackerId, defenderId, result.attackerWins ? attackerId : defenderId, log.id),
     );
-    if (result.fortDamage > 0) {
-      const newHP = Math.max(0, (defenderPlayer.fortification?.hitpoints ?? 0) - result.fortDamage);
+    if (scaledFortDamage > 0) {
+      const newHP = Math.max(0, (defenderPlayer.fortification?.hitpoints ?? 0) - scaledFortDamage);
       this.eventEmitter.emit(
         'combat.fort_damaged',
-        new FortDamagedEvent(defenderId, result.fortDamage, newHP),
+        new FortDamagedEvent(defenderId, scaledFortDamage, newHP),
       );
     }
 
     return {
       id: log.id,
       attackerWins: result.attackerWins,
-      goldStolen: result.goldStolen.toString(),
-      fortDamage: result.fortDamage,
-      attackerCasualties: result.attackerCasualties,
-      defenderCasualties: result.defenderCasualties,
-      attackerXP: result.attackerXP,
-      defenderXP: result.defenderXP,
+      turnsUsed: turns,
+      goldStolen: scaledGoldStolen.toString(),
+      fortDamage: scaledFortDamage,
+      attackerCasualties: scaledAttackerCasualties,
+      defenderCasualties: scaledDefenderCasualties,
+      attackerXP: scaledAttackerXP,
+      defenderXP: scaledDefenderXP,
     };
   }
 
@@ -576,6 +648,15 @@ export class BattleService {
 
     if ((attackerPlayer.economy?.attack_turns ?? 0) < 1) {
       throw new BadRequestException('No attack turns remaining');
+    }
+
+    // Check level range (±10 levels)
+    const attackerLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
+    const defenderLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
+    if (Math.abs(attackerLevel - defenderLevel) > 10) {
+      throw new BadRequestException(
+        `Target is out of range (your level: ${attackerLevel}, their level: ${defenderLevel}, max difference: 10)`,
+      );
     }
 
     // Check spy units of correct level
@@ -834,6 +915,27 @@ export class BattleService {
     };
 
     return { profile: buildCombatProfile(data), statsInput };
+  }
+
+  private scaleCasualties(
+    casualties: { offenseUnits: number; defenseUnits: number; citizenUnits: number; spyUnits: number; sentryUnits: number; total: number },
+    turns: number,
+    profile: CombatProfile,
+  ) {
+    // Scale each casualty type by turns, but cap at available units
+    const offenseUnits = Math.min(casualties.offenseUnits * turns, profile.offenseUnits);
+    const defenseUnits = Math.min(casualties.defenseUnits * turns, profile.defenseUnits);
+    const spyUnits = Math.min(casualties.spyUnits * turns, profile.spyUnits);
+    const sentryUnits = Math.min(casualties.sentryUnits * turns, profile.sentryUnits);
+    const citizenUnits = Math.min(casualties.citizenUnits * turns, profile.citizenUnits);
+    return {
+      offenseUnits,
+      defenseUnits,
+      spyUnits,
+      sentryUnits,
+      citizenUnits,
+      total: offenseUnits + defenseUnits + spyUnits + sentryUnits + citizenUnits,
+    };
   }
 
   private async applyCasualties(

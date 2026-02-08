@@ -8,11 +8,13 @@ import {
   battleRankingsQuerySchema,
   battleHistoryQuerySchema,
   detailedRankingsQuerySchema,
+  attackSchema,
   spyMissionSchema,
   BattlePlayersQueryDto,
   BattleRankingsQueryDto,
   BattleHistoryQueryDto,
   DetailedRankingsQueryDto,
+  AttackDto,
   SpyMissionDto,
 } from '@openthrone/shared';
 import type { RankingCategory, RankingPeriod } from './rankings.service';
@@ -72,8 +74,9 @@ export class BattleController {
   async attack(
     @CurrentPlayer() player: any,
     @Param('defenderId') defenderId: string,
+    @Body(new ZodValidationPipe(attackSchema)) dto: AttackDto,
   ) {
-    return this.battleService.executeAttack(player.id, defenderId);
+    return this.battleService.executeAttack(player.id, defenderId, dto.turns);
   }
 
   @Post('spy/:defenderId')

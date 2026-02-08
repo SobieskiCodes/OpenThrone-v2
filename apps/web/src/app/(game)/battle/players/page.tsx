@@ -21,6 +21,9 @@ import {
   ActionIcon,
   Tooltip,
   Progress,
+  Slider,
+  Switch,
+  UnstyledButton,
 } from '@mantine/core';
 import { OTCard } from '@/components/ui';
 import { useDisclosure } from '@mantine/hooks';
@@ -48,6 +51,8 @@ interface PlayerEntry {
   gold: string;
   lastActive: string | null;
   status: string;
+  attacksToday: number;
+  maxAttacksPerDay: number;
 }
 
 interface RankingEntry {
@@ -62,6 +67,7 @@ interface RankingEntry {
 
 interface PaginatedResponse<T> {
   data: T[];
+  attackTurns?: number;
   pagination: {
     page: number;
     limit: number;
@@ -93,13 +99,37 @@ const CLASS_OPTIONS = [
   { value: 'THIEF', label: 'Thief' },
 ];
 
-const SORT_OPTIONS = [
-  { value: 'rank', label: 'Rank' },
-  { value: 'offense', label: 'Offense' },
-  { value: 'defense', label: 'Defense' },
-  { value: 'gold', label: 'Gold' },
-  { value: 'level', label: 'Level' },
-];
+// Sortable column definitions for table header sorting
+type SortKey = 'rank' | 'offense' | 'defense' | 'gold' | 'level' | 'population' | 'fortLevel';
+
+function SortHeader({
+  label,
+  sortKey,
+  currentSort,
+  currentOrder,
+  onSort,
+  align = 'left',
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentSort: string;
+  currentOrder: string;
+  onSort: (key: SortKey) => void;
+  align?: 'left' | 'right' | 'center';
+}) {
+  const isActive = currentSort === sortKey;
+  const arrow = isActive ? (currentOrder === 'asc' ? ' \u25B2' : ' \u25BC') : '';
+  return (
+    <Table.Th ta={align} style={{ cursor: 'pointer', userSelect: 'none' }}>
+      <UnstyledButton
+        onClick={() => onSort(sortKey)}
+        style={{ color: isActive ? 'var(--ot-gold)' : 'inherit', fontWeight: isActive ? 700 : 600 }}
+      >
+        {label}{arrow}
+      </UnstyledButton>
+    </Table.Th>
+  );
+}
 
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) return <Badge color="yellow" variant="filled" size="sm">#1</Badge>;
@@ -111,6 +141,7 @@ function RankBadge({ rank }: { rank: number }) {
 interface AttackResult {
   id: number;
   attackerWins: boolean;
+  turnsUsed: number;
   goldStolen: string;
   fortDamage: number;
   attackerCasualties: { total: number; offenseUnits: number };
@@ -131,6 +162,7 @@ export default function PlayersPage() {
   const [classFilter, setClassFilter] = useState('');
   const [sort, setSort] = useState('rank');
   const [order, setOrder] = useState('asc');
+  const [inRange, setInRange] = useState(true);
   const [playerPage, setPlayerPage] = useState(1);
 
   // Rankings state
@@ -139,12 +171,14 @@ export default function PlayersPage() {
 
   // Attack modal state
   const [attackTarget, setAttackTarget] = useState<PlayerEntry | null>(null);
+  const [attackTurns, setAttackTurns] = useState(1);
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
   const [resultOpened, { open: openResult, close: closeResult }] = useDisclosure(false);
   const [attackResult, setAttackResult] = useState<AttackResult | null>(null);
 
   const attackMutation = useMutation({
-    mutationFn: (defenderId: string) => api.post(`/battle/attack/${defenderId}`) as Promise<AttackResult>,
+    mutationFn: ({ defenderId, turns }: { defenderId: string; turns: number }) =>
+      api.post(`/battle/attack/${defenderId}`, { turns }) as Promise<AttackResult>,
     onSuccess: (data: AttackResult) => {
       closeConfirm();
       setAttackResult(data);
@@ -166,14 +200,17 @@ export default function PlayersPage() {
     if (search) params.set('search', search);
     if (raceFilter) params.set('race', raceFilter);
     if (classFilter) params.set('class', classFilter);
+    if (inRange) params.set('inRange', 'true');
     return params.toString();
   };
 
   const { data: playersData, isLoading: playersLoading } = useQuery<PaginatedResponse<PlayerEntry>>({
-    queryKey: ['battle', 'players', playerPage, search, raceFilter, classFilter, sort, order],
+    queryKey: ['battle', 'players', playerPage, search, raceFilter, classFilter, sort, order, inRange],
     queryFn: () => api.get(`/battle/players?${buildPlayerQuery()}`),
     enabled: isReady && tab === 'players',
   });
+
+  const myAttackTurns = playersData?.attackTurns ?? 0;
 
   const { data: rankingsData, isLoading: rankingsLoading } = useQuery<PaginatedResponse<RankingEntry>>({
     queryKey: ['battle', 'rankings', rankingType, rankingPage],
@@ -181,8 +218,7 @@ export default function PlayersPage() {
     enabled: isReady && tab === 'rankings',
   });
 
-  const handleSortChange = (newSort: string | null) => {
-    if (!newSort) return;
+  const handleSortChange = (newSort: SortKey) => {
     if (newSort === sort) {
       setOrder(order === 'asc' ? 'desc' : 'asc');
     } else {
@@ -195,7 +231,18 @@ export default function PlayersPage() {
   return (
     <Container size="lg">
       <Stack gap="md">
-        <Title order={2}>Players & Rankings</Title>
+        <Group justify="space-between" align="center">
+          <Title order={2}>Players & Rankings</Title>
+          {tab === 'players' && (
+            <Badge
+              size="lg"
+              variant="light"
+              color={myAttackTurns > 0 ? 'green' : 'red'}
+            >
+              {myAttackTurns} Attack Turn{myAttackTurns !== 1 ? 's' : ''}
+            </Badge>
+          )}
+        </Group>
 
         <Tabs value={tab} onChange={setTab}>
           <Tabs.List>
@@ -237,13 +284,15 @@ export default function PlayersPage() {
                       placeholder="Filter by class"
                       clearable
                     />
-                    <Select
-                      data={SORT_OPTIONS}
-                      value={sort}
-                      onChange={handleSortChange}
-                      placeholder="Sort by"
-                    />
                   </Group>
+                  <Switch
+                    label="In Range Only (±10 levels)"
+                    checked={inRange}
+                    onChange={(e) => {
+                      setInRange(e.currentTarget.checked);
+                      setPlayerPage(1);
+                    }}
+                  />
                 </Stack>
               </OTCard>
 
@@ -255,22 +304,23 @@ export default function PlayersPage() {
                     <Table striped>
                       <Table.Thead>
                         <Table.Tr>
-                          <Table.Th>Rank</Table.Th>
+                          <SortHeader label="Rank" sortKey="rank" currentSort={sort} currentOrder={order} onSort={handleSortChange} />
                           <Table.Th>Player</Table.Th>
                           <Table.Th>Race / Class</Table.Th>
-                          <Table.Th ta="center">Lv</Table.Th>
-                          <Table.Th ta="right">Population</Table.Th>
-                          <Table.Th ta="right">Gold</Table.Th>
-                          <Table.Th ta="right">Offense</Table.Th>
-                          <Table.Th ta="right">Defense</Table.Th>
-                          <Table.Th ta="center">Fort</Table.Th>
+                          <SortHeader label="Lv" sortKey="level" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="center" />
+                          <SortHeader label="Pop" sortKey="population" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
+                          <SortHeader label="Gold" sortKey="gold" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
+                          <SortHeader label="Offense" sortKey="offense" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
+                          <SortHeader label="Defense" sortKey="defense" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
+                          <SortHeader label="Fort" sortKey="fortLevel" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="center" />
+                          <Table.Th ta="center">Attacks</Table.Th>
                           <Table.Th ta="right">Actions</Table.Th>
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
                         {playersData?.data.length === 0 && (
                           <Table.Tr>
-                            <Table.Td colSpan={10}>
+                            <Table.Td colSpan={11}>
                               <Text ta="center" style={{ color: 'var(--ot-text-dim)' }}>
                                 No players found.
                               </Text>
@@ -348,15 +398,44 @@ export default function PlayersPage() {
                                   </Stack>
                                 </Tooltip>
                               </Table.Td>
+                              <Table.Td ta="center" w={70}>
+                                <Tooltip
+                                  label={`${p.attacksToday}/${p.maxAttacksPerDay} attacks used today`}
+                                  withArrow
+                                >
+                                  <Text
+                                    size="xs"
+                                    fw={500}
+                                    style={{
+                                      color: p.attacksToday >= p.maxAttacksPerDay
+                                        ? 'var(--ot-danger)'
+                                        : p.attacksToday > 0
+                                          ? 'var(--ot-warning)'
+                                          : 'var(--ot-text-dim)',
+                                    }}
+                                  >
+                                    {p.attacksToday}/{p.maxAttacksPerDay}
+                                  </Text>
+                                </Tooltip>
+                              </Table.Td>
                               <Table.Td ta="right">
                                 <Group gap={4} justify="flex-end" wrap="nowrap">
-                                  <Tooltip label="Attack" withArrow>
+                                  <Tooltip
+                                    label={
+                                      p.attacksToday >= p.maxAttacksPerDay
+                                        ? 'Max attacks reached today'
+                                        : 'Attack'
+                                    }
+                                    withArrow
+                                  >
                                     <ActionIcon
                                       variant="light"
                                       color="red"
                                       size="sm"
+                                      disabled={p.attacksToday >= p.maxAttacksPerDay}
                                       onClick={() => {
                                         setAttackTarget(p);
+                                        setAttackTurns(1);
                                         openConfirm();
                                       }}
                                     >
@@ -528,17 +607,53 @@ export default function PlayersPage() {
                 <Text fw={600}>{attackTarget.armySize.toLocaleString()}</Text>
               </Paper>
             </SimpleGrid>
+
+            <Paper p="sm" withBorder style={{ borderColor: 'var(--ot-border)' }}>
+              <Stack gap="xs">
+                <Group justify="space-between">
+                  <Text size="sm" fw={500}>Attack Turns</Text>
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                    {myAttackTurns} available
+                  </Text>
+                </Group>
+                <Slider
+                  min={1}
+                  max={Math.min(10, myAttackTurns)}
+                  step={1}
+                  value={attackTurns}
+                  onChange={setAttackTurns}
+                  marks={[
+                    { value: 1, label: '1' },
+                    { value: 5, label: '5' },
+                    { value: 10, label: '10' },
+                  ].filter((m) => m.value <= Math.min(10, myAttackTurns))}
+                  disabled={myAttackTurns <= 0}
+                  styles={{ markLabel: { fontSize: 10 } }}
+                />
+                <Text size="xs" ta="center" style={{ color: 'var(--ot-text-dim)' }}>
+                  Using <Text span fw={700} style={{ color: 'var(--ot-gold)' }}>{attackTurns}</Text> turn{attackTurns > 1 ? 's' : ''} &mdash; rewards and casualties scale with turns used
+                </Text>
+              </Stack>
+            </Paper>
+
+            {attackTarget.attacksToday > 0 && (
+              <Text size="sm" style={{ color: 'var(--ot-warning)' }}>
+                You have attacked this player {attackTarget.attacksToday}/{attackTarget.maxAttacksPerDay} times today.
+              </Text>
+            )}
+
             <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-              This will cost 1 attack turn. Casualties are permanent.
+              Casualties are permanent. Gold theft, fort damage, and XP scale with turns used.
             </Text>
             <Group justify="flex-end">
               <Button variant="default" onClick={closeConfirm}>Cancel</Button>
               <Button
                 color="red"
                 loading={attackMutation.isPending}
-                onClick={() => attackMutation.mutate(attackTarget.id)}
+                disabled={myAttackTurns < attackTurns}
+                onClick={() => attackMutation.mutate({ defenderId: attackTarget.id, turns: attackTurns })}
               >
-                Confirm Attack
+                Attack ({attackTurns} turn{attackTurns > 1 ? 's' : ''})
               </Button>
             </Group>
           </Stack>
@@ -560,7 +675,8 @@ export default function PlayersPage() {
         {attackResult && attackTarget && (
           <Stack gap="md">
             <Text>
-              Your attack on <Text span fw={700} style={{ color: 'var(--ot-gold)' }}>{attackTarget.displayName}</Text>{' '}
+              Your {attackResult.turnsUsed > 1 ? `${attackResult.turnsUsed}-turn ` : ''}attack on{' '}
+              <Text span fw={700} style={{ color: 'var(--ot-gold)' }}>{attackTarget.displayName}</Text>{' '}
               was {attackResult.attackerWins ? 'successful' : 'repelled'}.
             </Text>
             <SimpleGrid cols={2} spacing="xs">
