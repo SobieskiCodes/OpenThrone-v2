@@ -9,6 +9,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:populate": "tsx prisma/populate.ts",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

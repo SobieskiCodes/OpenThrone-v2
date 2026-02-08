@@ -26,6 +26,9 @@
     "db:seed": {
       "cache": false
     },
+    "db:populate": {
+      "cache": false
+    },
     "db:migrate": {
       "cache": false
     },

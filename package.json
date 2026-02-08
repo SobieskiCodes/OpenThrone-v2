@@ -10,6 +10,7 @@
     "type-check": "turbo type-check",
     "db:push": "turbo db:push",
     "db:seed": "turbo db:seed",
+    "db:populate": "turbo db:populate",
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
     "clean": "turbo clean"
