@@ -257,7 +257,7 @@ export const battlePlayersQuerySchema = z.object({
   search: z.string().max(50).optional(),
   race: z.nativeEnum(PlayerRace).optional(),
   class: z.nativeEnum(PlayerClass).optional(),
-  sort: z.enum(['rank', 'offense', 'defense', 'gold', 'level', 'population', 'fortLevel']).default('rank'),
+  sort: z.enum(['rank', 'gold', 'level', 'population', 'fortLevel']).default('rank'),
   order: z.enum(['asc', 'desc']).default('asc'),
   inRange: z.coerce.boolean().optional(),
 });
@@ -279,7 +279,7 @@ export const detailedRankingsQuerySchema = z.object({
 export const battleHistoryQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
-  type: z.enum(['all', 'attack', 'defense']).default('all'),
+  type: z.enum(['all', 'attack', 'defense', 'spy']).default('all'),
 });
 
 // ─── Combat Schemas ─────────────────────────────────────────────────
@@ -322,6 +322,12 @@ export const combatSimulateSchema = z.object({
     spiesSent: z.number().int().min(1).max(10).optional(),
     targetUnitType: z.nativeEnum(UnitType).optional(),
   }).optional(),
+});
+
+// ─── Intel Sharing Schemas ──────────────────────────────────────────
+
+export const shareIntelSchema = z.object({
+  attackLogId: z.number().int(),
 });
 
 // ─── Inferred Types ──────────────────────────────────────────────────
@@ -369,3 +375,4 @@ export type AttackDto = z.infer<typeof attackSchema>;
 export type SpyMissionDto = z.infer<typeof spyMissionSchema>;
 export type CombatSimulateDto = z.infer<typeof combatSimulateSchema>;
 export type CombatSimProfileDto = z.infer<typeof combatSimProfileSchema>;
+export type ShareIntelDto = z.infer<typeof shareIntelSchema>;

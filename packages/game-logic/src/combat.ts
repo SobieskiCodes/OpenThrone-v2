@@ -44,6 +44,12 @@ export interface CombatConfig {
   intelMaxReveal: number;
   intelSpyLossOnFail: number;
   intelSpyLossOnSuccess: number;
+  intelGoldCost: number;
+  intelTurnCost: number;
+  intelRequiredLevel: number;
+
+  // Gold visibility on attack page
+  goldVisibilityRatio: number;
 
   // Spy: Assassination
   assassinKillBase: number;
@@ -51,12 +57,34 @@ export interface CombatConfig {
   assassinKillVarianceMax: number;
   assassinSpyLossOnFail: number;
   assassinSpyLossOnSuccess: number;
+  assassinateRequiredLevel: number;
 
   // Spy: Infiltration
   infiltrationDamagePerSpy: number;
   infiltrationDamageVariance: number;
   infiltrationSpyLossOnFail: number;
   infiltrationSpyLossOnSuccess: number;
+  infiltrateRequiredLevel: number;
+
+  // Spy: Steal Gold
+  stealGoldRequiredLevel: number;
+  stealGoldCost: number;
+  stealGoldTurnCost: number;
+  stealGoldMinPercent: number;
+  stealGoldMaxPercent: number;
+  stealGoldSpyLossOnSuccess: number;
+  stealGoldSpyLossOnFail: number;
+  stealGoldMaxPerTargetPer24h: number;
+
+  // Spy: Sabotage
+  sabotageRequiredLevel: number;
+  sabotageCost: number;
+  sabotageTurnCost: number;
+  sabotageItemsMin: number;
+  sabotageItemsMax: number;
+  sabotageSpyLossOnSuccess: number;
+  sabotageSpyLossOnFail: number;
+  sabotageMaxPerTargetPer24h: number;
 
   // Rate limits
   maxAttacksPerTargetPer24h: number;
@@ -94,22 +122,47 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
 
   intelRevealPerSpy: 10,
   intelMaxReveal: 100,
-  intelSpyLossOnFail: 1.0,
+  intelSpyLossOnFail: 0.01,
   intelSpyLossOnSuccess: 0.0,
+  intelGoldCost: 3000,
+  intelTurnCost: 2,
+  intelRequiredLevel: 1,
+
+  goldVisibilityRatio: 1.1,
 
   assassinKillBase: 0.02,
   assassinKillVarianceMin: 0.80,
   assassinKillVarianceMax: 1.20,
   assassinSpyLossOnFail: 1.0,
   assassinSpyLossOnSuccess: 0.10,
+  assassinateRequiredLevel: 1,
 
   infiltrationDamagePerSpy: 8,
   infiltrationDamageVariance: 4,
   infiltrationSpyLossOnFail: 1.0,
   infiltrationSpyLossOnSuccess: 0.15,
+  infiltrateRequiredLevel: 1,
+
+  stealGoldRequiredLevel: 2,
+  stealGoldCost: 10000,
+  stealGoldTurnCost: 5,
+  stealGoldMinPercent: 0.05,
+  stealGoldMaxPercent: 0.10,
+  stealGoldSpyLossOnSuccess: 0.10,
+  stealGoldSpyLossOnFail: 0.50,
+  stealGoldMaxPerTargetPer24h: 3,
+
+  sabotageRequiredLevel: 2,
+  sabotageCost: 10000,
+  sabotageTurnCost: 5,
+  sabotageItemsMin: 3,
+  sabotageItemsMax: 5,
+  sabotageSpyLossOnSuccess: 0.15,
+  sabotageSpyLossOnFail: 0.50,
+  sabotageMaxPerTargetPer24h: 3,
 
   maxAttacksPerTargetPer24h: 5,
-  maxSpyPerTargetPer24h: 3,
+  maxSpyPerTargetPer24h: 5,
 };
 
 // ─── Combat Profile ─────────────────────────────────────────────────
@@ -175,6 +228,20 @@ export interface AssassinationResult {
 export interface InfiltrationResult {
   success: boolean;
   fortDamage: number;
+  spiesLost: number;
+  spiesSurvived: number;
+}
+
+export interface StealGoldResult {
+  success: boolean;
+  goldStolen: number;
+  spiesLost: number;
+  spiesSurvived: number;
+}
+
+export interface SabotageResult {
+  success: boolean;
+  itemsDestroyed: number;
   spiesLost: number;
   spiesSurvived: number;
 }
@@ -375,7 +442,9 @@ export function resolveIntel(
     : 0;
 
   const lossRate = success ? config.intelSpyLossOnSuccess : config.intelSpyLossOnFail;
-  const spiesLost = Math.round(spiesSent * lossRate);
+  const spiesLost = success
+    ? Math.round(spiesSent * lossRate)
+    : Math.max(1, Math.ceil(spiesSent * lossRate));
 
   return {
     success,
@@ -455,6 +524,67 @@ export function resolveInfiltration(
     fortDamage,
     spiesLost,
     spiesSurvived: infiltratorsSent - spiesLost,
+  };
+}
+
+// ─── Spy: Steal Gold ───────────────────────────────────────────────
+
+export function resolveStealGold(
+  attacker: CombatProfile,
+  defender: CombatProfile,
+  spiesSent: number,
+  config: CombatConfig,
+  rng: () => number = defaultRng,
+): StealGoldResult {
+  const success = attacker.spy > defender.sentry;
+
+  let goldStolen = 0;
+  if (success) {
+    const stealPercent = config.stealGoldMinPercent +
+      rng() * (config.stealGoldMaxPercent - config.stealGoldMinPercent);
+    goldStolen = Math.floor(defender.gold * stealPercent);
+  }
+
+  const lossRate = success ? config.stealGoldSpyLossOnSuccess : config.stealGoldSpyLossOnFail;
+  const spiesLost = success
+    ? Math.round(spiesSent * lossRate)
+    : Math.max(1, Math.ceil(spiesSent * lossRate));
+
+  return {
+    success,
+    goldStolen,
+    spiesLost,
+    spiesSurvived: spiesSent - spiesLost,
+  };
+}
+
+// ─── Spy: Sabotage ─────────────────────────────────────────────────
+
+export function resolveSabotage(
+  attacker: CombatProfile,
+  defender: CombatProfile,
+  spiesSent: number,
+  config: CombatConfig,
+  rng: () => number = defaultRng,
+): SabotageResult {
+  const success = attacker.spy > defender.sentry;
+
+  let itemsDestroyed = 0;
+  if (success) {
+    itemsDestroyed = config.sabotageItemsMin +
+      Math.floor(rng() * (config.sabotageItemsMax - config.sabotageItemsMin + 1));
+  }
+
+  const lossRate = success ? config.sabotageSpyLossOnSuccess : config.sabotageSpyLossOnFail;
+  const spiesLost = success
+    ? Math.round(spiesSent * lossRate)
+    : Math.max(1, Math.ceil(spiesSent * lossRate));
+
+  return {
+    success,
+    itemsDestroyed,
+    spiesLost,
+    spiesSurvived: spiesSent - spiesLost,
   };
 }
 

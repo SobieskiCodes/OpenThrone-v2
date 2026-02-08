@@ -100,6 +100,7 @@ export enum BankTransferHistoryType {
   FORT_REPAIR = 'FORT_REPAIR',
   DAILY_RECRUIT = 'DAILY_RECRUIT',
   MERCENARY_PURCHASE = 'MERCENARY_PURCHASE',
+  SPY_THEFT = 'SPY_THEFT',
 }
 
 export enum Locale {
@@ -135,4 +136,6 @@ export enum SpyMissionType {
   INTEL = 'INTEL',
   ASSASSINATE = 'ASSASSINATE',
   INFILTRATE = 'INFILTRATE',
+  STEAL_GOLD = 'STEAL_GOLD',
+  SABOTAGE = 'SABOTAGE',
 }

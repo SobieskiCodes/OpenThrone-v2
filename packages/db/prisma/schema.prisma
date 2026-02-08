@@ -73,6 +73,9 @@ model Player {
 
   mercenary_purchases MercenaryDailyPurchase[]
 
+  intel_targets  AllianceIntel[] @relation("intel_target")
+  intel_gathered AllianceIntel[] @relation("intel_spy")
+
   @@index([created_at])
   @@map("players")
 }
@@ -247,10 +250,11 @@ model AttackLog {
   stats       String    // JSON stored as text for SQLite compat
   type        String    @default("attack")
 
-  attacker     Player          @relation("attacker", fields: [attacker_id], references: [id])
-  defender     Player          @relation("defender", fields: [defender_id], references: [id])
-  acl          AttackLogAcl[]
-  chatMessages ChatMessage[]
+  attacker       Player          @relation("attacker", fields: [attacker_id], references: [id])
+  defender       Player          @relation("defender", fields: [defender_id], references: [id])
+  acl            AttackLogAcl[]
+  chatMessages   ChatMessage[]
+  alliance_intel AllianceIntel[]
 
   @@index([attacker_id])
   @@index([defender_id])
@@ -338,6 +342,7 @@ model Alliance {
   roles       AllianceRole[]
   attack_acl  AttackLogAcl[]
   chat_rooms  ChatRoom[]
+  intel       AllianceIntel[]
 
   @@map("alliances")
 }
@@ -581,4 +586,24 @@ model MercenaryDailyPurchase {
 
   @@unique([player_id, unit_type])
   @@map("mercenary_daily_purchases")
+}
+
+model AllianceIntel {
+  id              Int      @id @default(autoincrement())
+  alliance_id     Int
+  target_id       String
+  spied_by_id     String
+  attack_log_id   Int
+  reveal_percent  Int
+  intel_data      String   // JSON snapshot (point-in-time display data)
+  created_at      DateTime @default(now())
+
+  alliance   Alliance  @relation(fields: [alliance_id], references: [id])
+  target     Player    @relation("intel_target", fields: [target_id], references: [id])
+  spied_by   Player    @relation("intel_spy", fields: [spied_by_id], references: [id])
+  attack_log AttackLog @relation(fields: [attack_log_id], references: [id])
+
+  @@index([alliance_id, target_id])
+  @@index([attack_log_id])
+  @@map("alliance_intel")
 }
