@@ -41,8 +41,11 @@ export class PlayerController {
 
   @Get(':id')
   @Public()
-  async getPublicProfile(@Param('id') id: string) {
-    return this.playerService.getPublicProfile(id);
+  async getPublicProfile(
+    @Param('id') id: string,
+    @CurrentPlayer('id') requesterId?: string,
+  ) {
+    return this.playerService.getPublicProfile(id, requesterId);
   }
 
   @Patch('me')

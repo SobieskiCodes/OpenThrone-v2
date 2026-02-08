@@ -136,7 +136,7 @@ export class PlayerService {
     };
   }
 
-  async getPublicProfile(playerId: string) {
+  async getPublicProfile(playerId: string, requesterId?: string) {
     const player = await this.prisma.player.findUnique({
       where: { id: playerId },
       select: {
@@ -178,6 +178,78 @@ export class PlayerService {
 
     const experience = player.stats?.experience ?? 0;
     const level = getLevelForXP(experience);
+    const isOwnProfile = requesterId === playerId;
+
+    // Look up alliance intel if viewing another player's profile
+    let allianceIntel: {
+      spiedByName: string;
+      spiedAt: Date;
+      revealPercent: number;
+      intelData: any;
+    } | null = null;
+
+    // Look up requester's personal last successful intel on this target
+    let personalLastSpy: {
+      spiedAt: Date | null;
+      revealPercent: number;
+      intelData: any;
+    } | null = null;
+
+    if (!isOwnProfile && requesterId) {
+      const [membership, lastIntelLog] = await Promise.all([
+        this.prisma.allianceMembership.findFirst({
+          where: { user_id: requesterId },
+          select: { alliance_id: true },
+        }),
+        this.prisma.attackLog.findFirst({
+          where: {
+            attacker_id: requesterId,
+            defender_id: playerId,
+            type: 'intel',
+            winner: requesterId,
+          },
+          orderBy: { timestamp: 'desc' },
+        }),
+      ]);
+
+      if (membership) {
+        const latestIntel = await this.prisma.allianceIntel.findFirst({
+          where: {
+            alliance_id: membership.alliance_id,
+            target_id: playerId,
+          },
+          orderBy: { created_at: 'desc' },
+          include: {
+            spied_by: { select: { display_name: true } },
+          },
+        });
+
+        if (latestIntel) {
+          let parsedIntel: any = {};
+          try {
+            parsedIntel = JSON.parse(latestIntel.intel_data);
+          } catch { /* ignore */ }
+
+          allianceIntel = {
+            spiedByName: latestIntel.spied_by.display_name,
+            spiedAt: latestIntel.created_at,
+            revealPercent: latestIntel.reveal_percent,
+            intelData: parsedIntel,
+          };
+        }
+      }
+
+      if (lastIntelLog) {
+        let parsedStats: any = {};
+        try { parsedStats = JSON.parse(lastIntelLog.stats); } catch { /* ignore */ }
+
+        personalLastSpy = {
+          spiedAt: lastIntelLog.timestamp,
+          revealPercent: parsedStats.revealPercent ?? 0,
+          intelData: parsedStats.intelData ?? {},
+        };
+      }
+    }
 
     return {
       id: player.id,
@@ -190,15 +262,21 @@ export class PlayerService {
       lastActive: player.last_active,
       createdAt: player.created_at,
       stats: player.stats
-        ? {
-            experience: player.stats.experience,
-            rank: player.stats.rank,
-            offense: player.stats.offense,
-            defense: player.stats.defense,
-            spy: player.stats.spy,
-            sentry: player.stats.sentry,
-            level,
-          }
+        ? isOwnProfile
+          ? {
+              experience: player.stats.experience,
+              rank: player.stats.rank,
+              offense: player.stats.offense,
+              defense: player.stats.defense,
+              spy: player.stats.spy,
+              sentry: player.stats.sentry,
+              level,
+            }
+          : {
+              experience: player.stats.experience,
+              rank: player.stats.rank,
+              level,
+            }
         : null,
       fortification: player.fortification
         ? {
@@ -210,6 +288,8 @@ export class PlayerService {
             houseLevel: player.economy.house_level,
           }
         : null,
+      allianceIntel,
+      personalLastSpy,
     };
   }
 

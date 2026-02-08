@@ -9,13 +9,24 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     super();
   }
 
-  canActivate(context: ExecutionContext) {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
-    return super.canActivate(context);
+
+    if (isPublic) {
+      // For public routes, try to authenticate but don't require it.
+      // This allows @CurrentPlayer to work when a token is provided.
+      try {
+        await (super.canActivate(context) as Promise<boolean>);
+      } catch {
+        // No valid token — public route still accessible
+      }
+      return true;
+    }
+
+    return super.canActivate(context) as Promise<boolean>;
   }
 
   handleRequest(err: any, user: any) {

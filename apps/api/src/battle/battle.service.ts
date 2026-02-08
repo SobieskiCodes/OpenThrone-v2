@@ -16,6 +16,8 @@ import {
   resolveIntel,
   resolveAssassination,
   resolveInfiltration,
+  resolveStealGold,
+  resolveSabotage,
   DEFAULT_COMBAT_CONFIG,
   getFortificationByLevel,
 } from '@openthrone/game-logic';
@@ -83,10 +85,6 @@ export class BattleService {
 
     if (sort === 'rank') {
       orderBy.push({ stats: { rank: effectiveOrder } });
-    } else if (sort === 'offense') {
-      orderBy.push({ stats: { offense: effectiveOrder } });
-    } else if (sort === 'defense') {
-      orderBy.push({ stats: { defense: effectiveOrder } });
     } else if (sort === 'gold') {
       orderBy.push({ economy: { gold: effectiveOrder } });
     } else if (sort === 'level') {
@@ -131,6 +129,46 @@ export class BattleService {
       attackCounts.map((ac) => [ac.defender_id, ac._count.id]),
     );
 
+    // Fetch attacker's spy stat for gold visibility
+    const attackerStats = await this.prisma.playerStats.findUnique({
+      where: { player_id: currentPlayerId },
+      select: { spy: true },
+    });
+    const attackerSpy = attackerStats?.spy ?? 0;
+
+    // Fetch alliance intel for visible players
+    const attackerMembership = await this.prisma.allianceMembership.findFirst({
+      where: { user_id: currentPlayerId },
+      select: { alliance_id: true },
+    });
+
+    let allianceIntelMap = new Map<string, { spiedByName: string; spiedAt: Date; revealPercent: number; intelData: any }>();
+    if (attackerMembership) {
+      const intelRecords = await this.prisma.allianceIntel.findMany({
+        where: {
+          alliance_id: attackerMembership.alliance_id,
+          target_id: { in: playerIds },
+        },
+        orderBy: { created_at: 'desc' },
+        include: {
+          spied_by: { select: { display_name: true } },
+        },
+      });
+      // Keep only the latest per target
+      for (const rec of intelRecords) {
+        if (!allianceIntelMap.has(rec.target_id)) {
+          let parsedIntel: any = {};
+          try { parsedIntel = JSON.parse(rec.intel_data); } catch { /* ignore */ }
+          allianceIntelMap.set(rec.target_id, {
+            spiedByName: rec.spied_by.display_name,
+            spiedAt: rec.created_at,
+            revealPercent: rec.reveal_percent,
+            intelData: parsedIntel,
+          });
+        }
+      }
+    }
+
     const data = players.map((p) => {
       const armySize = p.units
         .filter((u) => u.unit_type !== 'CITIZEN')
@@ -141,6 +179,10 @@ export class BattleService {
       const fortMaxHP = fortDef?.hitpoints ?? 50;
       const fortHP = p.fortification?.hitpoints ?? fortMaxHP;
 
+      // Gold visibility: attacker spy must be >= target sentry * goldVisibilityRatio
+      const targetSentry = p.stats?.sentry ?? 0;
+      const canSeeGold = attackerSpy >= targetSentry * DEFAULT_COMBAT_CONFIG.goldVisibilityRatio;
+
       return {
         id: p.id,
         displayName: p.display_name,
@@ -148,18 +190,17 @@ export class BattleService {
         class: p.player_class,
         level: getLevelForXP(p.stats?.experience ?? 0),
         rank: p.stats?.rank ?? 0,
-        offense: p.stats?.offense ?? 0,
-        defense: p.stats?.defense ?? 0,
         fortLevel,
         fortHP,
         fortMaxHP,
         population,
         armySize,
-        gold: (p.economy?.gold ?? BigInt(0)).toString(),
+        gold: canSeeGold ? (p.economy?.gold ?? BigInt(0)).toString() : null,
         lastActive: p.last_active,
         status: p.status,
         attacksToday: attackCountMap.get(p.id) ?? 0,
         maxAttacksPerDay: DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h,
+        allianceIntel: allianceIntelMap.get(p.id) ?? null,
       };
     });
 
@@ -181,7 +222,7 @@ export class BattleService {
     };
   }
 
-  async getRankings(query: BattleRankingsQueryDto) {
+  async getRankings(query: BattleRankingsQueryDto, currentPlayerId?: string) {
     const { type, page, limit } = query;
 
     let orderBy: any;
@@ -227,15 +268,6 @@ export class BattleService {
     ]);
 
     const data = stats.map((s, index) => {
-      let score: number;
-      switch (type) {
-        case 'offense': score = s.offense; break;
-        case 'defense': score = s.defense; break;
-        case 'spy': score = s.spy; break;
-        case 'sentry': score = s.sentry; break;
-        default: score = s.offense + s.defense + s.spy + s.sentry; break;
-      }
-
       return {
         rank: type === 'overall' ? s.rank : (page - 1) * limit + index + 1,
         id: s.player.id,
@@ -243,7 +275,6 @@ export class BattleService {
         race: s.player.race,
         class: s.player.player_class,
         level: getLevelForXP(s.experience),
-        score,
       };
     });
 
@@ -261,11 +292,20 @@ export class BattleService {
   async getHistory(playerId: string, query: BattleHistoryQueryDto) {
     const { page, limit, type } = query;
 
+    const SPY_TYPES = ['intel', 'assassinate', 'infiltrate', 'steal_gold', 'sabotage'];
     const where: any = {};
     if (type === 'attack') {
       where.attacker_id = playerId;
+      where.type = 'attack';
     } else if (type === 'defense') {
       where.defender_id = playerId;
+      where.type = 'attack';
+    } else if (type === 'spy') {
+      where.OR = [
+        { attacker_id: playerId },
+        { defender_id: playerId },
+      ];
+      where.type = { in: SPY_TYPES };
     } else {
       where.OR = [
         { attacker_id: playerId },
@@ -635,6 +675,20 @@ export class BattleService {
       throw new BadRequestException('You cannot spy on yourself');
     }
 
+    const config = DEFAULT_COMBAT_CONFIG;
+
+    // Mission cost/config lookup
+    const missionConfig: Record<string, { turnCost: number; goldCost: number; requiredLevel: number; rateLimit: number; logType: string }> = {
+      INTEL: { turnCost: config.intelTurnCost, goldCost: config.intelGoldCost, requiredLevel: config.intelRequiredLevel, rateLimit: config.maxSpyPerTargetPer24h, logType: 'intel' },
+      ASSASSINATE: { turnCost: 1, goldCost: 0, requiredLevel: config.assassinateRequiredLevel, rateLimit: config.maxSpyPerTargetPer24h, logType: 'assassinate' },
+      INFILTRATE: { turnCost: 1, goldCost: 0, requiredLevel: config.infiltrateRequiredLevel, rateLimit: config.maxSpyPerTargetPer24h, logType: 'infiltrate' },
+      STEAL_GOLD: { turnCost: config.stealGoldTurnCost, goldCost: config.stealGoldCost, requiredLevel: config.stealGoldRequiredLevel, rateLimit: config.stealGoldMaxPerTargetPer24h, logType: 'steal_gold' },
+      SABOTAGE: { turnCost: config.sabotageTurnCost, goldCost: config.sabotageCost, requiredLevel: config.sabotageRequiredLevel, rateLimit: config.sabotageMaxPerTargetPer24h, logType: 'sabotage' },
+    };
+
+    const mc = missionConfig[dto.type];
+    if (!mc) throw new BadRequestException('Invalid spy mission type');
+
     const [attackerPlayer, defenderPlayer] = await Promise.all([
       this.loadFullPlayer(attackerId),
       this.loadFullPlayer(defenderId),
@@ -646,8 +700,17 @@ export class BattleService {
       throw new BadRequestException('Target player is not active');
     }
 
-    if ((attackerPlayer.economy?.attack_turns ?? 0) < 1) {
-      throw new BadRequestException('No attack turns remaining');
+    // Check turns
+    if ((attackerPlayer.economy?.attack_turns ?? 0) < mc.turnCost) {
+      throw new BadRequestException(`Not enough attack turns (need ${mc.turnCost}, have ${attackerPlayer.economy?.attack_turns ?? 0})`);
+    }
+
+    // Check gold
+    if (mc.goldCost > 0) {
+      const currentGold = Number(attackerPlayer.economy?.gold ?? BigInt(0));
+      if (currentGold < mc.goldCost) {
+        throw new BadRequestException(`Not enough gold (need ${mc.goldCost.toLocaleString()}, have ${currentGold.toLocaleString()})`);
+      }
     }
 
     // Check level range (±10 levels)
@@ -660,52 +723,56 @@ export class BattleService {
     }
 
     // Check spy units of correct level
-    const requiredLevel = dto.type === 'ASSASSINATE' ? 3 : dto.type === 'INFILTRATE' ? 2 : 1;
     const spyUnits = attackerPlayer.units.find(
-      (u) => u.unit_type === 'SPY' && u.level >= requiredLevel,
+      (u) => u.unit_type === 'SPY' && u.level >= mc.requiredLevel,
     );
     if (!spyUnits || spyUnits.quantity < dto.spiesSent) {
-      const unitName = requiredLevel === 3 ? 'Assassins' : requiredLevel === 2 ? 'Infiltrators' : 'Spies';
-      throw new BadRequestException(`Not enough ${unitName} (need ${dto.spiesSent}, have ${spyUnits?.quantity ?? 0})`);
+      throw new BadRequestException(`Not enough spy units of level ${mc.requiredLevel}+ (need ${dto.spiesSent}, have ${spyUnits?.quantity ?? 0})`);
     }
 
-    // Rate limit
+    // Per-type rate limit
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const recentSpy = await this.prisma.attackLog.count({
       where: {
         attacker_id: attackerId,
         defender_id: defenderId,
-        type: { in: ['intel', 'assassinate', 'infiltrate'] },
+        type: mc.logType,
         timestamp: { gte: dayAgo },
       },
     });
-    if (recentSpy >= DEFAULT_COMBAT_CONFIG.maxSpyPerTargetPer24h) {
+    if (recentSpy >= mc.rateLimit) {
       throw new BadRequestException(
-        `Maximum ${DEFAULT_COMBAT_CONFIG.maxSpyPerTargetPer24h} spy missions per target per 24 hours`,
+        `Maximum ${mc.rateLimit} ${mc.logType} missions per target per 24 hours`,
       );
     }
 
     const attackerProfile = this.buildProfile(attackerPlayer);
     const defenderProfile = this.buildProfile(defenderPlayer);
 
-    const missionType = dto.type.toLowerCase();
-    let logStats: any;
-
     if (dto.type === 'INTEL') {
-      const result = resolveIntel(attackerProfile, defenderProfile, dto.spiesSent, DEFAULT_COMBAT_CONFIG);
-      logStats = { ...result, missionType: 'intel' };
+      const result = resolveIntel(attackerProfile, defenderProfile, dto.spiesSent, config);
+      const logStats: any = { ...result, missionType: 'intel' };
 
-      await this.prisma.$transaction(async (tx) => {
+      let intelData: any = null;
+      if (result.success) {
+        intelData = this.buildIntelReport(defenderPlayer, result.revealPercent);
+        logStats.intelData = intelData;
+      }
+
+      const attackLog = await this.prisma.$transaction(async (tx) => {
         await tx.playerEconomy.update({
           where: { player_id: attackerId },
-          data: { attack_turns: { decrement: 1 } },
+          data: {
+            attack_turns: { decrement: mc.turnCost },
+            ...(mc.goldCost > 0 ? { gold: { decrement: BigInt(mc.goldCost) } } : {}),
+          },
         });
 
         if (result.spiesLost > 0) {
           await this.applyCasualties(tx, attackerId, 'SPY', result.spiesLost);
         }
 
-        await tx.attackLog.create({
+        const log = await tx.attackLog.create({
           data: {
             attacker_id: attackerId,
             defender_id: defenderId,
@@ -717,6 +784,7 @@ export class BattleService {
         });
 
         await this.recalculatePlayerStats(tx, attackerId);
+        return log;
       });
 
       this.eventEmitter.emit(
@@ -724,13 +792,7 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'intel', result.success),
       );
 
-      // If successful, gather intel data
-      let intelData: any = null;
-      if (result.success) {
-        intelData = this.buildIntelReport(defenderPlayer, result.revealPercent);
-      }
-
-      return { ...result, missionType: 'intel', intelData };
+      return { ...result, missionType: 'intel', intelData, attackLogId: attackLog.id };
     }
 
     if (dto.type === 'ASSASSINATE') {
@@ -740,14 +802,14 @@ export class BattleService {
 
       const result = resolveAssassination(
         attackerProfile, defenderProfile, dto.spiesSent,
-        dto.targetUnitType, DEFAULT_COMBAT_CONFIG,
+        dto.targetUnitType, config,
       );
-      logStats = { ...result, missionType: 'assassinate' };
+      const logStats = { ...result, missionType: 'assassinate' };
 
       await this.prisma.$transaction(async (tx) => {
         await tx.playerEconomy.update({
           where: { player_id: attackerId },
-          data: { attack_turns: { decrement: 1 } },
+          data: { attack_turns: { decrement: mc.turnCost } },
         });
 
         if (result.spiesLost > 0) {
@@ -783,14 +845,14 @@ export class BattleService {
 
     if (dto.type === 'INFILTRATE') {
       const result = resolveInfiltration(
-        attackerProfile, defenderProfile, dto.spiesSent, DEFAULT_COMBAT_CONFIG,
+        attackerProfile, defenderProfile, dto.spiesSent, config,
       );
-      logStats = { ...result, missionType: 'infiltrate' };
+      const logStats = { ...result, missionType: 'infiltrate' };
 
       await this.prisma.$transaction(async (tx) => {
         await tx.playerEconomy.update({
           where: { player_id: attackerId },
-          data: { attack_turns: { decrement: 1 } },
+          data: { attack_turns: { decrement: mc.turnCost } },
         });
 
         if (result.spiesLost > 0) {
@@ -835,7 +897,215 @@ export class BattleService {
       return { ...result, missionType: 'infiltrate' };
     }
 
+    if (dto.type === 'STEAL_GOLD') {
+      const result = resolveStealGold(attackerProfile, defenderProfile, dto.spiesSent, config);
+      const logStats = { ...result, missionType: 'steal_gold' };
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.playerEconomy.update({
+          where: { player_id: attackerId },
+          data: {
+            attack_turns: { decrement: mc.turnCost },
+            gold: { decrement: BigInt(mc.goldCost) },
+          },
+        });
+
+        if (result.spiesLost > 0) {
+          await this.applyCasualties(tx, attackerId, 'SPY', result.spiesLost);
+        }
+
+        if (result.goldStolen > 0) {
+          await tx.playerEconomy.update({
+            where: { player_id: attackerId },
+            data: { gold: { increment: BigInt(result.goldStolen) } },
+          });
+          await tx.playerEconomy.update({
+            where: { player_id: defenderId },
+            data: { gold: { decrement: BigInt(result.goldStolen) } },
+          });
+
+          await tx.bankHistory.create({
+            data: {
+              gold_amount: BigInt(result.goldStolen),
+              from_user_id: defenderId,
+              from_account_type: 'HAND',
+              to_user_id: attackerId,
+              to_account_type: 'HAND',
+              date_time: new Date(),
+              history_type: 'SPY_THEFT',
+            },
+          });
+        }
+
+        await tx.attackLog.create({
+          data: {
+            attacker_id: attackerId,
+            defender_id: defenderId,
+            winner: result.success ? attackerId : defenderId,
+            type: 'steal_gold',
+            timestamp: new Date(),
+            stats: JSON.stringify(logStats),
+          },
+        });
+
+        await this.recalculatePlayerStats(tx, attackerId);
+      });
+
+      this.eventEmitter.emit(
+        'combat.spy',
+        new SpyMissionExecutedEvent(attackerId, defenderId, 'steal_gold', result.success),
+      );
+
+      return { ...result, missionType: 'steal_gold', goldStolen: result.goldStolen.toString() };
+    }
+
+    if (dto.type === 'SABOTAGE') {
+      const result = resolveSabotage(attackerProfile, defenderProfile, dto.spiesSent, config);
+      const destroyedItems: { itemType: string; usage: string; level: number }[] = [];
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.playerEconomy.update({
+          where: { player_id: attackerId },
+          data: {
+            attack_turns: { decrement: mc.turnCost },
+            gold: { decrement: BigInt(mc.goldCost) },
+          },
+        });
+
+        if (result.spiesLost > 0) {
+          await this.applyCasualties(tx, attackerId, 'SPY', result.spiesLost);
+        }
+
+        if (result.success && result.itemsDestroyed > 0) {
+          // Get defender's items with qty > 0
+          const defenderItems = await tx.playerItem.findMany({
+            where: { player_id: defenderId, quantity: { gt: 0 } },
+          });
+
+          if (defenderItems.length > 0) {
+            // Randomly pick items to destroy
+            const shuffled = [...defenderItems].sort(() => Math.random() - 0.5);
+            const toDestroy = Math.min(result.itemsDestroyed, shuffled.length);
+
+            for (let i = 0; i < toDestroy; i++) {
+              const item = shuffled[i]!;
+              await tx.playerItem.update({
+                where: { id: item.id },
+                data: { quantity: { decrement: 1 } },
+              });
+              destroyedItems.push({
+                itemType: item.item_type,
+                usage: item.usage,
+                level: item.level,
+              });
+            }
+          }
+
+          await this.recalculatePlayerStats(tx, defenderId);
+        }
+
+        await tx.attackLog.create({
+          data: {
+            attacker_id: attackerId,
+            defender_id: defenderId,
+            winner: result.success ? attackerId : defenderId,
+            type: 'sabotage',
+            timestamp: new Date(),
+            stats: JSON.stringify({ ...result, missionType: 'sabotage', destroyedItems }),
+          },
+        });
+
+        await this.recalculatePlayerStats(tx, attackerId);
+      });
+
+      this.eventEmitter.emit(
+        'combat.spy',
+        new SpyMissionExecutedEvent(attackerId, defenderId, 'sabotage', result.success),
+      );
+
+      return { ...result, missionType: 'sabotage', destroyedItems };
+    }
+
     throw new BadRequestException('Invalid spy mission type');
+  }
+
+  // ─── Alliance Intel Sharing ─────────────────────────────────────────
+
+  async shareIntelWithAlliance(playerId: string, attackLogId: number) {
+    const log = await this.prisma.attackLog.findUnique({
+      where: { id: attackLogId },
+    });
+
+    if (!log) throw new NotFoundException('Attack log not found');
+    if (log.attacker_id !== playerId) throw new ForbiddenException('You are not the attacker');
+    if (log.type !== 'intel') throw new BadRequestException('Only intel reports can be shared');
+    if (log.winner !== playerId) throw new BadRequestException('Only successful intel missions can be shared');
+
+    // Find player's alliance
+    const membership = await this.prisma.allianceMembership.findFirst({
+      where: { user_id: playerId },
+      select: { alliance_id: true },
+    });
+
+    if (!membership) throw new BadRequestException('You are not in an alliance');
+
+    // Check not already shared
+    const existing = await this.prisma.allianceIntel.findFirst({
+      where: { attack_log_id: attackLogId },
+    });
+    if (existing) throw new BadRequestException('This intel has already been shared');
+
+    // Parse log stats for intel data and reveal percent
+    let parsedStats: any = {};
+    try { parsedStats = JSON.parse(log.stats); } catch { /* ignore */ }
+
+    const revealPercent = parsedStats.revealPercent ?? 0;
+    const intelData = parsedStats.intelData ?? {};
+
+    await this.prisma.allianceIntel.create({
+      data: {
+        alliance_id: membership.alliance_id,
+        target_id: log.defender_id,
+        spied_by_id: playerId,
+        attack_log_id: attackLogId,
+        reveal_percent: revealPercent,
+        intel_data: JSON.stringify(intelData),
+      },
+    });
+
+    return { success: true, message: 'Intel shared with alliance' };
+  }
+
+  async getAllianceIntelForTarget(playerId: string, targetId: string) {
+    const membership = await this.prisma.allianceMembership.findFirst({
+      where: { user_id: playerId },
+      select: { alliance_id: true },
+    });
+
+    if (!membership) return null;
+
+    const intel = await this.prisma.allianceIntel.findFirst({
+      where: {
+        alliance_id: membership.alliance_id,
+        target_id: targetId,
+      },
+      orderBy: { created_at: 'desc' },
+      include: {
+        spied_by: { select: { display_name: true } },
+      },
+    });
+
+    if (!intel) return null;
+
+    let parsedIntel: any = {};
+    try { parsedIntel = JSON.parse(intel.intel_data); } catch { /* ignore */ }
+
+    return {
+      spiedByName: intel.spied_by.display_name,
+      spiedAt: intel.created_at,
+      revealPercent: intel.reveal_percent,
+      intelData: parsedIntel,
+    };
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────

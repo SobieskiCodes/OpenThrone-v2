@@ -10,12 +10,14 @@ import {
   detailedRankingsQuerySchema,
   attackSchema,
   spyMissionSchema,
+  shareIntelSchema,
   BattlePlayersQueryDto,
   BattleRankingsQueryDto,
   BattleHistoryQueryDto,
   DetailedRankingsQueryDto,
   AttackDto,
   SpyMissionDto,
+  ShareIntelDto,
 } from '@openthrone/shared';
 import type { RankingCategory, RankingPeriod } from './rankings.service';
 
@@ -36,6 +38,7 @@ export class BattleController {
 
   @Get('rankings/detailed')
   async getDetailedRankings(
+    @CurrentPlayer() player: any,
     @Query(new ZodValidationPipe(detailedRankingsQuerySchema)) query: DetailedRankingsQueryDto,
   ) {
     return this.rankingsService.getRankings(
@@ -49,9 +52,10 @@ export class BattleController {
 
   @Get('rankings')
   async getRankings(
+    @CurrentPlayer() player: any,
     @Query(new ZodValidationPipe(battleRankingsQuerySchema)) query: BattleRankingsQueryDto,
   ) {
-    return this.battleService.getRankings(query);
+    return this.battleService.getRankings(query, player.id);
   }
 
   @Get('history')
@@ -60,6 +64,23 @@ export class BattleController {
     @Query(new ZodValidationPipe(battleHistoryQuerySchema)) query: BattleHistoryQueryDto,
   ) {
     return this.battleService.getHistory(player.id, query);
+  }
+
+  // Static intel routes MUST be before parameterized routes
+  @Post('intel/share')
+  async shareIntel(
+    @CurrentPlayer() player: any,
+    @Body(new ZodValidationPipe(shareIntelSchema)) dto: ShareIntelDto,
+  ) {
+    return this.battleService.shareIntelWithAlliance(player.id, dto.attackLogId);
+  }
+
+  @Get('intel/alliance/:targetId')
+  async getAllianceIntel(
+    @CurrentPlayer() player: any,
+    @Param('targetId') targetId: string,
+  ) {
+    return this.battleService.getAllianceIntelForTarget(player.id, targetId);
   }
 
   @Get('history/:id')
