@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { ItemEquippedEvent, ItemUnequippedEvent } from '@openthrone/events';
-import { ItemTypes, getItemDefinition } from '@openthrone/game-logic';
+import { ItemTypes, getItemDefinition, calculateFullStats } from '@openthrone/game-logic';
 import {
   ItemType,
   ItemUsage,
@@ -21,7 +21,7 @@ export class ArmoryService {
   ) {}
 
   async getArmoryStatus(playerId: string) {
-    const [economy, items, player, structureUpgrades, bonusPoints] =
+    const [economy, items, player, structureUpgrades, bonusPoints, units, battleUpgrades, fortification] =
       await Promise.all([
         this.prisma.playerEconomy.findUnique({
           where: { player_id: playerId },
@@ -29,7 +29,7 @@ export class ArmoryService {
         this.prisma.playerItem.findMany({ where: { player_id: playerId } }),
         this.prisma.player.findUnique({
           where: { id: playerId },
-          select: { race: true },
+          select: { race: true, player_class: true },
         }),
         this.prisma.playerStructureUpgrade.findMany({
           where: { player_id: playerId },
@@ -37,6 +37,9 @@ export class ArmoryService {
         this.prisma.playerBonusPoint.findMany({
           where: { player_id: playerId },
         }),
+        this.prisma.playerUnit.findMany({ where: { player_id: playerId } }),
+        this.prisma.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
+        this.prisma.playerFortification.findUnique({ where: { player_id: playerId } }),
       ]);
 
     if (!economy) throw new BadRequestException('Player economy not found');
@@ -58,6 +61,19 @@ export class ArmoryService {
 
     const playerRace = player?.race ?? 'ALL';
 
+    // Calculate stats for live display
+    const statsInput = {
+      race: player?.race ?? 'HUMAN',
+      playerClass: player?.player_class ?? 'FIGHTER',
+      fortLevel: fortification?.fort_level ?? 1,
+      units: units.map((u) => ({ unitType: u.unit_type, level: u.level, quantity: u.quantity })),
+      items: items.map((i) => ({ itemType: i.item_type, usage: i.usage, level: i.level, quantity: i.quantity })),
+      battleUpgrades: battleUpgrades.map((b) => ({ upgradeType: b.upgrade_type, level: b.level, quantity: b.quantity })),
+      bonusPoints: bonusPoints.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),
+      structureUpgrades: structureUpgrades.map((su) => ({ upgradeType: su.upgrade_type, level: su.level })),
+    };
+    const stats = calculateFullStats(statsInput);
+
     return {
       gold: economy.gold.toString(),
       goldInBank: economy.gold_in_bank.toString(),
@@ -71,6 +87,17 @@ export class ArmoryService {
         level: i.level,
         quantity: i.quantity,
       })),
+      units: units.map((u) => ({
+        unitType: u.unit_type,
+        level: u.level,
+        quantity: u.quantity,
+      })),
+      stats: {
+        offense: stats.offense.total,
+        defense: stats.defense.total,
+        spy: stats.spy.total,
+        sentry: stats.sentry.total,
+      },
       itemDefinitions: ItemTypes,
     };
   }
@@ -83,7 +110,7 @@ export class ArmoryService {
           tx.playerItem.findMany({ where: { player_id: playerId } }),
           tx.player.findUnique({
             where: { id: playerId },
-            select: { race: true },
+            select: { race: true, player_class: true },
           }),
           tx.playerStructureUpgrade.findMany({
             where: { player_id: playerId },
@@ -211,10 +238,28 @@ export class ArmoryService {
         },
       });
 
-      // Fetch updated items
-      const updatedItems = await tx.playerItem.findMany({
-        where: { player_id: playerId },
-      });
+      // Fetch updated items and recalculate stats
+      const [updatedItems, updatedUnits, updatedBattleUpgrades, updatedBonusPoints, updatedStructureUpgrades, updatedFort] =
+        await Promise.all([
+          tx.playerItem.findMany({ where: { player_id: playerId } }),
+          tx.playerUnit.findMany({ where: { player_id: playerId } }),
+          tx.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
+          tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
+          tx.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
+          tx.playerFortification.findUnique({ where: { player_id: playerId } }),
+        ]);
+
+      const updatedStatsInput = {
+        race: player?.race ?? 'HUMAN',
+        playerClass: player?.player_class ?? 'FIGHTER',
+        fortLevel: updatedFort?.fort_level ?? 1,
+        units: updatedUnits.map((u) => ({ unitType: u.unit_type, level: u.level, quantity: u.quantity })),
+        items: updatedItems.map((i) => ({ itemType: i.item_type, usage: i.usage, level: i.level, quantity: i.quantity })),
+        battleUpgrades: updatedBattleUpgrades.map((b) => ({ upgradeType: b.upgrade_type, level: b.level, quantity: b.quantity })),
+        bonusPoints: updatedBonusPoints.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),
+        structureUpgrades: updatedStructureUpgrades.map((su) => ({ upgradeType: su.upgrade_type, level: su.level })),
+      };
+      const updatedStats = calculateFullStats(updatedStatsInput);
 
       return {
         gold: newGold.toString(),
@@ -225,6 +270,12 @@ export class ArmoryService {
           level: i.level,
           quantity: i.quantity,
         })),
+        stats: {
+          offense: updatedStats.offense.total,
+          defense: updatedStats.defense.total,
+          spy: updatedStats.spy.total,
+          sentry: updatedStats.sentry.total,
+        },
       };
     });
 
@@ -245,10 +296,11 @@ export class ArmoryService {
 
   async unequip(playerId: string, dto: UnequipItemDto) {
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, items, bonusPoints] = await Promise.all([
+      const [economy, items, bonusPoints, player] = await Promise.all([
         tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
         tx.playerItem.findMany({ where: { player_id: playerId } }),
         tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
+        tx.player.findUnique({ where: { id: playerId }, select: { race: true, player_class: true } }),
       ]);
 
       if (!economy) throw new BadRequestException('Player economy not found');
@@ -331,10 +383,28 @@ export class ArmoryService {
         },
       });
 
-      // Fetch updated items
-      const updatedItems = await tx.playerItem.findMany({
-        where: { player_id: playerId },
-      });
+      // Fetch updated items and recalculate stats
+      const [updatedItems, updatedUnits, updatedBattleUpgrades, updatedBonusPoints, updatedStructureUpgrades, updatedFort] =
+        await Promise.all([
+          tx.playerItem.findMany({ where: { player_id: playerId } }),
+          tx.playerUnit.findMany({ where: { player_id: playerId } }),
+          tx.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
+          tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
+          tx.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
+          tx.playerFortification.findUnique({ where: { player_id: playerId } }),
+        ]);
+
+      const updatedStatsInput = {
+        race: player?.race ?? 'HUMAN',
+        playerClass: player?.player_class ?? 'FIGHTER',
+        fortLevel: updatedFort?.fort_level ?? 1,
+        units: updatedUnits.map((u) => ({ unitType: u.unit_type, level: u.level, quantity: u.quantity })),
+        items: updatedItems.map((i) => ({ itemType: i.item_type, usage: i.usage, level: i.level, quantity: i.quantity })),
+        battleUpgrades: updatedBattleUpgrades.map((b) => ({ upgradeType: b.upgrade_type, level: b.level, quantity: b.quantity })),
+        bonusPoints: updatedBonusPoints.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),
+        structureUpgrades: updatedStructureUpgrades.map((su) => ({ upgradeType: su.upgrade_type, level: su.level })),
+      };
+      const updatedStats = calculateFullStats(updatedStatsInput);
 
       return {
         gold: newGold.toString(),
@@ -345,6 +415,12 @@ export class ArmoryService {
           level: i.level,
           quantity: i.quantity,
         })),
+        stats: {
+          offense: updatedStats.offense.total,
+          defense: updatedStats.defense.total,
+          spy: updatedStats.spy.total,
+          sentry: updatedStats.sentry.total,
+        },
       };
     });
 

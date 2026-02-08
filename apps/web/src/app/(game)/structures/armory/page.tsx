@@ -13,19 +13,27 @@ import {
   Badge,
   Tabs,
   Paper,
+  Progress,
+  SimpleGrid,
 } from '@mantine/core';
 import { OTCard } from '@/components/ui';
 import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
-import { toLocale } from '@openthrone/game-logic';
+import { toLocale, getUnitByTypeAndLevel } from '@openthrone/game-logic';
 import type { ItemDefinition } from '@openthrone/shared';
-import { ItemUsage, ItemType } from '@openthrone/shared';
+import { ItemUsage, ItemType, UnitType } from '@openthrone/shared';
 
 interface ItemEntry {
   itemType: string;
   usage: string;
+  level: number;
+  quantity: number;
+}
+
+interface UnitEntry {
+  unitType: string;
   level: number;
   quantity: number;
 }
@@ -38,6 +46,13 @@ interface ArmoryStatus {
   pricesBonusLevel: number;
   playerRace: string;
   items: ItemEntry[];
+  units: UnitEntry[];
+  stats: {
+    offense: number;
+    defense: number;
+    spy: number;
+    sentry: number;
+  };
   itemDefinitions: ItemDefinition[];
 }
 
@@ -55,6 +70,13 @@ const STAT_LABELS: Record<string, string> = {
   SENTRY: 'SENTRY',
 };
 
+const STAT_COLORS: Record<string, string> = {
+  OFFENSE: 'red',
+  DEFENSE: 'blue',
+  SPY: 'grape',
+  SENTRY: 'teal',
+};
+
 const USAGE_ORDER = [
   ItemUsage.OFFENSE,
   ItemUsage.DEFENSE,
@@ -68,6 +90,14 @@ const ITEM_TYPE_LABELS: Record<string, string> = {
 };
 
 const ITEM_TYPE_ORDER = [ItemType.WEAPON, ItemType.ARMOR];
+
+/** Maps usage to the unit type it equips */
+const USAGE_TO_UNIT: Record<string, string> = {
+  OFFENSE: UnitType.OFFENSE,
+  DEFENSE: UnitType.DEFENSE,
+  SPY: UnitType.SPY,
+  SENTRY: UnitType.SENTRY,
+};
 
 export default function ArmoryPage() {
   const { api, isReady } = useApi();
@@ -142,16 +172,26 @@ export default function ArmoryPage() {
       .filter((i) => i.usage === usage)
       .reduce((sum, i) => sum + i.quantity, 0);
 
+  /** Total items of a given usage and item type */
+  const getTotalByUsageAndType = (usage: string, itemType: string): number =>
+    status.items
+      .filter((i) => i.usage === usage && i.itemType === itemType)
+      .reduce((sum, i) => sum + i.quantity, 0);
+
+  /** Total units of a given unit type */
+  const getTotalUnits = (unitType: string): number =>
+    status.units
+      .filter((u) => u.unitType === unitType)
+      .reduce((sum, u) => sum + u.quantity, 0);
+
   const getDiscountedCost = (cost: number) =>
     cost - Math.ceil((pricesBonusLevel / 100) * cost);
 
-  /** Get the building level that gates this usage type */
   const getBuildingLevel = (usage: string): number =>
     usage === ItemUsage.SPY || usage === ItemUsage.SENTRY
       ? spyAcademyLevel
       : armoryLevel;
 
-  /** Get the building name for locked badge */
   const getBuildingName = (usage: string): string =>
     usage === ItemUsage.SPY || usage === ItemUsage.SENTRY
       ? 'Spy Academy'
@@ -180,6 +220,25 @@ export default function ArmoryPage() {
   const statLabel = STAT_LABELS[selectedUsage] || selectedUsage;
   const buildingLevel = getBuildingLevel(selectedUsage);
   const buildingName = getBuildingName(selectedUsage);
+
+  // ── Coverage calculations for selected usage ──
+  const unitType = USAGE_TO_UNIT[selectedUsage] || '';
+  const totalUnits = getTotalUnits(unitType);
+  const totalWeapons = getTotalByUsageAndType(selectedUsage, ItemType.WEAPON);
+  const totalArmor = getTotalByUsageAndType(selectedUsage, ItemType.ARMOR);
+  const weaponCoverage = totalUnits > 0 ? Math.min(100, Math.round((totalWeapons / totalUnits) * 100)) : 0;
+  const armorCoverage = totalUnits > 0 ? Math.min(100, Math.round((totalArmor / totalUnits) * 100)) : 0;
+  const unitsWithoutWeapons = Math.max(0, totalUnits - totalWeapons);
+  const unitsWithoutArmor = Math.max(0, totalUnits - totalArmor);
+
+  // Unit breakdown by tier for selected usage
+  const unitBreakdown = status.units
+    .filter((u) => u.unitType === unitType && u.quantity > 0)
+    .map((u) => {
+      const def = getUnitByTypeAndLevel(u.unitType as UnitType, u.level);
+      return { name: def?.name ?? `${u.unitType} Lv${u.level}`, level: u.level, quantity: u.quantity };
+    })
+    .sort((a, b) => b.level - a.level);
 
   const renderItemTable = (itemType: ItemType) => {
     const defs = getFilteredDefs(selectedUsage, itemType);
@@ -295,31 +354,65 @@ export default function ArmoryPage() {
       <Stack gap="md">
         <Title order={2}>Armory</Title>
 
-        {/* Resource summary */}
-        <OTCard>
-          <Group justify="space-between" wrap="wrap" gap="md">
-            <Stack gap={4}>
-              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
-              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
+        {/* ── Live Stats + Gold Panel ──────────────────── */}
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+          <OTCard>
+            <Stack gap="sm">
+              <Text size="xs" fw={600} tt="uppercase" style={{ color: 'var(--ot-text-dim)', letterSpacing: '0.05em' }}>
+                Combat Stats
+              </Text>
+              <SimpleGrid cols={2} spacing="xs">
+                {USAGE_ORDER.map((usage) => {
+                  const statKey = usage.toLowerCase() as 'offense' | 'defense' | 'spy' | 'sentry';
+                  const val = status.stats[statKey];
+                  return (
+                    <Paper key={usage} p="xs" withBorder>
+                      <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>{USAGE_LABELS[usage]}</Text>
+                      <Text fw={700} size="lg" style={{ color: `var(--mantine-color-${STAT_COLORS[usage]}-6)` }}>
+                        {toLocale(val)}
+                      </Text>
+                    </Paper>
+                  );
+                })}
+              </SimpleGrid>
             </Stack>
-            <Stack gap={4}>
-              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Armory Level</Text>
-              <Text fw={700} size="lg" className="ot-stat-value">{armoryLevel}</Text>
-            </Stack>
-            <Stack gap={4}>
-              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Spy Academy Level</Text>
-              <Text fw={700} size="lg" className="ot-stat-value">{spyAcademyLevel}</Text>
-            </Stack>
-            {pricesBonusLevel > 0 && (
-              <Stack gap={4}>
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Price Discount</Text>
-                <Text fw={700} size="lg" c="green">-{pricesBonusLevel}%</Text>
-              </Stack>
-            )}
-          </Group>
-        </OTCard>
+          </OTCard>
 
-        {/* Usage tabs */}
+          <OTCard>
+            <Stack gap="sm">
+              <Text size="xs" fw={600} tt="uppercase" style={{ color: 'var(--ot-text-dim)', letterSpacing: '0.05em' }}>
+                Resources & Buildings
+              </Text>
+              <SimpleGrid cols={2} spacing="xs">
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+                  <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
+                </Paper>
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Armory Level</Text>
+                  <Text fw={700} size="lg" className="ot-stat-value">{armoryLevel}</Text>
+                </Paper>
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Spy Academy</Text>
+                  <Text fw={700} size="lg" className="ot-stat-value">{spyAcademyLevel}</Text>
+                </Paper>
+                {pricesBonusLevel > 0 ? (
+                  <Paper p="xs" withBorder>
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Price Discount</Text>
+                    <Text fw={700} size="lg" c="green">-{pricesBonusLevel}%</Text>
+                  </Paper>
+                ) : (
+                  <Paper p="xs" withBorder>
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Price Discount</Text>
+                    <Text fw={700} size="lg" className="ot-stat-value">None</Text>
+                  </Paper>
+                )}
+              </SimpleGrid>
+            </Stack>
+          </OTCard>
+        </SimpleGrid>
+
+        {/* ── Usage Tabs ──────────────────────────────── */}
         <Tabs
           value={selectedUsage}
           onChange={(val) => {
@@ -329,12 +422,19 @@ export default function ArmoryPage() {
         >
           <Tabs.List>
             {USAGE_ORDER.map((usage) => {
-              const total = getTotalEquipped(usage);
+              const ut = USAGE_TO_UNIT[usage] || '';
+              const unitCount = getTotalUnits(ut);
+              const itemCount = getTotalEquipped(usage);
               return (
                 <Tabs.Tab key={usage} value={usage}>
                   {USAGE_LABELS[usage] || usage}
-                  {total > 0 && (
-                    <Badge size="xs" variant="light" ml={6}>{toLocale(total)}</Badge>
+                  <Badge size="xs" variant="light" ml={6}>
+                    {toLocale(unitCount)} unit{unitCount !== 1 ? 's' : ''}
+                  </Badge>
+                  {itemCount > 0 && (
+                    <Badge size="xs" variant="light" color="green" ml={4}>
+                      {toLocale(itemCount)} items
+                    </Badge>
                   )}
                 </Tabs.Tab>
               );
@@ -342,7 +442,80 @@ export default function ArmoryPage() {
           </Tabs.List>
         </Tabs>
 
-        {/* Item tables by type */}
+        {/* ── Equipment Coverage Panel ────────────────── */}
+        <OTCard>
+          <Stack gap="sm">
+            <Group justify="space-between">
+              <Text fw={600} size="sm">{USAGE_LABELS[selectedUsage]} Equipment Coverage</Text>
+              <Badge variant="light" color={STAT_COLORS[selectedUsage]}>
+                {toLocale(totalUnits)} {USAGE_LABELS[selectedUsage]} Units
+              </Badge>
+            </Group>
+
+            {totalUnits === 0 ? (
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                No {USAGE_LABELS[selectedUsage]?.toLowerCase()} units trained. Train units first to equip them.
+              </Text>
+            ) : (
+              <>
+                {/* Unit breakdown by tier */}
+                {unitBreakdown.length > 0 && (
+                  <Group gap="xs" wrap="wrap">
+                    {unitBreakdown.map((u) => (
+                      <Badge key={u.level} variant="outline" size="sm" color={STAT_COLORS[selectedUsage]}>
+                        {toLocale(u.quantity)} {u.name}
+                      </Badge>
+                    ))}
+                  </Group>
+                )}
+
+                {/* Weapon coverage bar */}
+                <Stack gap={4}>
+                  <Group justify="space-between">
+                    <Text size="xs" fw={500}>Weapons</Text>
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                      {toLocale(totalWeapons)} / {toLocale(totalUnits)} ({weaponCoverage}%)
+                    </Text>
+                  </Group>
+                  <Progress
+                    value={weaponCoverage}
+                    color={weaponCoverage >= 100 ? 'green' : weaponCoverage >= 50 ? 'yellow' : 'red'}
+                    size="md"
+                    radius="xl"
+                  />
+                  {unitsWithoutWeapons > 0 && (
+                    <Text size="xs" style={{ color: 'var(--ot-warning)' }}>
+                      {toLocale(unitsWithoutWeapons)} unit{unitsWithoutWeapons !== 1 ? 's' : ''} without weapons
+                    </Text>
+                  )}
+                </Stack>
+
+                {/* Armor coverage bar */}
+                <Stack gap={4}>
+                  <Group justify="space-between">
+                    <Text size="xs" fw={500}>Armor</Text>
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                      {toLocale(totalArmor)} / {toLocale(totalUnits)} ({armorCoverage}%)
+                    </Text>
+                  </Group>
+                  <Progress
+                    value={armorCoverage}
+                    color={armorCoverage >= 100 ? 'green' : armorCoverage >= 50 ? 'yellow' : 'red'}
+                    size="md"
+                    radius="xl"
+                  />
+                  {unitsWithoutArmor > 0 && (
+                    <Text size="xs" style={{ color: 'var(--ot-warning)' }}>
+                      {toLocale(unitsWithoutArmor)} unit{unitsWithoutArmor !== 1 ? 's' : ''} without armor
+                    </Text>
+                  )}
+                </Stack>
+              </>
+            )}
+          </Stack>
+        </OTCard>
+
+        {/* ── Item Tables by Type ─────────────────────── */}
         <Paper withBorder p="md">
           <Title order={4} mb="sm">
             {USAGE_LABELS[selectedUsage]} Equipment
