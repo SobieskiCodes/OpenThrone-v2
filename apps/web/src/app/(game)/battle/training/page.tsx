@@ -133,7 +133,7 @@ export default function TrainingPage() {
     const units: Array<{ unitType: string; level: number; quantity: number }> = [];
     for (const [key, qty] of Object.entries(quantities)) {
       if (qty > 0) {
-        const [unitType, levelStr] = key.split('_');
+        const [unitType = '', levelStr = '1'] = key.split('_');
         units.push({ unitType, level: parseInt(levelStr, 10), quantity: qty });
       }
     }
@@ -144,7 +144,7 @@ export default function TrainingPage() {
     let total = 0;
     for (const [key, qty] of Object.entries(quantities)) {
       if (qty > 0) {
-        const [unitType, levelStr] = key.split('_');
+        const [unitType = '', levelStr = '1'] = key.split('_');
         const level = parseInt(levelStr, 10);
         const def = status.unitDefinitions.find(
           (d) => d.type === unitType && d.level === level,
@@ -161,7 +161,7 @@ export default function TrainingPage() {
     let total = 0;
     for (const [key, qty] of Object.entries(quantities)) {
       if (qty > 0) {
-        const [unitType, levelStr] = key.split('_');
+        const [unitType = '', levelStr = '1'] = key.split('_');
         const level = parseInt(levelStr, 10);
         const def = status.unitDefinitions.find(
           (d) => d.type === unitType && d.level === level,
@@ -199,10 +199,11 @@ export default function TrainingPage() {
     if (defs.length === 0) return null;
 
     return (
-      <Paper withBorder p="md" key={unitType}>
+      <Paper withBorder p="md" key={unitType} className="ot-card">
         <Title order={4} mb="sm">
           {UNIT_TYPE_LABELS[unitType] || unitType}
         </Title>
+        <div className="ot-table-scroll">
         <Table striped>
           <Table.Thead>
             <Table.Tr>
@@ -273,6 +274,7 @@ export default function TrainingPage() {
             })}
           </Table.Tbody>
         </Table>
+        </div>
       </Paper>
     );
   };
@@ -294,23 +296,23 @@ export default function TrainingPage() {
         )}
 
         {/* Resource summary */}
-        <Paper withBorder p="md">
-          <Group justify="space-between">
+        <Paper withBorder p="md" className="ot-card">
+          <Group justify="space-between" wrap="wrap" gap="md">
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Untrained Citizens</Text>
-              <Text fw={700} size="lg">{toLocale(citizens)}</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Untrained Citizens</Text>
+              <Text fw={700} size="lg" style={{ color: 'var(--ot-race-primary)' }}>{toLocale(citizens)}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Gold on Hand</Text>
-              <Text fw={700} size="lg">{toLocale(gold)}</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Gold in Bank</Text>
-              <Text fw={700} size="lg">{toLocale(goldInBank)}</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold in Bank</Text>
+              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(goldInBank)}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Fort Level</Text>
-              <Text fw={700} size="lg">{fortLevel}</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Fort Level</Text>
+              <Text fw={700} size="lg" className="ot-stat-value">{fortLevel}</Text>
             </Stack>
           </Group>
         </Paper>
@@ -335,13 +337,13 @@ export default function TrainingPage() {
         {UNIT_TYPE_ORDER.map((type) => renderUnitSection(type))}
 
         {/* Action bar */}
-        <Paper withBorder p="md">
-          <Group justify="space-between" align="center">
+        <Paper withBorder p="md" className="ot-card">
+          <Group justify="space-between" align="center" wrap="wrap" gap="md">
             <Stack gap={4}>
               {mode === 'train' ? (
                 <>
                   <Text size="sm">
-                    Total Cost: <Text component="span" fw={700}>{toLocale(totalCost)}</Text> gold
+                    Total Cost: <Text component="span" fw={700} className="ot-stat-value">{toLocale(totalCost)}</Text> gold
                   </Text>
                   <Text size="sm">
                     Citizens needed: <Text component="span" fw={700}>{toLocale(totalQuantity)}</Text>

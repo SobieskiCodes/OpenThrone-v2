@@ -55,12 +55,15 @@ export default function LoginPage() {
   };
 
   return (
-    <Paper withBorder shadow="md" p="xl" radius="md">
+    <Paper className="ot-auth-card" shadow="lg" p="xl" radius="sm">
       <form onSubmit={handleSubmit}>
         <Stack>
-          <Title order={2} ta="center">
-            Welcome back
+          <Title order={1} ta="center" style={{ color: 'var(--ot-gold)' }}>
+            OpenThrone
           </Title>
+          <Text ta="center" size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+            Welcome back, ruler
+          </Text>
 
           {error && (
             <Alert color="red" variant="light">
@@ -86,9 +89,9 @@ export default function LoginPage() {
           <Button type="submit" fullWidth loading={loading}>
             Sign in
           </Button>
-          <Text c="dimmed" size="sm" ta="center">
+          <Text size="sm" ta="center" style={{ color: 'var(--ot-text-dim)' }}>
             Don&apos;t have an account?{' '}
-            <Anchor component={Link} href="/register" size="sm">
+            <Anchor component={Link} href="/register" size="sm" style={{ color: 'var(--ot-gold)' }}>
               Register
             </Anchor>
           </Text>

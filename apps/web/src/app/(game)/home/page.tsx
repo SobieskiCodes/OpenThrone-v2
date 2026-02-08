@@ -15,6 +15,7 @@ import {
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
+import { useRaceTheme } from '@/context/race-theme';
 import {
   getFortificationByLevel,
   getLevelForXP,
@@ -129,6 +130,7 @@ function CitizensTooltipContent({ bd }: { bd: CitizensPerDayBreakdown }) {
 
 export default function DashboardPage() {
   const { api, isReady } = useApi();
+  const { colorName } = useRaceTheme();
 
   const { data: player, isLoading } = useQuery<PlayerData>({
     queryKey: ['player', 'me'],
@@ -149,7 +151,7 @@ export default function DashboardPage() {
           <Skeleton height={40} width={300} />
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} height={180} radius="md" />
+              <Skeleton key={i} height={180} radius="sm" />
             ))}
           </SimpleGrid>
         </Stack>
@@ -180,7 +182,6 @@ export default function DashboardPage() {
 
   const totalUnits = player.units?.reduce((sum, u) => sum + u.quantity, 0) ?? 0;
 
-  // Use breakdown totals for display (live-calculated), fallback to stored stats
   const offense = breakdown?.offense.total ?? player.stats?.offense ?? 0;
   const defense = breakdown?.defense.total ?? player.stats?.defense ?? 0;
   const spy = breakdown?.spy.total ?? player.stats?.spy ?? 0;
@@ -194,37 +195,37 @@ export default function DashboardPage() {
         <Group justify="space-between" align="center">
           <Title order={2}>{player.displayName}&apos;s Kingdom</Title>
           <Group gap="xs">
-            <Badge variant="light" color="blue">
+            <Badge variant="light" color={colorName}>
               {player.race}
             </Badge>
-            <Badge variant="light" color="grape">
+            <Badge variant="light" color="ot">
               {player.class}
             </Badge>
           </Group>
         </Group>
 
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" className="ot-stagger">
           {/* Kingdom Overview */}
-          <Paper withBorder p="md" radius="md">
+          <Paper withBorder p="md" className="ot-card">
             <Stack gap="sm">
               <Title order={4}>Kingdom Overview</Title>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Level
                 </Text>
-                <Text fw={600}>{level}</Text>
+                <Text fw={600} className="ot-stat-value">{level}</Text>
               </Group>
               <div>
                 <Group justify="space-between" mb={4}>
-                  <Text size="xs" c="dimmed">
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
                     XP Progress
                   </Text>
-                  <Text size="xs" c="dimmed">
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
                     {toLocale(experience)} / {toLocale(nextLevelXP || experience)}
                   </Text>
                 </Group>
-                <Progress value={xpProgress} size="sm" color="blue" />
-                <Text size="xs" c="dimmed" mt={4}>
+                <Progress value={xpProgress} size="sm" color={colorName} />
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }} mt={4}>
                   {toLocale(xpToNext)} XP to next level
                 </Text>
               </div>
@@ -232,39 +233,38 @@ export default function DashboardPage() {
           </Paper>
 
           {/* Economy */}
-          <Paper withBorder p="md" radius="md">
+          <Paper withBorder p="md" className="ot-card">
             <Stack gap="sm">
               <Title order={4}>Economy</Title>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Gold
                 </Text>
-                <Text fw={600}>{toLocale(gold)}</Text>
+                <Text fw={600} className="ot-stat-value">{toLocale(gold)}</Text>
               </Group>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Gold in Bank
                 </Text>
-                <Text fw={600}>{toLocale(goldInBank)}</Text>
+                <Text fw={600} className="ot-stat-value">{toLocale(goldInBank)}</Text>
               </Group>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Attack Turns
                 </Text>
-                <Text fw={600}>{toLocale(attackTurns)}</Text>
+                <Text fw={600} style={{ color: 'var(--ot-race-primary)' }}>{toLocale(attackTurns)}</Text>
               </Group>
               <Tooltip
                 label={breakdown?.goldPerTurn ? <GoldTooltipContent bd={breakdown.goldPerTurn} /> : 'Loading...'}
                 multiline
                 w={220}
-                withArrow
               >
                 <Group justify="space-between" style={{ cursor: 'help' }}>
-                  <Text size="sm" c="dimmed" td="underline" style={{ textDecorationStyle: 'dotted' }}>
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
                     Gold Per Turn
                   </Text>
-                  <Text fw={600} c="green">
-                    {toLocale(goldPerTurn)}
+                  <Text fw={600} style={{ color: 'var(--ot-success)' }}>
+                    +{toLocale(goldPerTurn)}
                   </Text>
                 </Group>
               </Tooltip>
@@ -272,14 +272,13 @@ export default function DashboardPage() {
                 label={breakdown?.citizensPerDay ? <CitizensTooltipContent bd={breakdown.citizensPerDay} /> : 'Loading...'}
                 multiline
                 w={220}
-                withArrow
               >
                 <Group justify="space-between" style={{ cursor: 'help' }}>
-                  <Text size="sm" c="dimmed" td="underline" style={{ textDecorationStyle: 'dotted' }}>
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
                     Citizens Per Day
                   </Text>
-                  <Text fw={600} c="teal">
-                    {toLocale(citizensPerDay)}
+                  <Text fw={600} style={{ color: 'var(--ot-race-primary)' }}>
+                    +{toLocale(citizensPerDay)}
                   </Text>
                 </Group>
               </Tooltip>
@@ -287,7 +286,7 @@ export default function DashboardPage() {
           </Paper>
 
           {/* Military Summary */}
-          <Paper withBorder p="md" radius="md">
+          <Paper withBorder p="md" className="ot-card">
             <Stack gap="sm">
               <Title order={4}>Military Summary</Title>
               {(['offense', 'defense', 'spy', 'sentry'] as const).map((stat) => {
@@ -300,13 +299,12 @@ export default function DashboardPage() {
                     label={bd ? <StatTooltipContent label={label} bd={bd} /> : 'Loading...'}
                     multiline
                     w={220}
-                    withArrow
                   >
                     <Group justify="space-between" style={{ cursor: 'help' }}>
-                      <Text size="sm" c="dimmed" td="underline" style={{ textDecorationStyle: 'dotted' }}>
+                      <Text size="sm" style={{ color: 'var(--ot-text-dim)', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
                         {label}
                       </Text>
-                      <Text fw={600}>{toLocale(value)}</Text>
+                      <Text fw={600} className="ot-stat-value">{toLocale(value)}</Text>
                     </Group>
                   </Tooltip>
                 );
@@ -315,18 +313,18 @@ export default function DashboardPage() {
           </Paper>
 
           {/* Population */}
-          <Paper withBorder p="md" radius="md">
+          <Paper withBorder p="md" className="ot-card">
             <Stack gap="sm">
               <Title order={4}>Population</Title>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Total Units
                 </Text>
-                <Text fw={600}>{toLocale(totalUnits)}</Text>
+                <Text fw={600} className="ot-stat-value">{toLocale(totalUnits)}</Text>
               </Group>
               {player.units?.map((unit) => (
                 <Group key={unit.unitType} justify="space-between">
-                  <Text size="sm" c="dimmed">
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                     {unit.unitType}
                   </Text>
                   <Text size="sm">{toLocale(unit.quantity)}</Text>
@@ -336,23 +334,23 @@ export default function DashboardPage() {
           </Paper>
 
           {/* Fort */}
-          <Paper withBorder p="md" radius="md">
+          <Paper withBorder p="md" className="ot-card">
             <Stack gap="sm">
               <Title order={4}>Fortification</Title>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Fort
                 </Text>
-                <Text fw={600}>
+                <Text fw={600} className="ot-stat-value">
                   {fortName} (Level {fortLevel})
                 </Text>
               </Group>
               <div>
                 <Group justify="space-between" mb={4}>
-                  <Text size="xs" c="dimmed">
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
                     Hitpoints
                   </Text>
-                  <Text size="xs" c="dimmed">
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
                     {toLocale(fortHitpoints)} / {toLocale(fortMaxHp)}
                   </Text>
                 </Group>

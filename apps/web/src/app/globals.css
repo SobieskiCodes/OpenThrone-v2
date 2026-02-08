@@ -1,0 +1,426 @@
+/* ═══════════════════════════════════════════════════════════════════
+   OpenThrone v2 — Dark Medieval Theme
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Design Tokens ────────────────────────────────────────────────── */
+:root,
+[data-mantine-color-scheme='dark'] {
+  /* Backgrounds */
+  --ot-bg-dark: #0a0a0a;
+  --ot-bg-card: #0e0e0d;
+  --ot-bg-card-header: #131311;
+  --ot-bg-card-hover: #141413;
+  --ot-bg-input: #0c0c0b;
+  --ot-bg-sidebar: #0b0b0a;
+
+  /* Borders */
+  --ot-border: #3d340f;
+  --ot-border-subtle: #2a2408;
+  --ot-border-highlight: #7a6520;
+
+  /* Gold accents */
+  --ot-gold: #fde265;
+  --ot-gold-muted: #dd953f;
+  --ot-gold-stat: #fbd753;
+  --ot-gold-dim: #8a6d2f;
+
+  /* Text */
+  --ot-text: #d4cfc4;
+  --ot-text-dim: #8a8477;
+  --ot-text-bright: #eae6dc;
+
+  /* Status */
+  --ot-success: #4ade80;
+  --ot-danger: #ef4444;
+  --ot-warning: #f59e0b;
+
+  /* Race accent (defaults to human, overridden by data-race) */
+  --ot-race-primary: #1a8cff;
+  --ot-race-bg: #0e1f35;
+  --ot-race-border: #1a375d;
+
+  /* Transitions */
+  --ot-transition-fast: 0.15s ease;
+  --ot-transition: 0.25s ease;
+  --ot-transition-slow: 0.4s ease;
+}
+
+/* Light mode fallback (keep it minimal — dark is the primary experience) */
+[data-mantine-color-scheme='light'] {
+  --ot-bg-dark: #f5f0e6;
+  --ot-bg-card: #faf7f0;
+  --ot-bg-card-header: #f0ece0;
+  --ot-bg-card-hover: #eee9db;
+  --ot-bg-input: #f8f5ed;
+  --ot-bg-sidebar: #f0ece0;
+  --ot-border: #c4a84a;
+  --ot-border-subtle: #d8c98a;
+  --ot-border-highlight: #a08030;
+  --ot-gold: #8a6d2f;
+  --ot-gold-muted: #7a5c24;
+  --ot-gold-stat: #6b4e1a;
+  --ot-gold-dim: #a08030;
+  --ot-text: #2a2518;
+  --ot-text-dim: #6b6254;
+  --ot-text-bright: #1a1610;
+}
+
+/* ── Race-Specific Accents ────────────────────────────────────────── */
+[data-race='ELF'] {
+  --ot-race-primary: #1aff80;
+  --ot-race-bg: #0B2012;
+  --ot-race-border: #0d6130;
+}
+[data-race='HUMAN'] {
+  --ot-race-primary: #1a8cff;
+  --ot-race-bg: #0e1f35;
+  --ot-race-border: #1a375d;
+}
+[data-race='UNDEAD'] {
+  --ot-race-primary: #a0a0a0;
+  --ot-race-bg: #141414;
+  --ot-race-border: #333333;
+}
+[data-race='GOBLIN'] {
+  --ot-race-primary: #ff4444;
+  --ot-race-bg: #1a0808;
+  --ot-race-border: #461212;
+}
+
+/* ── Mantine Dark-Mode Overrides ──────────────────────────────────── */
+[data-mantine-color-scheme='dark'] {
+  --mantine-color-body: var(--ot-bg-dark);
+  --mantine-color-dark-6: #141413;
+  --mantine-color-dark-7: #0e0e0d;
+  --mantine-color-dark-8: #0a0a0a;
+  --mantine-color-dark-9: #050505;
+  --mantine-color-text: var(--ot-text);
+  --mantine-color-dimmed: var(--ot-text-dim);
+}
+
+/* ── Global Base ──────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--ot-bg-dark);
+  color: var(--ot-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar (webkit) ───────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ot-bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ot-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ot-border-highlight);
+}
+
+/* ── Selection ────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(253, 226, 101, 0.2);
+  color: var(--ot-gold);
+}
+
+/* ── Keyframe Animations ──────────────────────────────────────────── */
+@keyframes ot-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ot-fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ot-slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ot-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes ot-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 4px rgba(253, 226, 101, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(253, 226, 101, 0.2);
+  }
+}
+
+@keyframes ot-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* ── Utility Classes ──────────────────────────────────────────────── */
+
+/* Page content fade-in */
+.ot-page-content {
+  animation: ot-fadeIn var(--ot-transition-slow) ease both;
+}
+
+/* Staggered card animations */
+.ot-card {
+  animation: ot-fadeInUp 0.4s ease both;
+  border: 1px solid var(--ot-border);
+  background: var(--ot-bg-card);
+  transition: border-color var(--ot-transition), box-shadow var(--ot-transition),
+    transform var(--ot-transition);
+}
+.ot-card:hover {
+  border-color: var(--ot-border-highlight);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 1px var(--ot-border-highlight);
+  transform: translateY(-2px);
+}
+
+/* Gold stat value text */
+.ot-stat-value {
+  color: var(--ot-gold-stat);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Gold shimmer text effect */
+.ot-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--ot-gold-muted) 0%,
+    var(--ot-gold) 40%,
+    var(--ot-gold-muted) 80%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ot-shimmer 3s linear infinite;
+}
+
+/* Decorative gold divider */
+.ot-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--ot-border-highlight),
+    transparent
+  );
+  border: none;
+}
+
+/* Race-colored accent bar (left border) */
+.ot-race-accent {
+  border-left: 3px solid var(--ot-race-primary);
+}
+
+/* Subtle gold glow on interactive cards */
+.ot-interactive {
+  cursor: pointer;
+  transition: all var(--ot-transition);
+}
+.ot-interactive:hover {
+  border-color: var(--ot-border-highlight);
+  box-shadow: 0 0 0 1px var(--ot-border-highlight),
+    0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Pulsing notification badge */
+.ot-badge-pulse {
+  animation: ot-badge-pulse 2s ease-in-out infinite;
+}
+
+/* ── AppShell Overrides ───────────────────────────────────────────── */
+
+/* Sidebar */
+.ot-navbar {
+  background: var(--ot-bg-sidebar) !important;
+  border-right: 1px solid var(--ot-border) !important;
+}
+
+/* Header */
+.ot-header {
+  background: var(--ot-bg-card-header) !important;
+  border-bottom: 1px solid var(--ot-border) !important;
+}
+
+/* Header accent line (race-colored) */
+.ot-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--ot-race-primary),
+    transparent
+  );
+  opacity: 0.5;
+}
+
+/* NavLink styling */
+.ot-nav-link {
+  color: var(--ot-text-dim) !important;
+  transition: all var(--ot-transition-fast) !important;
+}
+.ot-nav-link:hover {
+  color: var(--ot-gold) !important;
+  background: rgba(253, 226, 101, 0.04) !important;
+}
+.ot-nav-link[data-active='true'] {
+  color: var(--ot-gold) !important;
+  background: rgba(253, 226, 101, 0.06) !important;
+  border-left: 3px solid var(--ot-race-primary);
+}
+
+/* Parent nav links */
+.ot-nav-parent {
+  color: var(--ot-gold-muted) !important;
+  font-weight: 600 !important;
+}
+.ot-nav-parent:hover {
+  background: rgba(253, 226, 101, 0.03) !important;
+}
+
+/* ── Auth Pages ───────────────────────────────────────────────────── */
+.ot-auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(253, 226, 101, 0.03) 0%, transparent 60%),
+    var(--ot-bg-dark);
+}
+
+.ot-auth-card {
+  background: var(--ot-bg-card) !important;
+  border: 1px solid var(--ot-border) !important;
+  animation: ot-fadeInUp 0.5s ease both;
+}
+
+/* ── Landing Page ─────────────────────────────────────────────────── */
+.ot-landing-bg {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(253, 226, 101, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(221, 149, 63, 0.03) 0%, transparent 40%),
+    var(--ot-bg-dark);
+}
+
+.ot-landing-title {
+  background: linear-gradient(
+    180deg,
+    #fde265 0%,
+    #dd953f 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(253, 226, 101, 0.3));
+}
+
+/* Race preview cards on landing */
+.ot-race-card {
+  border: 1px solid var(--ot-border);
+  background: var(--ot-bg-card);
+  transition: all var(--ot-transition);
+  cursor: pointer;
+}
+.ot-race-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.ot-race-card[data-race='ELF']:hover {
+  border-color: #0d6130;
+  box-shadow: 0 8px 32px rgba(26, 255, 128, 0.1);
+}
+.ot-race-card[data-race='HUMAN']:hover {
+  border-color: #1a375d;
+  box-shadow: 0 8px 32px rgba(26, 140, 255, 0.1);
+}
+.ot-race-card[data-race='UNDEAD']:hover {
+  border-color: #444;
+  box-shadow: 0 8px 32px rgba(160, 160, 160, 0.08);
+}
+.ot-race-card[data-race='GOBLIN']:hover {
+  border-color: #461212;
+  box-shadow: 0 8px 32px rgba(255, 68, 68, 0.1);
+}
+
+/* ── Stagger children animation ───────────────────────────────────── */
+.ot-stagger > * {
+  animation: ot-fadeInUp 0.4s ease both;
+}
+.ot-stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.ot-stagger > *:nth-child(2) { animation-delay: 0.1s; }
+.ot-stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.ot-stagger > *:nth-child(4) { animation-delay: 0.2s; }
+.ot-stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.ot-stagger > *:nth-child(6) { animation-delay: 0.3s; }
+.ot-stagger > *:nth-child(7) { animation-delay: 0.35s; }
+.ot-stagger > *:nth-child(8) { animation-delay: 0.4s; }
+
+/* ── Responsive Helpers ───────────────────────────────────────────── */
+
+/* Horizontally scrollable tables on mobile */
+@media (max-width: 768px) {
+  .ot-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ot-table-scroll table {
+    min-width: 500px;
+  }
+}
+
+/* Ensure good touch targets on mobile */
+@media (max-width: 768px) {
+  .mantine-NavLink-root {
+    min-height: 44px;
+  }
+}

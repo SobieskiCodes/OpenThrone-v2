@@ -104,18 +104,18 @@ export default function HousingPage() {
           </Alert>
         )}
 
-        <Paper withBorder p="md">
-          <Group justify="space-between">
+        <Paper withBorder p="md" className="ot-card">
+          <Group justify="space-between" wrap="wrap" gap="md">
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Gold on Hand</Text>
-              <Text fw={700} size="lg">{toLocale(gold)}</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Current Housing</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Current Housing</Text>
               <Text fw={700} size="lg">{currentDef?.name ?? `Level ${currentLevel}`}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Citizens per Day</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Citizens per Day</Text>
               <Text fw={700} size="lg">{currentDef?.citizensDaily ?? 1}</Text>
             </Stack>
           </Group>

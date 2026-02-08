@@ -170,7 +170,7 @@ export default function InboxTab() {
       {isLoading ? (
         <Skeleton height={300} />
       ) : !data || data.items.length === 0 ? (
-        <Text c="dimmed">No messages.</Text>
+        <Text style={{ color: 'var(--ot-text-dim)' }}>No messages.</Text>
       ) : (
         <Table striped highlightOnHover>
           <Table.Thead>
@@ -222,7 +222,7 @@ export default function InboxTab() {
                   </Badge>
                 </Table.Td>
                 <Table.Td ta="right">
-                  <Text size="xs" c="dimmed">
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
                     {formatDate(mail.createdAt)}
                   </Text>
                 </Table.Td>
@@ -248,10 +248,10 @@ export default function InboxTab() {
         {selectedMail && (
           <Stack gap="sm">
             <Group justify="space-between">
-              <Text size="sm" c="dimmed">
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                 From: {selectedMail.sender?.displayName ?? 'System'}
               </Text>
-              <Text size="sm" c="dimmed">
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                 {formatDate(selectedMail.createdAt)}
               </Text>
             </Group>

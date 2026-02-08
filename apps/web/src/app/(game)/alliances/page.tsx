@@ -180,12 +180,12 @@ export default function AlliancesPage() {
     return (
       <Stack gap="md" key={alliance.id}>
         {/* Alliance info */}
-        <Paper withBorder p="md">
+        <Paper withBorder p="md" className="ot-card">
           <Group justify="space-between" align="flex-start">
             <Stack gap={4}>
               <Title order={3}>{alliance.name}</Title>
               {alliance.motto && (
-                <Text size="sm" c="dimmed" fs="italic">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} fs="italic">
                   {alliance.motto}
                 </Text>
               )}
@@ -193,7 +193,7 @@ export default function AlliancesPage() {
             <Stack gap={4} align="flex-end">
               <Text size="sm">
                 Treasury:{' '}
-                <Text component="span" fw={700}>
+                <Text component="span" fw={700} className="ot-stat-value">
                   {toLocale(Number(alliance.goldInBank))}
                 </Text>{' '}
                 gold
@@ -344,7 +344,7 @@ export default function AlliancesPage() {
             {loadingList ? (
               <Skeleton height={200} />
             ) : !alliances || alliances.length === 0 ? (
-              <Text c="dimmed">No alliances yet.</Text>
+              <Text style={{ color: 'var(--ot-text-dim)' }}>No alliances yet.</Text>
             ) : (
               <Table striped>
                 <Table.Thead>
@@ -366,7 +366,7 @@ export default function AlliancesPage() {
                       <Table.Td>{a.leader.display_name}</Table.Td>
                       <Table.Td ta="center">{a.memberCount}</Table.Td>
                       <Table.Td>
-                        <Text size="sm" c="dimmed" lineClamp={1}>
+                        <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} lineClamp={1}>
                           {a.motto || '\u2014'}
                         </Text>
                       </Table.Td>
@@ -402,9 +402,9 @@ export default function AlliancesPage() {
             {loadingMine ? (
               <Skeleton height={200} />
             ) : myAlliances.length === 0 ? (
-              <Text c="dimmed">You are not in any alliances.</Text>
+              <Text style={{ color: 'var(--ot-text-dim)' }}>You are not in any alliances.</Text>
             ) : myAlliances.length === 1 ? (
-              renderAllianceDetail(myAlliances[0])
+              renderAllianceDetail(myAlliances[0]!)
             ) : (
               <Accordion>
                 {myAlliances.map((alliance) => (

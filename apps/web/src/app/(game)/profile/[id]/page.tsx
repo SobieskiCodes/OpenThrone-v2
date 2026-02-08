@@ -109,7 +109,7 @@ export default function PlayerProfilePage() {
                   Level {level}
                 </Badge>
               </Group>
-              <Text size="sm" c="dimmed">
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                 Member since {memberSince}
               </Text>
               {player.bio && (
@@ -123,32 +123,32 @@ export default function PlayerProfilePage() {
 
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           {/* Combat Stats */}
-          <Paper withBorder p="md" radius="md">
+          <Paper withBorder p="md" radius="md" className="ot-card">
             <Stack gap="sm">
               <Title order={4}>Combat Stats</Title>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Offense
                 </Text>
-                <Text fw={600}>{toLocale(offense)}</Text>
+                <Text fw={600} className="ot-stat-value">{toLocale(offense)}</Text>
               </Group>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Defense
                 </Text>
-                <Text fw={600}>{toLocale(defense)}</Text>
+                <Text fw={600} className="ot-stat-value">{toLocale(defense)}</Text>
               </Group>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Spy
                 </Text>
-                <Text fw={600}>{toLocale(spy)}</Text>
+                <Text fw={600} className="ot-stat-value">{toLocale(spy)}</Text>
               </Group>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Sentry
                 </Text>
-                <Text fw={600}>{toLocale(sentry)}</Text>
+                <Text fw={600} className="ot-stat-value">{toLocale(sentry)}</Text>
               </Group>
             </Stack>
           </Paper>
@@ -158,16 +158,16 @@ export default function PlayerProfilePage() {
             <Stack gap="sm">
               <Title order={4}>Fortification</Title>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Fort
                 </Text>
-                <Text fw={600}>{fortName}</Text>
+                <Text fw={600} className="ot-stat-value">{fortName}</Text>
               </Group>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Level
                 </Text>
-                <Text fw={600}>{fortLevel}</Text>
+                <Text fw={600} className="ot-stat-value">{fortLevel}</Text>
               </Group>
             </Stack>
           </Paper>

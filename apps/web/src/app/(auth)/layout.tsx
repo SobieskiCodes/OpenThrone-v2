@@ -1,11 +1,11 @@
-import { Container, Center } from '@mantine/core';
+import { Container } from '@mantine/core';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Center mih="100vh">
+    <div className="ot-auth-container">
       <Container size="xs" w="100%">
         {children}
       </Container>
-    </Center>
+    </div>
   );
 }

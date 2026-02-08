@@ -4,7 +4,7 @@ export default function PlayersPage() {
   return (
     <Container>
       <Title order={2}>Players</Title>
-      <Text c="dimmed">Coming soon.</Text>
+      <Text style={{ color: 'var(--ot-text-dim)' }}>Coming soon.</Text>
     </Container>
   );
 }

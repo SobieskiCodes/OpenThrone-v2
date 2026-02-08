@@ -135,14 +135,14 @@ export default function BattleUpgradesPage() {
           </Alert>
         )}
 
-        <Paper withBorder p="md">
-          <Group justify="space-between">
+        <Paper withBorder p="md" className="ot-card">
+          <Group justify="space-between" wrap="wrap" gap="md">
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Gold on Hand</Text>
-              <Text fw={700} size="lg">{toLocale(gold)}</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Offense Upgrade Level</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Offense Upgrade Level</Text>
               <Text fw={700} size="lg">{offenseLevel}</Text>
             </Stack>
           </Group>
@@ -168,7 +168,7 @@ export default function BattleUpgradesPage() {
 
         <Paper withBorder p="md">
           <Title order={4} mb="sm">{TYPE_LABELS[selectedType] || selectedType} Battle Upgrades</Title>
-          <Text size="xs" c="dimmed" mb="sm">
+          <Text size="xs" style={{ color: 'var(--ot-text-dim)' }} mb="sm">
             Battle upgrades boost your units in combat. Each covers a number of units.
           </Text>
 

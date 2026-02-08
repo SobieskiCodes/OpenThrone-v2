@@ -126,7 +126,7 @@ export default function SocialPage() {
 
   const renderTable = (items: Relationship[], showActions: boolean, isRequests: boolean) => {
     if (items.length === 0) {
-      return <Text c="dimmed">No entries yet.</Text>;
+      return <Text style={{ color: 'var(--ot-text-dim)' }}>No entries yet.</Text>;
     }
 
     return (
@@ -231,7 +231,7 @@ export default function SocialPage() {
 
           <Tabs.Panel value="FRIEND" pt="md">
             <Stack gap="md">
-              <Paper withBorder p="md">
+              <Paper withBorder p="md" className="ot-card">
                 <Group>
                   <TextInput
                     placeholder="Player name"

@@ -105,18 +105,18 @@ export default function FortificationRepairPage() {
           </Alert>
         )}
 
-        <Paper withBorder p="md">
-          <Group justify="space-between">
+        <Paper withBorder p="md" className="ot-card">
+          <Group justify="space-between" wrap="wrap" gap="md">
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Gold on Hand</Text>
-              <Text fw={700} size="lg">{toLocale(gold)}</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Fortification</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Fortification</Text>
               <Text fw={700} size="lg">{fort.name} (Lv {fort.level})</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Defense Bonus</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Defense Bonus</Text>
               <Text fw={700} size="lg">+{fort.defenseBonusPercentage}%</Text>
             </Stack>
           </Group>
@@ -142,7 +142,7 @@ export default function FortificationRepairPage() {
               </Alert>
             ) : (
               <Stack gap="sm">
-                <Text size="sm" c="dimmed">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                   Damage: {toLocale(damageAmount)} HP | Cost per repair point: {toLocale(fort.costPerRepairPoint)} gold
                 </Text>
 

@@ -192,18 +192,18 @@ export default function StructureUpgradesPage() {
           </Alert>
         )}
 
-        <Paper withBorder p="md">
-          <Group justify="space-between">
+        <Paper withBorder p="md" className="ot-card">
+          <Group justify="space-between" wrap="wrap" gap="md">
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Gold on Hand</Text>
-              <Text fw={700} size="lg">{toLocale(gold)}</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Fort Level</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Fort Level</Text>
               <Text fw={700} size="lg">{status.fort.level} - {status.fort.name}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" c="dimmed">Player Level</Text>
+              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Player Level</Text>
               <Text fw={700} size="lg">{status.playerLevel}</Text>
             </Stack>
           </Group>

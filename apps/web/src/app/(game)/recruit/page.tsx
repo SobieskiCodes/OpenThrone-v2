@@ -64,7 +64,7 @@ export default function RecruitmentPage() {
     return (
       <Container>
         <Title order={2}>Recruitment</Title>
-        <Text c="dimmed">Loading...</Text>
+        <Text style={{ color: 'var(--ot-text-dim)' }}>Loading...</Text>
       </Container>
     );
   }
@@ -79,11 +79,11 @@ export default function RecruitmentPage() {
 
       <Stack gap="lg">
         {/* Recruit Link */}
-        <Paper withBorder p="md">
+        <Paper withBorder p="md" className="ot-card">
           <Title order={4} mb="sm">
             Your Recruit Link
           </Title>
-          <Text size="sm" c="dimmed" mb="sm">
+          <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} mb="sm">
             Share this link to earn citizens when visitors click it.
             Each click awards you {data.citizensPerRecruit} citizens.
           </Text>
@@ -121,7 +121,7 @@ export default function RecruitmentPage() {
           <Title order={4} mb="sm">
             Auto-Recruit
           </Title>
-          <Text size="sm" c="dimmed" mb="sm">
+          <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} mb="sm">
             Generate citizens based on your housing level. Currently: Housing
             Level {data.houseLevel} ({data.citizensPerAutoRecruit} citizens per
             recruitment).

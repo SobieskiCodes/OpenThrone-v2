@@ -242,7 +242,7 @@ export default function ChatTab() {
               {roomsLoading ? (
                 <Skeleton height={100} />
               ) : !rooms || rooms.length === 0 ? (
-                <Text size="xs" c="dimmed">
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
                   No conversations yet.
                 </Text>
               ) : (
@@ -266,7 +266,7 @@ export default function ChatTab() {
                       )}
                     </Group>
                     {room.lastMessage && (
-                      <Text size="xs" c="dimmed" lineClamp={1}>
+                      <Text size="xs" style={{ color: 'var(--ot-text-dim)' }} lineClamp={1}>
                         {room.lastMessage.sender.displayName}: {room.lastMessage.content}
                       </Text>
                     )}
@@ -282,7 +282,7 @@ export default function ChatTab() {
       <Paper withBorder p="xs" style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
         {!selectedRoom ? (
           <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Text c="dimmed">Select a conversation</Text>
+            <Text style={{ color: 'var(--ot-text-dim)' }}>Select a conversation</Text>
           </Box>
         ) : (
           <>
@@ -292,7 +292,7 @@ export default function ChatTab() {
                 {messagesLoading ? (
                   <Skeleton height={200} />
                 ) : messages.length === 0 ? (
-                  <Text size="sm" c="dimmed" ta="center">
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} ta="center">
                     No messages yet. Say hello!
                   </Text>
                 ) : (
@@ -302,7 +302,7 @@ export default function ChatTab() {
                       <Box key={msg.id}>
                         {msg.replyTo && (
                           <Paper p={4} mb={2} bg="var(--mantine-color-dark-7)" radius="sm">
-                            <Text size="xs" c="dimmed" lineClamp={1}>
+                            <Text size="xs" style={{ color: 'var(--ot-text-dim)' }} lineClamp={1}>
                               Replying to {msg.replyTo.sender.displayName}: {msg.replyTo.content}
                             </Text>
                           </Paper>
@@ -321,7 +321,7 @@ export default function ChatTab() {
                             onClick={() => setReplyTo(msg)}
                           >
                             {!isMe && (
-                              <Text size="xs" fw={600} c="dimmed" mb={2}>
+                              <Text size="xs" fw={600} style={{ color: 'var(--ot-text-dim)' }} mb={2}>
                                 {msg.sender.displayName}
                               </Text>
                             )}
@@ -341,7 +341,7 @@ export default function ChatTab() {
                               </Group>
                             )}
                           </Paper>
-                          <Text size="xs" c="dimmed">
+                          <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
                             {formatTime(msg.sentAt)}
                           </Text>
                         </Group>
@@ -357,7 +357,7 @@ export default function ChatTab() {
             {replyTo && (
               <Paper p={4} mb={4} bg="var(--mantine-color-dark-7)" radius="sm">
                 <Group justify="space-between">
-                  <Text size="xs" c="dimmed" lineClamp={1}>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }} lineClamp={1}>
                     Replying to {replyTo.sender.displayName}: {replyTo.content}
                   </Text>
                   <ActionIcon size="xs" variant="subtle" onClick={() => setReplyTo(null)}>

@@ -11,6 +11,8 @@ import {
   Text,
   Select,
   Alert,
+  SimpleGrid,
+  Box,
 } from '@mantine/core';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
@@ -18,6 +20,13 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+const RACE_INFO: Record<string, { color: string; desc: string }> = {
+  HUMAN: { color: '#1a8cff', desc: 'Balanced rulers of commerce and war' },
+  ELF: { color: '#1aff80', desc: 'Swift and cunning, masters of espionage' },
+  GOBLIN: { color: '#ff4444', desc: 'Fierce and relentless in battle' },
+  UNDEAD: { color: '#a0a0a0', desc: 'Tireless legions that never rest' },
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -59,7 +68,6 @@ export default function RegisterPage() {
         return;
       }
 
-      // Auto-sign in after successful registration
       const result = await signIn('credentials', {
         email,
         password,
@@ -69,7 +77,6 @@ export default function RegisterPage() {
       if (result?.ok) {
         router.push('/home');
       } else {
-        // Registration succeeded but auto-login failed; redirect to login
         router.push('/login');
       }
     } catch {
@@ -80,12 +87,15 @@ export default function RegisterPage() {
   };
 
   return (
-    <Paper withBorder shadow="md" p="xl" radius="md">
+    <Paper className="ot-auth-card" shadow="lg" p="xl" radius="sm">
       <form onSubmit={handleSubmit}>
         <Stack>
-          <Title order={2} ta="center">
-            Create your kingdom
+          <Title order={1} ta="center" style={{ color: 'var(--ot-gold)' }}>
+            OpenThrone
           </Title>
+          <Text ta="center" size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+            Forge your kingdom
+          </Text>
 
           {error && (
             <Alert color="red" variant="light">
@@ -116,14 +126,37 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.currentTarget.value)}
             minLength={8}
           />
-          <Select
-            label="Race"
-            placeholder="Choose your race"
-            data={['HUMAN', 'ELF', 'GOBLIN', 'UNDEAD']}
-            required
-            value={race}
-            onChange={setRace}
-          />
+
+          {/* Race selection with color hints */}
+          <div>
+            <Text size="sm" fw={500} mb={4} style={{ color: 'var(--ot-text)' }}>
+              Race
+            </Text>
+            <SimpleGrid cols={2} spacing="xs">
+              {Object.entries(RACE_INFO).map(([key, info]) => (
+                <Box
+                  key={key}
+                  onClick={() => setRace(key)}
+                  className="ot-race-card"
+                  data-race={key}
+                  p="sm"
+                  style={{
+                    borderRadius: '4px',
+                    borderColor: race === key ? info.color : undefined,
+                    boxShadow: race === key ? `0 0 8px ${info.color}30` : undefined,
+                  }}
+                >
+                  <Text size="sm" fw={600} style={{ color: info.color }}>
+                    {key}
+                  </Text>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                    {info.desc}
+                  </Text>
+                </Box>
+              ))}
+            </SimpleGrid>
+          </div>
+
           <Select
             label="Class"
             placeholder="Choose your class"
@@ -135,9 +168,9 @@ export default function RegisterPage() {
           <Button type="submit" fullWidth loading={loading}>
             Create Account
           </Button>
-          <Text c="dimmed" size="sm" ta="center">
+          <Text size="sm" ta="center" style={{ color: 'var(--ot-text-dim)' }}>
             Already have an account?{' '}
-            <Anchor component={Link} href="/login" size="sm">
+            <Anchor component={Link} href="/login" size="sm" style={{ color: 'var(--ot-gold)' }}>
               Sign in
             </Anchor>
           </Text>

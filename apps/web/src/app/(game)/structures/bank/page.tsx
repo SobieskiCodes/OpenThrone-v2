@@ -167,19 +167,19 @@ export default function BankPage() {
           <Tabs.Panel value="transactions" pt="md">
             <Stack gap="md">
               {/* Balances */}
-              <Paper withBorder p="md">
-                <Group justify="space-between">
+              <Paper withBorder p="md" className="ot-card">
+                <Group justify="space-between" wrap="wrap" gap="md">
                   <Stack gap={4}>
-                    <Text size="sm" c="dimmed">Gold on Hand</Text>
-                    <Text fw={700} size="lg">{toLocale(gold)}</Text>
+                    <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+                    <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
                   </Stack>
                   <Stack gap={4}>
-                    <Text size="sm" c="dimmed">Gold in Bank</Text>
-                    <Text fw={700} size="lg">{toLocale(goldInBank)}</Text>
+                    <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold in Bank</Text>
+                    <Text fw={700} size="lg" className="ot-stat-value">{toLocale(goldInBank)}</Text>
                   </Stack>
                   <Stack gap={4}>
-                    <Text size="sm" c="dimmed">Deposits Today</Text>
-                    <Text fw={700} size="lg">
+                    <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Deposits Today</Text>
+                    <Text fw={700} size="lg" style={{ color: 'var(--ot-text)' }}>
                       {status.depositsUsed} / {status.depositsMax}
                     </Text>
                   </Stack>
@@ -187,10 +187,10 @@ export default function BankPage() {
               </Paper>
 
               {/* Deposit */}
-              <Paper withBorder p="md">
+              <Paper withBorder p="md" className="ot-card">
                 <Stack gap="sm">
                   <Title order={4}>Deposit</Title>
-                  <Text size="sm" c="dimmed">
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                     Max deposit: {toLocale(maxDeposit)} (80% of gold on hand).{' '}
                     {status.depositsRemaining} deposit{status.depositsRemaining !== 1 ? 's' : ''} remaining today.
                   </Text>
@@ -219,10 +219,10 @@ export default function BankPage() {
               </Paper>
 
               {/* Withdraw */}
-              <Paper withBorder p="md">
+              <Paper withBorder p="md" className="ot-card">
                 <Stack gap="sm">
                   <Title order={4}>Withdraw</Title>
-                  <Text size="sm" c="dimmed">
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                     Withdrawals are unlimited.
                   </Text>
                   <Group>
