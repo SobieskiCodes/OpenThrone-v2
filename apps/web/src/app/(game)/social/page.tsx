@@ -15,6 +15,7 @@ import {
   Skeleton,
   Paper,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
@@ -231,7 +232,7 @@ export default function SocialPage() {
 
           <Tabs.Panel value="FRIEND" pt="md">
             <Stack gap="md">
-              <Paper withBorder p="md" className="ot-card">
+              <OTCard>
                 <Group>
                   <TextInput
                     placeholder="Player name"
@@ -246,7 +247,7 @@ export default function SocialPage() {
                     Add Friend
                   </Button>
                 </Group>
-              </Paper>
+              </OTCard>
               {isLoading ? (
                 <Skeleton height={200} />
               ) : (

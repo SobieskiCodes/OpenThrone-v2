@@ -85,6 +85,8 @@ export default function AdminPlayerDetailPage() {
   const [action, setAction] = useState<string | null>(null);
   const [actionDuration, setActionDuration] = useState<number | string>('');
   const [actionReason, setActionReason] = useState('');
+  const [editBonusPoints, setEditBonusPoints] = useState<Record<string, number | string>>({});
+  const [editStats, setEditStats] = useState<Record<string, number | string>>({});
 
   const { data: player, isLoading } = useQuery<PlayerDetail>({
     queryKey: ['admin', 'player', playerId],
@@ -350,29 +352,80 @@ export default function AdminPlayerDetailPage() {
 
                 <Title order={4}>Stats</Title>
                 <Grid>
-                  <Grid.Col span={3}>
-                    <Text size="sm" c="dimmed">Offense</Text>
-                    <Text fw={700}>{player.stats?.offense ?? 0}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={3}>
-                    <Text size="sm" c="dimmed">Defense</Text>
-                    <Text fw={700}>{player.stats?.defense ?? 0}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={3}>
-                    <Text size="sm" c="dimmed">Spy</Text>
-                    <Text fw={700}>{player.stats?.spy ?? 0}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={3}>
-                    <Text size="sm" c="dimmed">Sentry</Text>
-                    <Text fw={700}>{player.stats?.sentry ?? 0}</Text>
-                  </Grid.Col>
+                  {(['offense', 'defense', 'spy', 'sentry'] as const).map((stat) => (
+                    <Grid.Col span={3} key={stat}>
+                      <NumberInput
+                        label={stat.charAt(0).toUpperCase() + stat.slice(1)}
+                        value={editStats[stat] ?? player.stats?.[stat] ?? 0}
+                        onChange={(val) => setEditStats((prev) => ({ ...prev, [stat]: val }))}
+                        min={0}
+                      />
+                    </Grid.Col>
+                  ))}
                 </Grid>
+                <Button
+                  size="xs"
+                  loading={updateMutation.isPending}
+                  style={{ width: 'fit-content' }}
+                  disabled={Object.keys(editStats).length === 0}
+                  onClick={() => {
+                    const statsPayload: Record<string, number> = {};
+                    for (const [stat, val] of Object.entries(editStats)) {
+                      if (val !== '' && val !== undefined) {
+                        statsPayload[stat] = Number(val);
+                      }
+                    }
+                    if (Object.keys(statsPayload).length > 0) {
+                      updateMutation.mutate(statsPayload);
+                      setEditStats({});
+                    }
+                  }}
+                >
+                  Set Stats
+                </Button>
 
                 <Title order={4}>Fortification</Title>
                 <Text>
                   Level {player.fortification?.fortLevel ?? 1} — HP:{' '}
                   {player.fortification?.hitpoints ?? 0}
                 </Text>
+
+                <Title order={4}>Bonus Points</Title>
+                <Grid>
+                  {['OFFENSE', 'DEFENSE', 'INTEL', 'INCOME', 'PRICES', 'RECRUITING', 'CASUALTY'].map((type) => {
+                    const current = player.bonusPoints.find((bp) => bp.bonusType === type)?.level ?? 0;
+                    return (
+                      <Grid.Col span={4} key={type}>
+                        <NumberInput
+                          label={type.charAt(0) + type.slice(1).toLowerCase()}
+                          value={editBonusPoints[type] ?? current}
+                          onChange={(val) => setEditBonusPoints((prev) => ({ ...prev, [type]: val }))}
+                          min={0}
+                          max={75}
+                        />
+                      </Grid.Col>
+                    );
+                  })}
+                </Grid>
+                <Button
+                  size="xs"
+                  loading={updateMutation.isPending}
+                  style={{ width: 'fit-content' }}
+                  onClick={() => {
+                    const bonusPoints: Record<string, number> = {};
+                    for (const [type, val] of Object.entries(editBonusPoints)) {
+                      if (val !== '' && val !== undefined) {
+                        bonusPoints[type] = Number(val);
+                      }
+                    }
+                    if (Object.keys(bonusPoints).length > 0) {
+                      updateMutation.mutate({ bonusPoints });
+                      setEditBonusPoints({});
+                    }
+                  }}
+                >
+                  Set Bonus Points
+                </Button>
               </Stack>
             </Tabs.Panel>
 

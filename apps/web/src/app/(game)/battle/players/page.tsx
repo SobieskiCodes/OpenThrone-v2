@@ -22,6 +22,7 @@ import {
   Tooltip,
   Progress,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
@@ -194,9 +195,7 @@ export default function PlayersPage() {
   return (
     <Container size="lg">
       <Stack gap="md">
-        <Title order={2} style={{ color: 'var(--ot-gold)' }}>
-          Players & Rankings
-        </Title>
+        <Title order={2}>Players & Rankings</Title>
 
         <Tabs value={tab} onChange={setTab}>
           <Tabs.List>
@@ -207,7 +206,7 @@ export default function PlayersPage() {
           {/* ── Find Players Tab ──────────────────────────── */}
           <Tabs.Panel value="players" pt="md">
             <Stack gap="md">
-              <Paper withBorder p="md" className="ot-card">
+              <OTCard>
                 <Stack gap="sm">
                   <TextInput
                     placeholder="Search by name..."
@@ -246,7 +245,7 @@ export default function PlayersPage() {
                     />
                   </Group>
                 </Stack>
-              </Paper>
+              </OTCard>
 
               {playersLoading ? (
                 <Skeleton height={400} />
@@ -551,7 +550,7 @@ export default function PlayersPage() {
         opened={resultOpened}
         onClose={closeResult}
         title={
-          <Text fw={600} style={{ color: attackResult?.attackerWins ? '#4ecdc4' : '#ff6b6b' }}>
+          <Text fw={600} style={{ color: attackResult?.attackerWins ? 'var(--ot-success)' : 'var(--ot-danger)' }}>
             {attackResult?.attackerWins ? 'Victory!' : 'Defeat!'}
           </Text>
         }
@@ -568,21 +567,21 @@ export default function PlayersPage() {
               {attackResult.attackerWins && (
                 <Paper p="xs" withBorder>
                   <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold Stolen</Text>
-                  <Text fw={600} style={{ color: '#4ecdc4' }}>{Number(attackResult.goldStolen).toLocaleString()}</Text>
+                  <Text fw={600} style={{ color: 'var(--ot-success)' }}>{Number(attackResult.goldStolen).toLocaleString()}</Text>
                 </Paper>
               )}
               <Paper p="xs" withBorder>
                 <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Your Casualties</Text>
-                <Text fw={600} style={{ color: '#ff6b6b' }}>{attackResult.attackerCasualties.total}</Text>
+                <Text fw={600} style={{ color: 'var(--ot-danger)' }}>{attackResult.attackerCasualties.total}</Text>
               </Paper>
               <Paper p="xs" withBorder>
                 <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Enemy Casualties</Text>
-                <Text fw={600} style={{ color: '#c44dff' }}>{attackResult.defenderCasualties.total}</Text>
+                <Text fw={600} c="grape">{attackResult.defenderCasualties.total}</Text>
               </Paper>
               {attackResult.fortDamage > 0 && (
                 <Paper p="xs" withBorder>
                   <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Damage</Text>
-                  <Text fw={600} style={{ color: '#ffa07a' }}>{attackResult.fortDamage}</Text>
+                  <Text fw={600} style={{ color: 'var(--ot-warning)' }}>{attackResult.fortDamage}</Text>
                 </Paper>
               )}
               <Paper p="xs" withBorder>

@@ -20,6 +20,7 @@ import {
   Table,
   Skeleton,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
@@ -142,12 +143,12 @@ function SpyPageContent() {
   return (
     <Container size="lg">
       <Stack gap="md">
-        <Title order={2} style={{ color: 'var(--ot-gold)' }}>
+        <Title order={2}>
           Spy Missions
         </Title>
 
         {/* Target Selection */}
-        <Paper withBorder p="md" className="ot-card">
+        <OTCard>
           <Stack gap="sm">
             <Text fw={600} style={{ color: 'var(--ot-gold)' }}>Select Target</Text>
             <TextInput
@@ -221,7 +222,7 @@ function SpyPageContent() {
               </Paper>
             )}
           </Stack>
-        </Paper>
+        </OTCard>
 
         {/* Mission Tabs */}
         {selectedTarget && (
@@ -234,7 +235,7 @@ function SpyPageContent() {
 
             {/* Intel Tab */}
             <Tabs.Panel value="intel" pt="md">
-              <Paper withBorder p="md" className="ot-card">
+              <OTCard>
                 <Stack gap="sm">
                   <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                     Send spies to gather intelligence on the target. Each spy reveals 10% of their information.
@@ -258,12 +259,12 @@ function SpyPageContent() {
                     Send Spies
                   </Button>
                 </Stack>
-              </Paper>
+              </OTCard>
             </Tabs.Panel>
 
             {/* Assassination Tab */}
             <Tabs.Panel value="assassinate" pt="md">
-              <Paper withBorder p="md" className="ot-card">
+              <OTCard>
                 <Stack gap="sm">
                   <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                     Send assassins to eliminate specific enemy units. Requires Assassin units (spy level 3).
@@ -296,12 +297,12 @@ function SpyPageContent() {
                     Send Assassins
                   </Button>
                 </Stack>
-              </Paper>
+              </OTCard>
             </Tabs.Panel>
 
             {/* Infiltration Tab */}
             <Tabs.Panel value="infiltrate" pt="md">
-              <Paper withBorder p="md" className="ot-card">
+              <OTCard>
                 <Stack gap="sm">
                   <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                     Send infiltrators to sabotage the enemy&apos;s fortifications. Requires Infiltrator units (spy level 2).
@@ -325,17 +326,17 @@ function SpyPageContent() {
                     Send Infiltrators
                   </Button>
                 </Stack>
-              </Paper>
+              </OTCard>
             </Tabs.Panel>
           </Tabs>
         )}
 
         {/* Results */}
         {result && (
-          <Paper withBorder p="md" className="ot-card">
+          <OTCard>
             <Stack gap="sm">
               <Group>
-                <Text fw={600} style={{ color: result.success ? '#4ecdc4' : '#ff6b6b' }}>
+                <Text fw={600} style={{ color: result.success ? 'var(--ot-success)' : 'var(--ot-danger)' }}>
                   {result.success ? 'Mission Successful' : 'Mission Failed'}
                 </Text>
                 <Badge color={result.success ? 'green' : 'red'} variant="light">
@@ -346,11 +347,11 @@ function SpyPageContent() {
               <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
                 <Paper p="xs" withBorder>
                   <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Spies Lost</Text>
-                  <Text fw={600} style={{ color: '#ff6b6b' }}>{result.spiesLost}</Text>
+                  <Text fw={600} style={{ color: 'var(--ot-danger)' }}>{result.spiesLost}</Text>
                 </Paper>
                 <Paper p="xs" withBorder>
                   <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Spies Survived</Text>
-                  <Text fw={600} style={{ color: '#4ecdc4' }}>{result.spiesSurvived}</Text>
+                  <Text fw={600} style={{ color: 'var(--ot-success)' }}>{result.spiesSurvived}</Text>
                 </Paper>
 
                 {result.revealPercent !== undefined && (
@@ -363,7 +364,7 @@ function SpyPageContent() {
                 {result.unitsKilled !== undefined && result.unitsKilled > 0 && (
                   <Paper p="xs" withBorder>
                     <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Units Killed</Text>
-                    <Text fw={600} style={{ color: '#c44dff' }}>
+                    <Text fw={600} c="grape">
                       {result.unitsKilled} {result.targetUnitType}
                     </Text>
                   </Paper>
@@ -372,7 +373,7 @@ function SpyPageContent() {
                 {result.fortDamage !== undefined && result.fortDamage > 0 && (
                   <Paper p="xs" withBorder>
                     <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Damage</Text>
-                    <Text fw={600} style={{ color: '#ffa07a' }}>{result.fortDamage}</Text>
+                    <Text fw={600} style={{ color: 'var(--ot-warning)' }}>{result.fortDamage}</Text>
                   </Paper>
                 )}
               </SimpleGrid>
@@ -462,7 +463,7 @@ function SpyPageContent() {
                 </>
               )}
             </Stack>
-          </Paper>
+          </OTCard>
         )}
       </Stack>
     </Container>

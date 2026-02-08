@@ -13,6 +13,7 @@ import {
   Alert,
   Badge,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
@@ -104,7 +105,7 @@ export default function HousingPage() {
           </Alert>
         )}
 
-        <Paper withBorder p="md" className="ot-card">
+        <OTCard>
           <Group justify="space-between" wrap="wrap" gap="md">
             <Stack gap={4}>
               <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
@@ -119,7 +120,7 @@ export default function HousingPage() {
               <Text fw={700} size="lg">{currentDef?.citizensDaily ?? 1}</Text>
             </Stack>
           </Group>
-        </Paper>
+        </OTCard>
 
         {nextDef && (
           <Paper withBorder p="md">

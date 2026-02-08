@@ -3,7 +3,6 @@
 import {
   Container,
   Title,
-  Paper,
   Group,
   Stack,
   Text,
@@ -11,11 +10,13 @@ import {
   Button,
   Table,
   Skeleton,
-  Alert,
   Badge,
   Tabs,
+  Paper,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { useState } from 'react';
+import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
@@ -38,7 +39,7 @@ interface TrainingStatus {
   unitDefinitions: UnitDefinition[];
 }
 
-const UNIT_TYPE_LABELS: Record<string, string> = {
+const TAB_LABELS: Record<string, string> = {
   WORKER: 'Workers',
   OFFENSE: 'Offense',
   DEFENSE: 'Defense',
@@ -46,7 +47,15 @@ const UNIT_TYPE_LABELS: Record<string, string> = {
   SENTRY: 'Sentry',
 };
 
-const UNIT_TYPE_ORDER = [
+const STAT_LABELS: Record<string, string> = {
+  WORKER: 'gold/turn',
+  OFFENSE: 'OFF',
+  DEFENSE: 'DEF',
+  SPY: 'SPY',
+  SENTRY: 'SENTRY',
+};
+
+const TAB_ORDER = [
   UnitType.WORKER,
   UnitType.OFFENSE,
   UnitType.DEFENSE,
@@ -58,10 +67,10 @@ export default function TrainingPage() {
   const { api, isReady } = useApi();
   const queryClient = useQueryClient();
 
-  const [mode, setMode] = useState<'train' | 'untrain'>('train');
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string>(UnitType.WORKER);
+  const [trainQty, setTrainQty] = useState<Record<string, number>>({});
+  const [untrainQty, setUntrainQty] = useState<Record<string, number>>({});
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const { data: status, isLoading } = useQuery<TrainingStatus>({
     queryKey: ['training', 'status'],
@@ -73,15 +82,15 @@ export default function TrainingPage() {
     mutationFn: (units: Array<{ unitType: string; level: number; quantity: number }>) =>
       api.post('/training/train', { units }),
     onSuccess: () => {
-      setError(null);
-      setSuccess('Units trained successfully!');
-      setQuantities({});
+      setTrainQty({});
+      setBusyKey(null);
       queryClient.invalidateQueries({ queryKey: ['training'] });
       queryClient.invalidateQueries({ queryKey: ['player'] });
+      notifications.show({ title: 'Trained', message: 'Units trained successfully!', color: 'green' });
     },
     onError: (err: Error) => {
-      setSuccess(null);
-      setError(err.message);
+      setBusyKey(null);
+      notifications.show({ title: 'Training Failed', message: err.message, color: 'red' });
     },
   });
 
@@ -89,24 +98,24 @@ export default function TrainingPage() {
     mutationFn: (units: Array<{ unitType: string; level: number; quantity: number }>) =>
       api.post('/training/untrain', { units }),
     onSuccess: () => {
-      setError(null);
-      setSuccess('Units untrained successfully! 75% gold refunded.');
-      setQuantities({});
+      setUntrainQty({});
+      setBusyKey(null);
       queryClient.invalidateQueries({ queryKey: ['training'] });
       queryClient.invalidateQueries({ queryKey: ['player'] });
+      notifications.show({ title: 'Untrained', message: 'Units untrained! 75% gold refunded.', color: 'green' });
     },
     onError: (err: Error) => {
-      setSuccess(null);
-      setError(err.message);
+      setBusyKey(null);
+      notifications.show({ title: 'Untrain Failed', message: err.message, color: 'red' });
     },
   });
 
   if (isLoading || !status) {
     return (
-      <Container size="md">
+      <Container size="lg">
         <Stack gap="md">
           <Skeleton height={40} width={200} />
-          <Skeleton height={100} />
+          <Skeleton height={80} />
           <Skeleton height={300} />
         </Stack>
       </Container>
@@ -114,269 +123,301 @@ export default function TrainingPage() {
   }
 
   const gold = Number(status.gold);
-  const goldInBank = Number(status.goldInBank);
   const { citizens, fortLevel, pricesBonusLevel } = status;
 
-  const getOwnedQuantity = (unitType: string, level: number): number => {
-    const entry = status.units.find(
-      (u) => u.unitType === unitType && u.level === level,
-    );
+  const getKey = (unitType: string, level: number) => `${unitType}_${level}`;
+
+  const getOwned = (unitType: string, level: number): number => {
+    const entry = status.units.find((u) => u.unitType === unitType && u.level === level);
     return entry?.quantity ?? 0;
   };
 
-  const getKey = (unitType: string, level: number) => `${unitType}_${level}`;
+  const getTotalOwned = (unitType: string): number =>
+    status.units
+      .filter((u) => u.unitType === unitType)
+      .reduce((sum, u) => sum + u.quantity, 0);
 
   const getDiscountedCost = (cost: number) =>
     cost - Math.round((pricesBonusLevel / 100) * cost);
 
-  const getUnitsForSubmit = () => {
-    const units: Array<{ unitType: string; level: number; quantity: number }> = [];
-    for (const [key, qty] of Object.entries(quantities)) {
-      if (qty > 0) {
-        const [unitType = '', levelStr = '1'] = key.split('_');
-        units.push({ unitType, level: parseInt(levelStr, 10), quantity: qty });
-      }
-    }
-    return units;
-  };
-
-  const calculateTotalCost = () => {
-    let total = 0;
-    for (const [key, qty] of Object.entries(quantities)) {
-      if (qty > 0) {
-        const [unitType = '', levelStr = '1'] = key.split('_');
-        const level = parseInt(levelStr, 10);
-        const def = status.unitDefinitions.find(
-          (d) => d.type === unitType && d.level === level,
-        );
-        if (def) {
-          total += getDiscountedCost(def.cost) * qty;
-        }
-      }
-    }
-    return total;
-  };
-
-  const calculateTotalRefund = () => {
-    let total = 0;
-    for (const [key, qty] of Object.entries(quantities)) {
-      if (qty > 0) {
-        const [unitType = '', levelStr = '1'] = key.split('_');
-        const level = parseInt(levelStr, 10);
-        const def = status.unitDefinitions.find(
-          (d) => d.type === unitType && d.level === level,
-        );
-        if (def) {
-          total += Math.floor(getDiscountedCost(def.cost) * qty * 0.75);
-        }
-      }
-    }
-    return total;
-  };
-
-  const totalQuantity = Object.values(quantities).reduce((s, q) => s + (q || 0), 0);
-  const totalCost = calculateTotalCost();
-  const totalRefund = calculateTotalRefund();
-
-  const canTrain = totalQuantity > 0 && totalCost <= gold && totalQuantity <= citizens;
-  const canUntrain = totalQuantity > 0;
-
-  const handleSubmit = () => {
-    setError(null);
-    setSuccess(null);
-    const units = getUnitsForSubmit();
-    if (units.length === 0) return;
-
-    if (mode === 'train') {
-      trainMutation.mutate(units);
-    } else {
-      untrainMutation.mutate(units);
-    }
-  };
-
-  const renderUnitSection = (unitType: UnitType) => {
-    const defs = status.unitDefinitions.filter((d) => d.type === unitType);
-    if (defs.length === 0) return null;
-
-    return (
-      <Paper withBorder p="md" key={unitType} className="ot-card">
-        <Title order={4} mb="sm">
-          {UNIT_TYPE_LABELS[unitType] || unitType}
-        </Title>
-        <div className="ot-table-scroll">
-        <Table striped>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Unit</Table.Th>
-              <Table.Th ta="center">Level</Table.Th>
-              <Table.Th ta="right">Cost</Table.Th>
-              <Table.Th ta="right">Bonus</Table.Th>
-              <Table.Th ta="right">Owned</Table.Th>
-              <Table.Th ta="right">Quantity</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {defs.map((def) => {
-              const key = getKey(def.type, def.level);
-              const owned = getOwnedQuantity(def.type, def.level);
-              const locked = def.fortLevel > fortLevel;
-              const discountedCost = getDiscountedCost(def.cost);
-
-              return (
-                <Table.Tr key={key} style={locked ? { opacity: 0.5 } : undefined}>
-                  <Table.Td>
-                    {def.name}
-                    {locked && (
-                      <Badge color="red" size="xs" ml="xs">
-                        Fort Lv {def.fortLevel}
-                      </Badge>
-                    )}
-                  </Table.Td>
-                  <Table.Td ta="center">{def.level}</Table.Td>
-                  <Table.Td ta="right">
-                    {toLocale(discountedCost)}
-                    {pricesBonusLevel > 0 && discountedCost < def.cost && (
-                      <Text component="span" size="xs" c="green" ml={4}>
-                        (-{pricesBonusLevel}%)
-                      </Text>
-                    )}
-                  </Table.Td>
-                  <Table.Td ta="right">
-                    +{def.bonus}{' '}
-                    {def.type === UnitType.WORKER
-                      ? 'Gold/t'
-                      : UNIT_TYPE_LABELS[def.type] || def.type}
-                  </Table.Td>
-                  <Table.Td ta="right">{toLocale(owned)}</Table.Td>
-                  <Table.Td ta="right">
-                    <NumberInput
-                      size="xs"
-                      min={0}
-                      max={
-                        mode === 'untrain'
-                          ? owned
-                          : undefined
-                      }
-                      value={quantities[key] || 0}
-                      onChange={(val) =>
-                        setQuantities((prev) => ({
-                          ...prev,
-                          [key]: typeof val === 'number' ? val : 0,
-                        }))
-                      }
-                      disabled={locked}
-                      w={100}
-                      styles={{ input: { textAlign: 'right' } }}
-                    />
-                  </Table.Td>
-                </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
-        </div>
-      </Paper>
+  const getLowerTierDef = (def: UnitDefinition): UnitDefinition | undefined => {
+    if (def.level <= 1) return undefined;
+    return status.unitDefinitions.find(
+      (d) => d.type === def.type && d.level === def.level - 1,
     );
   };
 
+  const getMaxTrainable = (def: UnitDefinition) => {
+    const unitCost = getDiscountedCost(def.cost);
+    const maxByGold = unitCost <= 0 ? Infinity : Math.floor(gold / unitCost);
+    if (def.level === 1) return Math.max(0, Math.min(maxByGold, citizens));
+    const lowerOwned = getOwned(def.type, def.level - 1);
+    return Math.max(0, Math.min(maxByGold, lowerOwned));
+  };
+
+  const handleTrain = (def: UnitDefinition, qty: number) => {
+    if (qty <= 0) return;
+    setBusyKey(getKey(def.type, def.level) + '_train');
+    trainMutation.mutate([{ unitType: def.type, level: def.level, quantity: qty }]);
+  };
+
+  const handleUntrain = (def: UnitDefinition, qty: number) => {
+    if (qty <= 0) return;
+    setBusyKey(getKey(def.type, def.level) + '_untrain');
+    untrainMutation.mutate([{ unitType: def.type, level: def.level, quantity: qty }]);
+  };
+
+  const defs = status.unitDefinitions.filter((d) => d.type === selectedType);
+
   return (
-    <Container size="md">
+    <Container size="lg">
       <Stack gap="md">
         <Title order={2}>Training</Title>
 
-        {error && (
-          <Alert color="red" onClose={() => setError(null)} withCloseButton>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert color="green" onClose={() => setSuccess(null)} withCloseButton>
-            {success}
-          </Alert>
-        )}
-
-        {/* Resource summary */}
-        <Paper withBorder p="md" className="ot-card">
+        {/* ── Resource summary ── */}
+        <OTCard>
           <Group justify="space-between" wrap="wrap" gap="md">
             <Stack gap={4}>
-              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Untrained Citizens</Text>
-              <Text fw={700} size="lg" style={{ color: 'var(--ot-race-primary)' }}>{toLocale(citizens)}</Text>
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Citizens</Text>
+              <Group gap="xs" align="baseline">
+                <Text fw={700} size="lg" className="ot-stat-value">{toLocale(citizens)}</Text>
+                {citizens === 0 && (
+                  <Badge color="red" size="xs" variant="light">None</Badge>
+                )}
+                {citizens > 0 && citizens <= 10 && (
+                  <Badge color="yellow" size="xs" variant="light">Low</Badge>
+                )}
+              </Group>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
               <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
             </Stack>
             <Stack gap={4}>
-              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold in Bank</Text>
-              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(goldInBank)}</Text>
-            </Stack>
-            <Stack gap={4}>
-              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Fort Level</Text>
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Level</Text>
               <Text fw={700} size="lg" className="ot-stat-value">{fortLevel}</Text>
             </Stack>
+            {pricesBonusLevel > 0 && (
+              <Stack gap={4}>
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Price Discount</Text>
+                <Text fw={700} size="lg" c="green">-{pricesBonusLevel}%</Text>
+              </Stack>
+            )}
           </Group>
-        </Paper>
+        </OTCard>
 
-        {/* Mode toggle */}
+        {/* ── Unit type tabs ── */}
         <Tabs
-          value={mode}
+          value={selectedType}
           onChange={(val) => {
-            setMode(val as 'train' | 'untrain');
-            setQuantities({});
-            setError(null);
-            setSuccess(null);
+            setSelectedType(val || UnitType.WORKER);
+            setTrainQty({});
+            setUntrainQty({});
           }}
         >
           <Tabs.List>
-            <Tabs.Tab value="train">Train</Tabs.Tab>
-            <Tabs.Tab value="untrain">Untrain</Tabs.Tab>
+            {TAB_ORDER.map((type) => {
+              const total = getTotalOwned(type);
+              return (
+                <Tabs.Tab key={type} value={type}>
+                  {TAB_LABELS[type] || type}
+                  {total > 0 && (
+                    <Badge size="xs" variant="light" ml={6}>{toLocale(total)}</Badge>
+                  )}
+                </Tabs.Tab>
+              );
+            })}
           </Tabs.List>
         </Tabs>
 
-        {/* Unit sections */}
-        {UNIT_TYPE_ORDER.map((type) => renderUnitSection(type))}
+        {/* ── Train table ── */}
+        <Paper withBorder p="md">
+          <Title order={4} mb="sm">{TAB_LABELS[selectedType]} — Train</Title>
 
-        {/* Action bar */}
-        <Paper withBorder p="md" className="ot-card">
-          <Group justify="space-between" align="center" wrap="wrap" gap="md">
-            <Stack gap={4}>
-              {mode === 'train' ? (
-                <>
-                  <Text size="sm">
-                    Total Cost: <Text component="span" fw={700} className="ot-stat-value">{toLocale(totalCost)}</Text> gold
-                  </Text>
-                  <Text size="sm">
-                    Citizens needed: <Text component="span" fw={700}>{toLocale(totalQuantity)}</Text>
-                  </Text>
-                  {totalCost > gold && (
-                    <Text size="xs" c="red">Not enough gold</Text>
-                  )}
-                  {totalQuantity > citizens && (
-                    <Text size="xs" c="red">Not enough citizens</Text>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Text size="sm">
-                    Refund (75%): <Text component="span" fw={700} c="green">{toLocale(totalRefund)}</Text> gold
-                  </Text>
-                  <Text size="sm">
-                    Citizens returned: <Text component="span" fw={700}>{toLocale(totalQuantity)}</Text>
-                  </Text>
-                </>
-              )}
-            </Stack>
-            <Button
-              size="md"
-              onClick={handleSubmit}
-              loading={trainMutation.isPending || untrainMutation.isPending}
-              disabled={mode === 'train' ? !canTrain : !canUntrain}
-              color={mode === 'train' ? 'blue' : 'orange'}
-            >
-              {mode === 'train' ? 'Train Units' : 'Untrain Units'}
-            </Button>
-          </Group>
+          <Table striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Unit</Table.Th>
+                <Table.Th ta="center">Stats</Table.Th>
+                <Table.Th ta="right">Cost</Table.Th>
+                <Table.Th ta="center">Owned</Table.Th>
+                <Table.Th ta="right">Qty</Table.Th>
+                <Table.Th ta="center">Action</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {defs.map((def) => {
+                const key = getKey(def.type, def.level);
+                const owned = getOwned(def.type, def.level);
+                const discountedCost = getDiscountedCost(def.cost);
+                const locked = def.fortLevel > fortLevel;
+                const isLv2Plus = def.level > 1;
+                const lowerDef = getLowerTierDef(def);
+                const sourceAvailable = isLv2Plus ? getOwned(def.type, def.level - 1) : citizens;
+                const qty = trainQty[key] || 0;
+                const isTraining = busyKey === key + '_train';
+
+                const costLabel = isLv2Plus
+                  ? `${toLocale(discountedCost)} + 1 ${lowerDef?.name ?? 'unit'}`
+                  : `${toLocale(discountedCost)} + 1 citizen`;
+
+                const statLabel = `+${def.bonus} ${STAT_LABELS[def.type] || ''}`;
+
+                return (
+                  <Table.Tr key={key} style={locked ? { opacity: 0.5 } : undefined}>
+                    <Table.Td>
+                      {def.name}
+                      {locked && (
+                        <Badge color="red" size="xs" ml="xs">
+                          Fort Lv {def.fortLevel}
+                        </Badge>
+                      )}
+                      {isLv2Plus && !locked && (
+                        <Badge color="blue" size="xs" variant="light" ml="xs">
+                          {toLocale(sourceAvailable)} {lowerDef?.name ?? 'units'}
+                        </Badge>
+                      )}
+                    </Table.Td>
+                    <Table.Td ta="center">{statLabel}</Table.Td>
+                    <Table.Td ta="right">
+                      {toLocale(discountedCost)}
+                      {pricesBonusLevel > 0 && discountedCost < def.cost && (
+                        <Text component="span" size="xs" c="green"> (-{pricesBonusLevel}%)</Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td ta="center">{toLocale(owned)}</Table.Td>
+                    <Table.Td ta="right">
+                      <NumberInput
+                        size="xs"
+                        min={0}
+                        value={qty || ''}
+                        placeholder="0"
+                        onChange={(val) =>
+                          setTrainQty((prev) => ({
+                            ...prev,
+                            [key]: typeof val === 'number' ? val : 0,
+                          }))
+                        }
+                        disabled={locked}
+                        allowNegative={false}
+                        w={80}
+                        styles={{ input: { textAlign: 'right' } }}
+                      />
+                    </Table.Td>
+                    <Table.Td ta="center">
+                      <Group gap={4} wrap="nowrap" justify="center">
+                        <Button
+                          size="xs"
+                          variant="light"
+                          disabled={locked}
+                          onClick={() => {
+                            const max = getMaxTrainable(def);
+                            if (max > 0) setTrainQty((prev) => ({ ...prev, [key]: max }));
+                          }}
+                        >
+                          Max
+                        </Button>
+                        <Button
+                          size="xs"
+                          disabled={locked || qty <= 0 || qty * discountedCost > gold || qty > sourceAvailable}
+                          loading={isTraining}
+                          onClick={() => handleTrain(def, qty)}
+                        >
+                          {isLv2Plus ? 'Upgrade' : 'Train'}
+                        </Button>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+
+          {/* Cost info: requirement for Lv2+ */}
+          {defs.some((d) => d.level > 1 && d.fortLevel <= fortLevel) && (
+            <Text size="xs" mt="sm" style={{ color: 'var(--ot-text-dim)' }}>
+              Upgrading a unit consumes 1 lower-tier unit of the same type.
+            </Text>
+          )}
         </Paper>
+
+        {/* ── Untrain table ── */}
+        {defs.some((d) => d.fortLevel <= fortLevel && getOwned(d.type, d.level) > 0) && (
+          <Paper withBorder p="md">
+            <Title order={4} mb="sm">{TAB_LABELS[selectedType]} — Untrain (75% gold refund)</Title>
+
+            <Table striped>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Unit</Table.Th>
+                  <Table.Th ta="center">Owned</Table.Th>
+                  <Table.Th ta="right">Refund Each</Table.Th>
+                  <Table.Th ta="right">Qty</Table.Th>
+                  <Table.Th ta="center">Action</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {defs
+                  .filter((d) => d.fortLevel <= fortLevel && getOwned(d.type, d.level) > 0)
+                  .map((def) => {
+                    const key = getKey(def.type, def.level);
+                    const owned = getOwned(def.type, def.level);
+                    const discountedCost = getDiscountedCost(def.cost);
+                    const refundEach = Math.floor(discountedCost * 0.75);
+                    const qty = untrainQty[key] || 0;
+                    const isUntraining = busyKey === key + '_untrain';
+
+                    return (
+                      <Table.Tr key={key}>
+                        <Table.Td>{def.name}</Table.Td>
+                        <Table.Td ta="center">{toLocale(owned)}</Table.Td>
+                        <Table.Td ta="right" c="green">{toLocale(refundEach)}</Table.Td>
+                        <Table.Td ta="right">
+                          <NumberInput
+                            size="xs"
+                            min={0}
+                            max={owned}
+                            value={qty || ''}
+                            placeholder="0"
+                            onChange={(val) =>
+                              setUntrainQty((prev) => ({
+                                ...prev,
+                                [key]: typeof val === 'number' ? val : 0,
+                              }))
+                            }
+                            allowNegative={false}
+                            w={80}
+                            styles={{ input: { textAlign: 'right' } }}
+                          />
+                        </Table.Td>
+                        <Table.Td ta="center">
+                          <Group gap={4} wrap="nowrap" justify="center">
+                            <Button
+                              size="xs"
+                              variant="light"
+                              onClick={() => setUntrainQty((prev) => ({ ...prev, [key]: owned }))}
+                            >
+                              All
+                            </Button>
+                            <Button
+                              size="xs"
+                              color="orange"
+                              variant="light"
+                              disabled={qty <= 0}
+                              loading={isUntraining}
+                              onClick={() => handleUntrain(def, qty)}
+                            >
+                              Untrain
+                            </Button>
+                          </Group>
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
+              </Table.Tbody>
+            </Table>
+          </Paper>
+        )}
       </Stack>
     </Container>
   );

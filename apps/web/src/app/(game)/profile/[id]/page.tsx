@@ -16,7 +16,7 @@ import {
   Modal,
   Tooltip,
 } from '@mantine/core';
-import { useState } from 'react';
+import { OTCard, StatRow } from '@/components/ui';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -49,12 +49,6 @@ interface PlayerProfile {
 interface AttackResult {
   id: number;
   attackerWins: boolean;
-  goldStolen: string;
-  fortDamage: number;
-  attackerCasualties: { total: number; offenseUnits: number };
-  defenderCasualties: { total: number; defenseUnits: number; offenseUnits: number };
-  attackerXP: number;
-  defenderXP: number;
 }
 
 export default function PlayerProfilePage() {
@@ -64,8 +58,6 @@ export default function PlayerProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
-  const [resultOpened, { open: openResult, close: closeResult }] = useDisclosure(false);
-  const [attackResult, setAttackResult] = useState<AttackResult | null>(null);
 
   const { data: player, isLoading } = useQuery<PlayerProfile>({
     queryKey: ['player', params.id],
@@ -77,10 +69,16 @@ export default function PlayerProfilePage() {
     mutationFn: (defenderId: string) => api.post(`/battle/attack/${defenderId}`) as Promise<AttackResult>,
     onSuccess: (data: AttackResult) => {
       closeConfirm();
-      setAttackResult(data);
-      openResult();
+      notifications.show({
+        title: data.attackerWins ? 'Victory!' : 'Defeat!',
+        message: data.attackerWins
+          ? `Your attack on ${player?.displayName ?? 'the enemy'} was successful!`
+          : `Your attack on ${player?.displayName ?? 'the enemy'} was repelled.`,
+        color: data.attackerWins ? 'green' : 'red',
+      });
       queryClient.invalidateQueries({ queryKey: ['battle'] });
       queryClient.invalidateQueries({ queryKey: ['player', params.id] });
+      router.push(`/battle/report/${data.id}`);
     },
     onError: (err: Error) => {
       closeConfirm();
@@ -248,54 +246,24 @@ export default function PlayerProfilePage() {
 
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           {/* Combat Stats */}
-          <Paper withBorder p="md" radius="md" className="ot-card">
+          <OTCard>
             <Stack gap="sm">
               <Title order={4}>Combat Stats</Title>
-              <Group justify="space-between">
-                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                  Offense
-                </Text>
-                <Text fw={600} className="ot-stat-value">{toLocale(offense)}</Text>
-              </Group>
-              <Group justify="space-between">
-                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                  Defense
-                </Text>
-                <Text fw={600} className="ot-stat-value">{toLocale(defense)}</Text>
-              </Group>
-              <Group justify="space-between">
-                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                  Spy
-                </Text>
-                <Text fw={600} className="ot-stat-value">{toLocale(spy)}</Text>
-              </Group>
-              <Group justify="space-between">
-                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                  Sentry
-                </Text>
-                <Text fw={600} className="ot-stat-value">{toLocale(sentry)}</Text>
-              </Group>
+              <StatRow label="Offense" value={toLocale(offense)} />
+              <StatRow label="Defense" value={toLocale(defense)} />
+              <StatRow label="Spy" value={toLocale(spy)} />
+              <StatRow label="Sentry" value={toLocale(sentry)} />
             </Stack>
-          </Paper>
+          </OTCard>
 
           {/* Fortification */}
-          <Paper withBorder p="md" radius="md">
+          <OTCard>
             <Stack gap="sm">
               <Title order={4}>Fortification</Title>
-              <Group justify="space-between">
-                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                  Fort
-                </Text>
-                <Text fw={600} className="ot-stat-value">{fortName}</Text>
-              </Group>
-              <Group justify="space-between">
-                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                  Level
-                </Text>
-                <Text fw={600} className="ot-stat-value">{fortLevel}</Text>
-              </Group>
+              <StatRow label="Fort" value={fortName} />
+              <StatRow label="Level" value={fortLevel} />
             </Stack>
-          </Paper>
+          </OTCard>
         </SimpleGrid>
       </Stack>
 
@@ -340,56 +308,6 @@ export default function PlayerProfilePage() {
         </Stack>
       </Modal>
 
-      {/* Attack Result Modal */}
-      <Modal
-        opened={resultOpened}
-        onClose={closeResult}
-        title={
-          <Text fw={600} style={{ color: attackResult?.attackerWins ? '#4ecdc4' : '#ff6b6b' }}>
-            {attackResult?.attackerWins ? 'Victory!' : 'Defeat!'}
-          </Text>
-        }
-        centered
-        size="md"
-      >
-        {attackResult && (
-          <Stack gap="md">
-            <Text>
-              Your attack on <Text span fw={700} style={{ color: 'var(--ot-gold)' }}>{player.displayName}</Text>{' '}
-              was {attackResult.attackerWins ? 'successful' : 'repelled'}.
-            </Text>
-            <SimpleGrid cols={2} spacing="xs">
-              {attackResult.attackerWins && (
-                <Paper p="xs" withBorder>
-                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold Stolen</Text>
-                  <Text fw={600} style={{ color: '#4ecdc4' }}>{Number(attackResult.goldStolen).toLocaleString()}</Text>
-                </Paper>
-              )}
-              <Paper p="xs" withBorder>
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Your Casualties</Text>
-                <Text fw={600} style={{ color: '#ff6b6b' }}>{attackResult.attackerCasualties.total}</Text>
-              </Paper>
-              <Paper p="xs" withBorder>
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Enemy Casualties</Text>
-                <Text fw={600} style={{ color: '#c44dff' }}>{attackResult.defenderCasualties.total}</Text>
-              </Paper>
-              {attackResult.fortDamage > 0 && (
-                <Paper p="xs" withBorder>
-                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Damage</Text>
-                  <Text fw={600} style={{ color: '#ffa07a' }}>{attackResult.fortDamage}</Text>
-                </Paper>
-              )}
-              <Paper p="xs" withBorder>
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>XP Gained</Text>
-                <Text fw={600} style={{ color: 'var(--ot-gold)' }}>{attackResult.attackerXP}</Text>
-              </Paper>
-            </SimpleGrid>
-            <Group justify="flex-end">
-              <Button onClick={closeResult}>Close</Button>
-            </Group>
-          </Stack>
-        )}
-      </Modal>
     </Container>
   );
 }

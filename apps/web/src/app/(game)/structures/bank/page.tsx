@@ -3,7 +3,6 @@
 import {
   Container,
   Title,
-  Paper,
   Group,
   Stack,
   Text,
@@ -16,6 +15,7 @@ import {
   Skeleton,
   Alert,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
@@ -167,7 +167,7 @@ export default function BankPage() {
           <Tabs.Panel value="transactions" pt="md">
             <Stack gap="md">
               {/* Balances */}
-              <Paper withBorder p="md" className="ot-card">
+              <OTCard>
                 <Group justify="space-between" wrap="wrap" gap="md">
                   <Stack gap={4}>
                     <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
@@ -184,10 +184,10 @@ export default function BankPage() {
                     </Text>
                   </Stack>
                 </Group>
-              </Paper>
+              </OTCard>
 
               {/* Deposit */}
-              <Paper withBorder p="md" className="ot-card">
+              <OTCard>
                 <Stack gap="sm">
                   <Title order={4}>Deposit</Title>
                   <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
@@ -216,10 +216,10 @@ export default function BankPage() {
                     </Button>
                   </Group>
                 </Stack>
-              </Paper>
+              </OTCard>
 
               {/* Withdraw */}
-              <Paper withBorder p="md" className="ot-card">
+              <OTCard>
                 <Stack gap="sm">
                   <Title order={4}>Withdraw</Title>
                   <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
@@ -259,7 +259,7 @@ export default function BankPage() {
                     </Button>
                   </Group>
                 </Stack>
-              </Paper>
+              </OTCard>
             </Stack>
           </Tabs.Panel>
 

@@ -14,6 +14,7 @@ import {
   Badge,
   Alert,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
@@ -79,7 +80,7 @@ export default function RecruitmentPage() {
 
       <Stack gap="lg">
         {/* Recruit Link */}
-        <Paper withBorder p="md" className="ot-card">
+        <OTCard>
           <Title order={4} mb="sm">
             Your Recruit Link
           </Title>
@@ -114,7 +115,7 @@ export default function RecruitmentPage() {
               </Badge>
             )}
           </Group>
-        </Paper>
+        </OTCard>
 
         {/* Auto-Recruit */}
         <Paper withBorder p="md">

@@ -18,6 +18,7 @@ import {
   Switch,
   Accordion,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
@@ -180,7 +181,7 @@ export default function AlliancesPage() {
     return (
       <Stack gap="md" key={alliance.id}>
         {/* Alliance info */}
-        <Paper withBorder p="md" className="ot-card">
+        <OTCard>
           <Group justify="space-between" align="flex-start">
             <Stack gap={4}>
               <Title order={3}>{alliance.name}</Title>
@@ -206,7 +207,7 @@ export default function AlliancesPage() {
               </Text>
             </Stack>
           </Group>
-        </Paper>
+        </OTCard>
 
         {/* Deposit to treasury */}
         <Paper withBorder p="md">

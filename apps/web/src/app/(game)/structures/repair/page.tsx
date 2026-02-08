@@ -13,6 +13,7 @@ import {
   Alert,
   Progress,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
@@ -105,7 +106,7 @@ export default function FortificationRepairPage() {
           </Alert>
         )}
 
-        <Paper withBorder p="md" className="ot-card">
+        <OTCard>
           <Group justify="space-between" wrap="wrap" gap="md">
             <Stack gap={4}>
               <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
@@ -120,7 +121,7 @@ export default function FortificationRepairPage() {
               <Text fw={700} size="lg">+{fort.defenseBonusPercentage}%</Text>
             </Stack>
           </Group>
-        </Paper>
+        </OTCard>
 
         <Paper withBorder p="md">
           <Stack gap="md">
