@@ -12,6 +12,7 @@ import {
   SocialRelationshipType,
   AccountStatus,
   PermissionType,
+  SpyMissionType,
 } from './enums';
 
 // ─── Auth Schemas ────────────────────────────────────────────────────
@@ -229,6 +230,70 @@ export const adminGrantPermissionSchema = z.object({
   permissionType: z.nativeEnum(PermissionType),
 });
 
+// ─── Battle Schemas ─────────────────────────────────────────────────
+
+export const battlePlayersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  search: z.string().max(50).optional(),
+  race: z.nativeEnum(PlayerRace).optional(),
+  class: z.nativeEnum(PlayerClass).optional(),
+  sort: z.enum(['rank', 'offense', 'defense', 'gold', 'level']).default('rank'),
+  order: z.enum(['asc', 'desc']).default('asc'),
+});
+
+export const battleRankingsQuerySchema = z.object({
+  type: z.enum(['overall', 'offense', 'defense', 'spy', 'sentry']).default('overall'),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const battleHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  type: z.enum(['all', 'attack', 'defense']).default('all'),
+});
+
+// ─── Combat Schemas ─────────────────────────────────────────────────
+
+export const attackSchema = z.object({});
+
+export const spyMissionSchema = z.object({
+  type: z.nativeEnum(SpyMissionType),
+  spiesSent: z.number().int().min(1).max(10),
+  targetUnitType: z.nativeEnum(UnitType).optional(),
+});
+
+export const combatSimProfileSchema = z.object({
+  offense: z.number().int().min(0),
+  defense: z.number().int().min(0),
+  spy: z.number().int().min(0),
+  sentry: z.number().int().min(0),
+  gold: z.number().int().min(0),
+  goldInBank: z.number().int().min(0).default(0),
+  fortLevel: z.number().int().min(1).max(24),
+  fortHitpoints: z.number().int().min(0),
+  level: z.number().int().min(1),
+  population: z.number().int().min(0).default(100),
+  offenseUnits: z.number().int().min(0).default(0),
+  defenseUnits: z.number().int().min(0).default(0),
+  spyUnits: z.number().int().min(0).default(0),
+  sentryUnits: z.number().int().min(0).default(0),
+  citizenUnits: z.number().int().min(0).default(0),
+});
+
+export const combatSimulateSchema = z.object({
+  attacker: z.union([z.object({ playerId: z.string() }), combatSimProfileSchema]),
+  defender: z.union([z.object({ playerId: z.string() }), combatSimProfileSchema]),
+  config: z.record(z.number()).optional(),
+  runs: z.number().int().min(1).max(10000).default(1000),
+  type: z.enum(['attack', 'intel', 'assassinate', 'infiltrate']).default('attack'),
+  options: z.object({
+    spiesSent: z.number().int().min(1).max(10).optional(),
+    targetUnitType: z.nativeEnum(UnitType).optional(),
+  }).optional(),
+});
+
 // ─── Inferred Types ──────────────────────────────────────────────────
 
 export type RegisterDto = z.infer<typeof registerSchema>;
@@ -264,3 +329,10 @@ export type MarkMessagesAsReadDto = z.infer<typeof markMessagesAsReadSchema>;
 export type AdminUpdatePlayerDto = z.infer<typeof adminUpdatePlayerSchema>;
 export type AdminAccountActionDto = z.infer<typeof adminAccountActionSchema>;
 export type AdminGrantPermissionDto = z.infer<typeof adminGrantPermissionSchema>;
+export type BattlePlayersQueryDto = z.infer<typeof battlePlayersQuerySchema>;
+export type BattleRankingsQueryDto = z.infer<typeof battleRankingsQuerySchema>;
+export type BattleHistoryQueryDto = z.infer<typeof battleHistoryQuerySchema>;
+export type AttackDto = z.infer<typeof attackSchema>;
+export type SpyMissionDto = z.infer<typeof spyMissionSchema>;
+export type CombatSimulateDto = z.infer<typeof combatSimulateSchema>;
+export type CombatSimProfileDto = z.infer<typeof combatSimProfileSchema>;

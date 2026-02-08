@@ -66,6 +66,32 @@ export type {
 } from './stats';
 
 export {
+  calculateRankScore,
+} from './rankings';
+export type { RankScoreInput } from './rankings';
+
+export {
+  resolveAttack,
+  resolveIntel,
+  resolveAssassination,
+  resolveInfiltration,
+  runSimulation,
+  buildCombatProfile,
+  DEFAULT_COMBAT_CONFIG,
+} from './combat';
+export type {
+  CombatConfig,
+  CombatProfile,
+  AttackResult,
+  IntelResult,
+  AssassinationResult,
+  InfiltrationResult,
+  SimulationSummary,
+  CasualtyDetail,
+  FullPlayerData,
+} from './combat';
+
+export {
   EconomyUpgrades,
   OffensiveUpgrades,
   SpyUpgrades,

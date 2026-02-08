@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
+    "dev": "next dev --turbopack --port 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -21,6 +21,7 @@
     "next-auth": "^5.0.0-beta.25",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "recharts": "^3.7.0",
     "socket.io-client": "^4.8.3",
     "zod": "^3.24.0"
   },

@@ -17,6 +17,7 @@ import { AllianceModule } from './alliance/alliance.module';
 import { MailModule } from './mail/mail.module';
 import { ChatModule } from './chat/chat.module';
 import { BlogModule } from './blog/blog.module';
+import { BattleModule } from './battle/battle.module';
 import { AdminModule } from './admin/admin.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 
@@ -38,6 +39,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     MailModule,
     ChatModule,
     BlogModule,
+    BattleModule,
     AdminModule,
     SchedulerModule,
   ],

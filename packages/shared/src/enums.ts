@@ -128,3 +128,9 @@ export enum ChatMessageType {
   ATTACK_LOG = 'ATTACK_LOG',
   SYSTEM = 'SYSTEM',
 }
+
+export enum SpyMissionType {
+  INTEL = 'INTEL',
+  ASSASSINATE = 'ASSASSINATE',
+  INFILTRATE = 'INFILTRATE',
+}

@@ -213,8 +213,8 @@ See `.env.example` for the full list. Key ones:
 | 9 | Blog & Community | Not Started |
 | 10 | Scheduled Jobs (@nestjs/schedule) | Done |
 | 11 | Admin Panel | Done |
-| 12 | Battle Users & Rankings | Not Started |
-| 13 | Combat System (deferred) | Not Started |
+| 12 | Battle Users & Rankings | Done |
+| 13 | Combat System | Done |
 
 Full phase details: `REBUILD_PLAN.md` Section 9.
 

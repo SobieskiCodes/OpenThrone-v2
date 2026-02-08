@@ -1,10 +1,373 @@
-import { Title, Text, Container } from '@mantine/core';
+'use client';
+
+import {
+  Container,
+  Title,
+  Table,
+  Badge,
+  Text,
+  Skeleton,
+  Stack,
+  Pagination,
+  Group,
+  SegmentedControl,
+  Modal,
+  Paper,
+} from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useApi } from '@/hooks/use-api';
+import Link from 'next/link';
+
+interface BattleLogEntry {
+  id: number;
+  attacker: { id: string; displayName: string; race: string };
+  defender: { id: string; displayName: string; race: string };
+  winner: string;
+  type: string;
+  goldStolen: string;
+  timestamp: string | null;
+  isAttacker: boolean;
+}
+
+interface BattleLogDetail {
+  id: number;
+  attacker: { id: string; displayName: string; race: string; class: string };
+  defender: { id: string; displayName: string; race: string; class: string };
+  winner: string;
+  type: string;
+  timestamp: string | null;
+  stats: any;
+  isAttacker: boolean;
+}
+
+interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+const RACE_COLORS: Record<string, string> = {
+  HUMAN: 'blue',
+  ELF: 'green',
+  GOBLIN: 'orange',
+  UNDEAD: 'grape',
+};
 
 export default function BattleHistoryPage() {
+  const { api, isReady } = useApi();
+  const [filterType, setFilterType] = useState('all');
+  const [page, setPage] = useState(1);
+  const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
+  const [detailOpened, { open: openDetail, close: closeDetail }] = useDisclosure(false);
+
+  const { data: historyData, isLoading } = useQuery<PaginatedResponse<BattleLogEntry>>({
+    queryKey: ['battle', 'history', filterType, page],
+    queryFn: () => api.get(`/battle/history?type=${filterType}&page=${page}&limit=20`),
+    enabled: isReady,
+  });
+
+  const { data: detailData, isLoading: detailLoading } = useQuery<BattleLogDetail>({
+    queryKey: ['battle', 'history', selectedLogId],
+    queryFn: () => api.get(`/battle/history/${selectedLogId}`),
+    enabled: isReady && selectedLogId !== null,
+  });
+
+  const handleRowClick = (logId: number) => {
+    setSelectedLogId(logId);
+    openDetail();
+  };
+
+  const formatDate = (timestamp: string | null) => {
+    if (!timestamp) return 'Unknown';
+    return new Date(timestamp).toLocaleString();
+  };
+
   return (
-    <Container>
-      <Title order={2}>Battle History</Title>
-      <Text style={{ color: 'var(--ot-text-dim)' }}>Coming soon.</Text>
+    <Container size="lg">
+      <Stack gap="md">
+        <Title order={2} style={{ color: 'var(--ot-gold)' }}>
+          Battle History
+        </Title>
+
+        <SegmentedControl
+          data={[
+            { value: 'all', label: 'All' },
+            { value: 'attack', label: 'Attacks' },
+            { value: 'defense', label: 'Defenses' },
+          ]}
+          value={filterType}
+          onChange={(val) => {
+            setFilterType(val);
+            setPage(1);
+          }}
+        />
+
+        {isLoading ? (
+          <Skeleton height={400} />
+        ) : (
+          <>
+            <div className="ot-table-scroll">
+              <Table striped highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Date</Table.Th>
+                    <Table.Th>Opponent</Table.Th>
+                    <Table.Th ta="center">Type</Table.Th>
+                    <Table.Th ta="center">Result</Table.Th>
+                    <Table.Th ta="right">Gold</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {historyData?.data.length === 0 && (
+                    <Table.Tr>
+                      <Table.Td colSpan={5}>
+                        <Text ta="center" style={{ color: 'var(--ot-text-dim)' }}>
+                          No battle history yet.
+                        </Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                  {historyData?.data.map((log) => {
+                    const opponent = log.isAttacker ? log.defender : log.attacker;
+                    const didWin = log.isAttacker
+                      ? log.winner === log.attacker.id
+                      : log.winner === log.defender.id;
+                    const goldAmount = parseInt(log.goldStolen, 10) || 0;
+
+                    return (
+                      <Table.Tr
+                        key={log.id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => handleRowClick(log.id)}
+                      >
+                        <Table.Td>
+                          <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                            {formatDate(log.timestamp)}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Group gap="xs">
+                            <Text
+                              component={Link}
+                              href={`/profile/${opponent.id}`}
+                              fw={500}
+                              style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {opponent.displayName}
+                            </Text>
+                            <Badge
+                              variant="light"
+                              size="xs"
+                              color={RACE_COLORS[opponent.race] ?? 'gray'}
+                            >
+                              {opponent.race}
+                            </Badge>
+                          </Group>
+                        </Table.Td>
+                        <Table.Td ta="center">
+                          <Badge
+                            variant="light"
+                            size="sm"
+                            color={log.isAttacker ? 'red' : 'blue'}
+                          >
+                            {log.isAttacker ? 'Attack' : 'Defense'}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td ta="center">
+                          <Badge
+                            variant="filled"
+                            size="sm"
+                            color={didWin ? 'green' : 'red'}
+                          >
+                            {didWin ? 'Won' : 'Lost'}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td ta="right">
+                          <Text
+                            size="sm"
+                            style={{
+                              color: didWin ? 'var(--ot-success)' : 'var(--ot-danger)',
+                            }}
+                          >
+                            {didWin ? '+' : '-'}
+                            {goldAmount.toLocaleString()} gold
+                          </Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
+                </Table.Tbody>
+              </Table>
+            </div>
+
+            {historyData && historyData.pagination.totalPages > 1 && (
+              <Group justify="center">
+                <Pagination
+                  total={historyData.pagination.totalPages}
+                  value={page}
+                  onChange={setPage}
+                />
+              </Group>
+            )}
+          </>
+        )}
+      </Stack>
+
+      {/* ── Battle Detail Modal ──────────────────────────── */}
+      <Modal
+        opened={detailOpened}
+        onClose={closeDetail}
+        title={
+          <Text fw={700} style={{ color: 'var(--ot-gold)' }}>
+            Battle Report
+          </Text>
+        }
+        size="lg"
+      >
+        {detailLoading ? (
+          <Skeleton height={300} />
+        ) : detailData ? (
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Paper withBorder p="md" className="ot-card" style={{ flex: 1 }}>
+                <Stack gap="xs" align="center">
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                    ATTACKER
+                  </Text>
+                  <Text fw={700} style={{ color: 'var(--ot-gold)' }}>
+                    {detailData.attacker.displayName}
+                  </Text>
+                  <Group gap={4}>
+                    <Badge
+                      variant="light"
+                      size="xs"
+                      color={RACE_COLORS[detailData.attacker.race] ?? 'gray'}
+                    >
+                      {detailData.attacker.race}
+                    </Badge>
+                    <Badge variant="light" size="xs" color="gray">
+                      {detailData.attacker.class}
+                    </Badge>
+                  </Group>
+                </Stack>
+              </Paper>
+
+              <Text fw={700} size="xl" style={{ color: 'var(--ot-text-dim)' }}>
+                VS
+              </Text>
+
+              <Paper withBorder p="md" className="ot-card" style={{ flex: 1 }}>
+                <Stack gap="xs" align="center">
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                    DEFENDER
+                  </Text>
+                  <Text fw={700} style={{ color: 'var(--ot-gold)' }}>
+                    {detailData.defender.displayName}
+                  </Text>
+                  <Group gap={4}>
+                    <Badge
+                      variant="light"
+                      size="xs"
+                      color={RACE_COLORS[detailData.defender.race] ?? 'gray'}
+                    >
+                      {detailData.defender.race}
+                    </Badge>
+                    <Badge variant="light" size="xs" color="gray">
+                      {detailData.defender.class}
+                    </Badge>
+                  </Group>
+                </Stack>
+              </Paper>
+            </Group>
+
+            <Paper withBorder p="md" className="ot-card">
+              <Stack gap="xs">
+                <Group justify="space-between">
+                  <Text style={{ color: 'var(--ot-text-dim)' }}>Result</Text>
+                  <Badge
+                    variant="filled"
+                    color={
+                      detailData.winner === detailData.attacker.id ? 'green' : 'red'
+                    }
+                  >
+                    {detailData.winner === detailData.attacker.id
+                      ? 'Attacker Wins'
+                      : 'Defender Wins'}
+                  </Badge>
+                </Group>
+                <Group justify="space-between">
+                  <Text style={{ color: 'var(--ot-text-dim)' }}>Type</Text>
+                  <Text>{detailData.type}</Text>
+                </Group>
+                <Group justify="space-between">
+                  <Text style={{ color: 'var(--ot-text-dim)' }}>Date</Text>
+                  <Text>{formatDate(detailData.timestamp)}</Text>
+                </Group>
+
+                {detailData.stats?.goldStolen != null && (
+                  <Group justify="space-between">
+                    <Text style={{ color: 'var(--ot-text-dim)' }}>Gold Stolen</Text>
+                    <Text className="ot-stat-value">
+                      {Number(detailData.stats.goldStolen).toLocaleString()}
+                    </Text>
+                  </Group>
+                )}
+
+                {detailData.stats?.attackerCasualties != null && (
+                  <Group justify="space-between">
+                    <Text style={{ color: 'var(--ot-text-dim)' }}>
+                      Attacker Casualties
+                    </Text>
+                    <Text style={{ color: 'var(--ot-danger)' }}>
+                      {Number(detailData.stats.attackerCasualties).toLocaleString()}
+                    </Text>
+                  </Group>
+                )}
+
+                {detailData.stats?.defenderCasualties != null && (
+                  <Group justify="space-between">
+                    <Text style={{ color: 'var(--ot-text-dim)' }}>
+                      Defender Casualties
+                    </Text>
+                    <Text style={{ color: 'var(--ot-danger)' }}>
+                      {Number(detailData.stats.defenderCasualties).toLocaleString()}
+                    </Text>
+                  </Group>
+                )}
+
+                {detailData.stats?.fortDamage != null && (
+                  <Group justify="space-between">
+                    <Text style={{ color: 'var(--ot-text-dim)' }}>Fort Damage</Text>
+                    <Text style={{ color: 'var(--ot-warning)' }}>
+                      {Number(detailData.stats.fortDamage).toLocaleString()}
+                    </Text>
+                  </Group>
+                )}
+
+                {detailData.stats?.experienceGained != null && (
+                  <Group justify="space-between">
+                    <Text style={{ color: 'var(--ot-text-dim)' }}>XP Gained</Text>
+                    <Text className="ot-stat-value">
+                      +{Number(detailData.stats.experienceGained).toLocaleString()}
+                    </Text>
+                  </Group>
+                )}
+              </Stack>
+            </Paper>
+          </Stack>
+        ) : (
+          <Text style={{ color: 'var(--ot-text-dim)' }}>
+            Could not load battle details.
+          </Text>
+        )}
+      </Modal>
     </Container>
   );
 }

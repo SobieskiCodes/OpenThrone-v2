@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { calculateGoldPerTurn } from '@openthrone/game-logic';
+import { calculateGoldPerTurn, calculateRankScore } from '@openthrone/game-logic';
 import { TurnTickEvent, RankingsRecalculatedEvent } from '@openthrone/events';
 import { BankAccountType, BankTransferHistoryType } from '@openthrone/shared';
 
@@ -148,25 +148,37 @@ export class TurnTickService {
   }
 
   private async recalculateRankings() {
-    const stats = await this.prisma.playerStats.findMany({
-      orderBy: [
-        { offense: 'desc' },
-        { defense: 'desc' },
-      ],
+    // TODO: Cache with Redis for faster leaderboard queries
+    const players = await this.prisma.player.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        stats: true,
+        fortification: true,
+        structure_upgrades: { where: { upgrade_type: 'HOUSE' } },
+        units: true,
+        items: true,
+      },
     });
 
-    // Combined score = offense + defense + spy + sentry
-    const ranked = stats
-      .map((s) => ({
-        id: s.id,
-        playerId: s.player_id,
-        score: s.offense + s.defense + s.spy + s.sentry,
+    const scored = players
+      .filter((p) => p.stats)
+      .map((p) => ({
+        statsId: p.stats!.id,
+        score: calculateRankScore({
+          experience: p.stats!.experience,
+          fortLevel: p.fortification?.fort_level ?? 1,
+          houseLevel:
+            p.structure_upgrades.find((u) => u.upgrade_type === 'HOUSE')
+              ?.level ?? 1,
+          totalUnits: p.units.reduce((s, u) => s + u.quantity, 0),
+          totalItems: p.items.reduce((s, i) => s + i.quantity, 0),
+        }),
       }))
       .sort((a, b) => b.score - a.score);
 
-    for (const [i, entry] of ranked.entries()) {
+    for (const [i, entry] of scored.entries()) {
       await this.prisma.playerStats.update({
-        where: { id: entry.id },
+        where: { id: entry.statsId },
         data: { rank: i + 1 },
       });
     }
