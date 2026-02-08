@@ -16,10 +16,13 @@ import {
   Progress,
 } from '@mantine/core';
 import { OTCard, OTSectionTitle } from '@/components/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import { useApi } from '@/hooks/use-api';
+import { notifications } from '@mantine/notifications';
 import Link from 'next/link';
+
+// ─── Shared Interfaces ──────────────────────────────────────────────
 
 interface LineItem {
   name: string;
@@ -66,34 +69,18 @@ interface PlayerMeta {
   fortMaxHP: number;
 }
 
-interface BattleReportData {
+interface ReportData {
   id: number;
   attacker: { id: string; displayName: string; race: string; class: string; level: number | null };
   defender: { id: string; displayName: string; race: string; class: string; level: number | null };
   winner: string;
   type: string;
   timestamp: string | null;
-  stats: {
-    attackerWins: boolean;
-    ratio: number;
-    goldStolen: number;
-    fortDamage: number;
-    attackerCasualties: CasualtyDetail;
-    defenderCasualties: CasualtyDetail;
-    attackerXP: number;
-    defenderXP: number;
-    fortShield: number;
-    effectiveDefense: number;
-    roll?: number;
-    attackerOffense?: number;
-    defenderDefense?: number;
-    attackerBreakdown?: DetailedBreakdown;
-    defenderBreakdown?: DetailedBreakdown;
-    attackerMeta?: PlayerMeta;
-    defenderMeta?: PlayerMeta;
-  };
+  stats: Record<string, any>;
   isAttacker: boolean;
 }
+
+const SPY_TYPES = ['intel', 'assassinate', 'infiltrate', 'steal_gold', 'sabotage'];
 
 const RACE_COLORS: Record<string, string> = {
   HUMAN: 'blue',
@@ -102,10 +89,298 @@ const RACE_COLORS: Record<string, string> = {
   UNDEAD: 'grape',
 };
 
+const SPY_TYPE_LABELS: Record<string, string> = {
+  intel: 'Intelligence',
+  assassinate: 'Assassination',
+  infiltrate: 'Infiltration',
+  steal_gold: 'Steal Gold',
+  sabotage: 'Sabotage',
+};
+
 function formatDate(timestamp: string | null) {
   if (!timestamp) return 'Unknown';
   return new Date(timestamp).toLocaleString();
 }
+
+// ─── Spy Report Component ───────────────────────────────────────────
+
+function SpyReport({ report }: { report: ReportData }) {
+  const router = useRouter();
+  const { api } = useApi();
+  const { stats } = report;
+  const success = report.winner === report.attacker.id;
+  const missionLabel = SPY_TYPE_LABELS[report.type] ?? report.type;
+
+  const shareIntelMutation = useMutation({
+    mutationFn: (attackLogId: number) =>
+      api.post('/battle/intel/share', { attackLogId }),
+    onSuccess: () => {
+      notifications.show({ title: 'Intel Shared', message: 'Intel report shared with your alliance.', color: 'green' });
+    },
+    onError: (err: Error) => {
+      notifications.show({ title: 'Share Failed', message: err.message, color: 'red' });
+    },
+  });
+
+  return (
+    <Container size="lg">
+      <Stack gap="md">
+        {/* Header */}
+        <Group justify="space-between" align="center">
+          <Group gap="sm">
+            <Title order={2}>Spy Report</Title>
+            <Badge variant="light" color="violet" size="lg">{missionLabel}</Badge>
+          </Group>
+          <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+            {formatDate(report.timestamp)}
+          </Text>
+        </Group>
+
+        {/* Players */}
+        <Group justify="center" align="center" gap="lg" wrap="wrap">
+          <OTCard style={{ flex: 1, minWidth: 200 }}>
+            <Stack gap="xs" align="center">
+              <Text size="xs" tt="uppercase" style={{ color: 'var(--ot-text-dim)' }}>
+                {report.isAttacker ? 'You (Spy)' : 'Spy'}
+              </Text>
+              <Text
+                component={Link}
+                href={`/profile/${report.attacker.id}`}
+                fw={700}
+                size="lg"
+                style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
+              >
+                {report.attacker.displayName}
+              </Text>
+              <Group gap={4}>
+                <Badge variant="light" size="xs" color={RACE_COLORS[report.attacker.race] ?? 'gray'}>
+                  {report.attacker.race}
+                </Badge>
+                {report.attacker.level != null && (
+                  <Badge variant="light" size="xs" color="teal">Lv {report.attacker.level}</Badge>
+                )}
+              </Group>
+            </Stack>
+          </OTCard>
+
+          <Text fw={700} size="xl" style={{ color: 'var(--ot-text-dim)' }}>VS</Text>
+
+          <OTCard style={{ flex: 1, minWidth: 200 }}>
+            <Stack gap="xs" align="center">
+              <Text size="xs" tt="uppercase" style={{ color: 'var(--ot-text-dim)' }}>
+                {report.isAttacker ? 'Target' : 'You (Target)'}
+              </Text>
+              <Text
+                component={Link}
+                href={`/profile/${report.defender.id}`}
+                fw={700}
+                size="lg"
+                style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
+              >
+                {report.defender.displayName}
+              </Text>
+              <Group gap={4}>
+                <Badge variant="light" size="xs" color={RACE_COLORS[report.defender.race] ?? 'gray'}>
+                  {report.defender.race}
+                </Badge>
+                {report.defender.level != null && (
+                  <Badge variant="light" size="xs" color="teal">Lv {report.defender.level}</Badge>
+                )}
+              </Group>
+            </Stack>
+          </OTCard>
+        </Group>
+
+        {/* Mission Result */}
+        <OTCard>
+          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+            <Paper p="sm" withBorder ta="center">
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Result</Text>
+              <Badge variant="filled" size="lg" mt={4} color={success ? 'green' : 'red'}>
+                {success ? 'Success' : 'Failed'}
+              </Badge>
+            </Paper>
+            <Paper p="sm" withBorder ta="center">
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Spies Lost</Text>
+              <Text fw={700} size="lg" mt={4} style={{ color: 'var(--ot-danger)' }}>
+                {stats.spiesLost ?? 0}
+              </Text>
+            </Paper>
+            <Paper p="sm" withBorder ta="center">
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Spies Survived</Text>
+              <Text fw={700} size="lg" mt={4} style={{ color: 'var(--ot-success)' }}>
+                {stats.spiesSurvived ?? 0}
+              </Text>
+            </Paper>
+            {stats.revealPercent !== undefined && (
+              <Paper p="sm" withBorder ta="center">
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Intel Revealed</Text>
+                <Text fw={700} size="lg" mt={4} style={{ color: 'var(--ot-gold)' }}>
+                  {stats.revealPercent}%
+                </Text>
+              </Paper>
+            )}
+            {stats.unitsKilled !== undefined && stats.unitsKilled > 0 && (
+              <Paper p="sm" withBorder ta="center">
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Units Killed</Text>
+                <Text fw={700} size="lg" mt={4} c="grape">
+                  {stats.unitsKilled} {stats.targetUnitType}
+                </Text>
+              </Paper>
+            )}
+            {stats.fortDamage !== undefined && stats.fortDamage > 0 && (
+              <Paper p="sm" withBorder ta="center">
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Damage</Text>
+                <Text fw={700} size="lg" mt={4} style={{ color: 'var(--ot-warning)' }}>
+                  {stats.fortDamage}
+                </Text>
+              </Paper>
+            )}
+            {stats.goldStolen !== undefined && Number(stats.goldStolen) > 0 && (
+              <Paper p="sm" withBorder ta="center">
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold Stolen</Text>
+                <Text fw={700} size="lg" mt={4} style={{ color: 'var(--ot-success)' }}>
+                  {Number(stats.goldStolen).toLocaleString()}
+                </Text>
+              </Paper>
+            )}
+          </SimpleGrid>
+        </OTCard>
+
+        {/* Sabotage: destroyed items list */}
+        {stats.destroyedItems && stats.destroyedItems.length > 0 && (
+          <OTCard>
+            <OTSectionTitle>Items Destroyed</OTSectionTitle>
+            <Table striped mt="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Item</Table.Th>
+                  <Table.Th>Usage</Table.Th>
+                  <Table.Th ta="right">Level</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {stats.destroyedItems.map((item: any, i: number) => (
+                  <Table.Tr key={i}>
+                    <Table.Td>{item.itemType}</Table.Td>
+                    <Table.Td>{item.usage}</Table.Td>
+                    <Table.Td ta="right">{item.level}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </OTCard>
+        )}
+
+        {/* Intel Data */}
+        {stats.intelData && Object.keys(stats.intelData).length > 0 && (
+          <OTCard>
+            <OTSectionTitle>Intelligence Report</OTSectionTitle>
+            <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs" mt="sm">
+              {stats.intelData.offense !== undefined && (
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Offense</Text>
+                  <Text fw={600}>{stats.intelData.offense.toLocaleString()}</Text>
+                </Paper>
+              )}
+              {stats.intelData.defense !== undefined && (
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Defense</Text>
+                  <Text fw={600}>{stats.intelData.defense.toLocaleString()}</Text>
+                </Paper>
+              )}
+              {stats.intelData.spy !== undefined && (
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Spy</Text>
+                  <Text fw={600}>{stats.intelData.spy.toLocaleString()}</Text>
+                </Paper>
+              )}
+              {stats.intelData.sentry !== undefined && (
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Sentry</Text>
+                  <Text fw={600}>{stats.intelData.sentry.toLocaleString()}</Text>
+                </Paper>
+              )}
+              {stats.intelData.gold !== undefined && (
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold</Text>
+                  <Text fw={600}>{Number(stats.intelData.gold).toLocaleString()}</Text>
+                </Paper>
+              )}
+              {stats.intelData.fortHitpoints !== undefined && (
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort HP</Text>
+                  <Text fw={600}>{stats.intelData.fortHitpoints}</Text>
+                </Paper>
+              )}
+              {stats.intelData.armySize !== undefined && (
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Army Size</Text>
+                  <Text fw={600}>{stats.intelData.armySize.toLocaleString()}</Text>
+                </Paper>
+              )}
+              {stats.intelData.goldInBank !== undefined && (
+                <Paper p="xs" withBorder>
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold in Bank</Text>
+                  <Text fw={600}>{Number(stats.intelData.goldInBank).toLocaleString()}</Text>
+                </Paper>
+              )}
+            </SimpleGrid>
+
+            {stats.intelData.units && (
+              <>
+                <Text size="sm" fw={600} style={{ color: 'var(--ot-gold)' }} mt="md">
+                  Full Unit Breakdown
+                </Text>
+                <Table striped mt="xs">
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Type</Table.Th>
+                      <Table.Th>Level</Table.Th>
+                      <Table.Th ta="right">Quantity</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {(stats.intelData.units as any[]).map((u: any, i: number) => (
+                      <Table.Tr key={i}>
+                        <Table.Td>{u.unitType}</Table.Td>
+                        <Table.Td>{u.level}</Table.Td>
+                        <Table.Td ta="right">{u.quantity}</Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </>
+            )}
+
+            {/* Save to Alliance button — only for intel missions by the attacker */}
+            {report.type === 'intel' && report.isAttacker && success && (
+              <Button
+                variant="light"
+                color="blue"
+                onClick={() => shareIntelMutation.mutate(report.id)}
+                loading={shareIntelMutation.isPending}
+                disabled={shareIntelMutation.isSuccess}
+                mt="md"
+              >
+                {shareIntelMutation.isSuccess ? 'Shared with Alliance' : 'Save to Alliance'}
+              </Button>
+            )}
+          </OTCard>
+        )}
+
+        {/* Back Link */}
+        <Group justify="center">
+          <Button variant="light" onClick={() => router.push('/battle/history')}>
+            Back to Battle History
+          </Button>
+        </Group>
+      </Stack>
+    </Container>
+  );
+}
+
+// ─── Attack Report Subcomponents ────────────────────────────────────
 
 function BreakdownTable({ lines, label }: { lines: LineItem[]; label: string }) {
   if (lines.length === 0) return null;
@@ -235,41 +510,21 @@ function CasualtyRow({ label, count }: { label: string; count: number }) {
   );
 }
 
-export default function BattleReportPage() {
-  const params = useParams<{ id: string }>();
+// ─── Attack Report Component ────────────────────────────────────────
+
+function AttackReport({ report }: { report: ReportData }) {
   const router = useRouter();
-  const { api, isReady } = useApi();
-
-  const { data: report, isLoading } = useQuery<BattleReportData>({
-    queryKey: ['battle', 'report', params.id],
-    queryFn: () => api.get(`/battle/history/${params.id}`),
-    enabled: isReady && !!params.id,
-  });
-
-  if (isLoading || !report) {
-    return (
-      <Container size="lg">
-        <Stack gap="md">
-          <Skeleton height={80} />
-          <Skeleton height={200} />
-          <Skeleton height={400} />
-        </Stack>
-      </Container>
-    );
-  }
-
   const { stats } = report;
   const hasBreakdown = !!stats.attackerBreakdown && !!stats.defenderBreakdown;
   const attackerWins = stats.attackerWins;
 
-  // You can only see the enemy's detailed stats if you won
   const iWon = (report.isAttacker && attackerWins) || (!report.isAttacker && !attackerWins);
   const showEnemyStats = iWon;
 
   return (
     <Container size="lg">
       <Stack gap="md">
-        {/* ── Header ──────────────────────────────────────── */}
+        {/* Header */}
         <Group justify="space-between" align="center">
           <Title order={2}>Battle Report</Title>
           <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
@@ -277,7 +532,7 @@ export default function BattleReportPage() {
           </Text>
         </Group>
 
-        {/* ── Combat Overview ─────────────────────────────── */}
+        {/* Combat Overview */}
         <Group justify="center" align="center" gap="lg" wrap="wrap">
           <OTCard style={{ flex: 1, minWidth: 200 }}>
             <Stack gap="xs" align="center">
@@ -364,17 +619,12 @@ export default function BattleReportPage() {
           </OTCard>
         </Group>
 
-        {/* ── Quick Stats ─────────────────────────────────── */}
+        {/* Quick Stats */}
         <OTCard>
           <SimpleGrid cols={{ base: 2, sm: showEnemyStats ? 4 : 2 }} spacing="xs">
             <Paper p="sm" withBorder ta="center">
               <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Result</Text>
-              <Badge
-                variant="filled"
-                size="lg"
-                mt={4}
-                color={iWon ? 'green' : 'red'}
-              >
+              <Badge variant="filled" size="lg" mt={4} color={iWon ? 'green' : 'red'}>
                 {iWon ? 'Victory' : 'Defeat'}
               </Badge>
             </Paper>
@@ -406,7 +656,7 @@ export default function BattleReportPage() {
           </SimpleGrid>
         </OTCard>
 
-        {/* ── Battle Results ──────────────────────────────── */}
+        {/* Battle Results */}
         <OTCard>
           <OTSectionTitle>Battle Results</OTSectionTitle>
           <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mt="sm">
@@ -433,10 +683,9 @@ export default function BattleReportPage() {
           </SimpleGrid>
         </OTCard>
 
-        {/* ── Detailed Breakdown Panels ───────────────────── */}
+        {/* Detailed Breakdown */}
         {hasBreakdown ? (
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-            {/* Attacker's Offense — visible to attacker always, to defender only if they won */}
             {(report.isAttacker || showEnemyStats) ? (
               <BreakdownPanel
                 title="Attacker's Offense"
@@ -450,13 +699,12 @@ export default function BattleReportPage() {
                   <Text size="xl">&#128274;</Text>
                   <OTSectionTitle>Attacker&apos;s Offense</OTSectionTitle>
                   <Text size="sm" ta="center" style={{ color: 'var(--ot-text-dim)' }}>
-                    Enemy stats hidden — win the battle to reveal
+                    Enemy stats hidden &mdash; win the battle to reveal
                   </Text>
                 </Stack>
               </OTCard>
             )}
 
-            {/* Defender's Defense — visible to defender always, to attacker only if they won */}
             {(!report.isAttacker || showEnemyStats) ? (
               <BreakdownPanel
                 title="Defender's Defense"
@@ -470,7 +718,7 @@ export default function BattleReportPage() {
                   <Text size="xl">&#128274;</Text>
                   <OTSectionTitle>Defender&apos;s Defense</OTSectionTitle>
                   <Text size="sm" ta="center" style={{ color: 'var(--ot-text-dim)' }}>
-                    Enemy stats hidden — win the battle to reveal
+                    Enemy stats hidden &mdash; win the battle to reveal
                   </Text>
                 </Stack>
               </OTCard>
@@ -499,7 +747,7 @@ export default function BattleReportPage() {
           </OTCard>
         )}
 
-        {/* ── Combat Resolution ───────────────────────────── */}
+        {/* Combat Resolution */}
         {hasBreakdown && stats.roll != null && showEnemyStats && (
           <OTCard>
             <OTSectionTitle>Combat Resolution</OTSectionTitle>
@@ -550,26 +798,25 @@ export default function BattleReportPage() {
           </OTCard>
         )}
 
-        {/* ── Casualties ──────────────────────────────────── */}
+        {/* Casualties */}
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-          {/* Attacker Casualties — detailed for attacker, summary-only for defender who lost */}
           <OTCard>
             <OTSectionTitle>Attacker Casualties</OTSectionTitle>
             <Stack gap="xs" mt="sm">
-              {stats.attackerCasualties.total === 0 ? (
+              {stats.attackerCasualties?.total === 0 ? (
                 <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>No casualties</Text>
               ) : (report.isAttacker || showEnemyStats) ? (
                 <>
-                  <CasualtyRow label="Offense Units" count={stats.attackerCasualties.offenseUnits} />
-                  <CasualtyRow label="Defense Units" count={stats.attackerCasualties.defenseUnits} />
-                  <CasualtyRow label="Spy Units" count={stats.attackerCasualties.spyUnits} />
-                  <CasualtyRow label="Sentry Units" count={stats.attackerCasualties.sentryUnits} />
-                  <CasualtyRow label="Citizens" count={stats.attackerCasualties.citizenUnits} />
+                  <CasualtyRow label="Offense Units" count={stats.attackerCasualties?.offenseUnits ?? 0} />
+                  <CasualtyRow label="Defense Units" count={stats.attackerCasualties?.defenseUnits ?? 0} />
+                  <CasualtyRow label="Spy Units" count={stats.attackerCasualties?.spyUnits ?? 0} />
+                  <CasualtyRow label="Sentry Units" count={stats.attackerCasualties?.sentryUnits ?? 0} />
+                  <CasualtyRow label="Citizens" count={stats.attackerCasualties?.citizenUnits ?? 0} />
                   <Divider variant="dashed" />
                   <Group justify="space-between">
                     <Text size="sm" fw={700}>Total</Text>
                     <Text size="sm" fw={700} style={{ color: 'var(--ot-danger)' }}>
-                      -{stats.attackerCasualties.total.toLocaleString()}
+                      -{(stats.attackerCasualties?.total ?? 0).toLocaleString()}
                     </Text>
                   </Group>
                 </>
@@ -577,31 +824,30 @@ export default function BattleReportPage() {
                 <Group justify="space-between">
                   <Text size="sm" fw={700}>Total</Text>
                   <Text size="sm" fw={700} style={{ color: 'var(--ot-danger)' }}>
-                    -{stats.attackerCasualties.total.toLocaleString()}
+                    -{(stats.attackerCasualties?.total ?? 0).toLocaleString()}
                   </Text>
                 </Group>
               )}
             </Stack>
           </OTCard>
 
-          {/* Defender Casualties — detailed for defender, summary-only for attacker who lost */}
           <OTCard>
             <OTSectionTitle>Defender Casualties</OTSectionTitle>
             <Stack gap="xs" mt="sm">
-              {stats.defenderCasualties.total === 0 ? (
+              {stats.defenderCasualties?.total === 0 ? (
                 <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>No casualties</Text>
               ) : (!report.isAttacker || showEnemyStats) ? (
                 <>
-                  <CasualtyRow label="Defense Units" count={stats.defenderCasualties.defenseUnits} />
-                  <CasualtyRow label="Offense Units" count={stats.defenderCasualties.offenseUnits} />
-                  <CasualtyRow label="Spy Units" count={stats.defenderCasualties.spyUnits} />
-                  <CasualtyRow label="Sentry Units" count={stats.defenderCasualties.sentryUnits} />
-                  <CasualtyRow label="Citizens" count={stats.defenderCasualties.citizenUnits} />
+                  <CasualtyRow label="Defense Units" count={stats.defenderCasualties?.defenseUnits ?? 0} />
+                  <CasualtyRow label="Offense Units" count={stats.defenderCasualties?.offenseUnits ?? 0} />
+                  <CasualtyRow label="Spy Units" count={stats.defenderCasualties?.spyUnits ?? 0} />
+                  <CasualtyRow label="Sentry Units" count={stats.defenderCasualties?.sentryUnits ?? 0} />
+                  <CasualtyRow label="Citizens" count={stats.defenderCasualties?.citizenUnits ?? 0} />
                   <Divider variant="dashed" />
                   <Group justify="space-between">
                     <Text size="sm" fw={700}>Total</Text>
                     <Text size="sm" fw={700} style={{ color: 'var(--ot-danger)' }}>
-                      -{stats.defenderCasualties.total.toLocaleString()}
+                      -{(stats.defenderCasualties?.total ?? 0).toLocaleString()}
                     </Text>
                   </Group>
                 </>
@@ -609,7 +855,7 @@ export default function BattleReportPage() {
                 <Group justify="space-between">
                   <Text size="sm" fw={700}>Total</Text>
                   <Text size="sm" fw={700} style={{ color: 'var(--ot-danger)' }}>
-                    -{stats.defenderCasualties.total.toLocaleString()}
+                    -{(stats.defenderCasualties?.total ?? 0).toLocaleString()}
                   </Text>
                 </Group>
               )}
@@ -617,16 +863,45 @@ export default function BattleReportPage() {
           </OTCard>
         </SimpleGrid>
 
-        {/* ── Back Link ───────────────────────────────────── */}
+        {/* Back Link */}
         <Group justify="center">
-          <Button
-            variant="light"
-            onClick={() => router.push('/battle/history')}
-          >
+          <Button variant="light" onClick={() => router.push('/battle/history')}>
             Back to Battle History
           </Button>
         </Group>
       </Stack>
     </Container>
   );
+}
+
+// ─── Main Page Component ────────────────────────────────────────────
+
+export default function BattleReportPage() {
+  const params = useParams<{ id: string }>();
+  const { api, isReady } = useApi();
+
+  const { data: report, isLoading } = useQuery<ReportData>({
+    queryKey: ['battle', 'report', params.id],
+    queryFn: () => api.get(`/battle/history/${params.id}`),
+    enabled: isReady && !!params.id,
+  });
+
+  if (isLoading || !report) {
+    return (
+      <Container size="lg">
+        <Stack gap="md">
+          <Skeleton height={80} />
+          <Skeleton height={200} />
+          <Skeleton height={400} />
+        </Stack>
+      </Container>
+    );
+  }
+
+  // Route to the correct report type
+  if (SPY_TYPES.includes(report.type)) {
+    return <SpyReport report={report} />;
+  }
+
+  return <AttackReport report={report} />;
 }

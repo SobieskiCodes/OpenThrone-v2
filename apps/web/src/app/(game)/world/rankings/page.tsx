@@ -44,7 +44,7 @@ interface RankEntry {
   race: string;
   class: string;
   level: number;
-  score: number;
+  score: number | null;
 }
 
 interface RankingsResponse {
@@ -164,6 +164,9 @@ export default function RankingsPage() {
 
   const category = CATEGORIES.find((c) => c.value === categoryValue) ?? CATEGORIES[0]!;
   const subType = category.subTypes.find((s) => s.value === subTypeValue) ?? category.subTypes[0]!;
+
+  // Hide score for global category (offense/defense expose raw combat stats)
+  const showScore = categoryValue !== 'global';
 
   const { data, isLoading } = useQuery<RankingsResponse>({
     queryKey: ['rankings', categoryValue, subTypeValue, period, page],
@@ -304,13 +307,13 @@ export default function RankingsPage() {
                     <Table.Th>Player</Table.Th>
                     <Table.Th ta="center">Race</Table.Th>
                     <Table.Th ta="center">Level</Table.Th>
-                    <Table.Th ta="right">Score</Table.Th>
+                    {showScore && <Table.Th ta="right">Score</Table.Th>}
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {data.data.length === 0 ? (
                     <Table.Tr>
-                      <Table.Td colSpan={5} ta="center">
+                      <Table.Td colSpan={showScore ? 5 : 4} ta="center">
                         <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} py="xl">
                           No data yet{period === 'today' ? ' for today' : ''}. Start playing to appear on the leaderboard!
                         </Text>
@@ -354,11 +357,13 @@ export default function RankingsPage() {
                           <Table.Td ta="center">
                             <Text size="sm" fw={600}>{entry.level}</Text>
                           </Table.Td>
-                          <Table.Td ta="right">
-                            <Text size="sm" fw={700} className="ot-stat-value">
-                              {formatScore(entry.score, categoryValue, subTypeValue)}
-                            </Text>
-                          </Table.Td>
+                          {showScore && entry.score != null && (
+                            <Table.Td ta="right">
+                              <Text size="sm" fw={700} className="ot-stat-value">
+                                {formatScore(entry.score, categoryValue, subTypeValue)}
+                              </Text>
+                            </Table.Td>
+                          )}
                         </Table.Tr>
                       );
                     })

@@ -34,6 +34,13 @@ import { useApi } from '@/hooks/use-api';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+interface AllianceIntelEntry {
+  spiedByName: string;
+  spiedAt: string;
+  revealPercent: number;
+  intelData: Record<string, any>;
+}
+
 interface PlayerEntry {
   id: string;
   displayName: string;
@@ -41,18 +48,17 @@ interface PlayerEntry {
   class: string;
   level: number;
   rank: number;
-  offense: number;
-  defense: number;
   fortLevel: number;
   fortHP: number;
   fortMaxHP: number;
   population: number;
   armySize: number;
-  gold: string;
+  gold: string | null;
   lastActive: string | null;
   status: string;
   attacksToday: number;
   maxAttacksPerDay: number;
+  allianceIntel: AllianceIntelEntry | null;
 }
 
 interface RankingEntry {
@@ -62,7 +68,6 @@ interface RankingEntry {
   race: string;
   class: string;
   level: number;
-  score: number;
 }
 
 interface PaginatedResponse<T> {
@@ -100,7 +105,7 @@ const CLASS_OPTIONS = [
 ];
 
 // Sortable column definitions for table header sorting
-type SortKey = 'rank' | 'offense' | 'defense' | 'gold' | 'level' | 'population' | 'fortLevel';
+type SortKey = 'rank' | 'gold' | 'level' | 'population' | 'fortLevel';
 
 function SortHeader({
   label,
@@ -310,8 +315,6 @@ export default function PlayersPage() {
                           <SortHeader label="Lv" sortKey="level" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="center" />
                           <SortHeader label="Pop" sortKey="population" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
                           <SortHeader label="Gold" sortKey="gold" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
-                          <SortHeader label="Offense" sortKey="offense" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
-                          <SortHeader label="Defense" sortKey="defense" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
                           <SortHeader label="Fort" sortKey="fortLevel" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="center" />
                           <Table.Th ta="center">Attacks</Table.Th>
                           <Table.Th ta="right">Actions</Table.Th>
@@ -320,7 +323,7 @@ export default function PlayersPage() {
                       <Table.Tbody>
                         {playersData?.data.length === 0 && (
                           <Table.Tr>
-                            <Table.Td colSpan={11}>
+                            <Table.Td colSpan={9}>
                               <Text ta="center" style={{ color: 'var(--ot-text-dim)' }}>
                                 No players found.
                               </Text>
@@ -368,18 +371,8 @@ export default function PlayersPage() {
                                 </Text>
                               </Table.Td>
                               <Table.Td ta="right">
-                                <Text className="ot-stat-value">
-                                  {Number(p.gold).toLocaleString()}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td ta="right">
-                                <Text className="ot-stat-value">
-                                  {p.offense.toLocaleString()}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td ta="right">
-                                <Text className="ot-stat-value">
-                                  {p.defense.toLocaleString()}
+                                <Text className="ot-stat-value" style={p.gold === null ? { color: 'var(--ot-text-dim)' } : undefined}>
+                                  {p.gold !== null ? Number(p.gold).toLocaleString() : '???'}
                                 </Text>
                               </Table.Td>
                               <Table.Td ta="center" w={90}>
@@ -506,13 +499,12 @@ export default function PlayersPage() {
                           <Table.Th>Race</Table.Th>
                           <Table.Th>Class</Table.Th>
                           <Table.Th ta="center">Level</Table.Th>
-                          <Table.Th ta="right">Score</Table.Th>
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
                         {rankingsData?.data.length === 0 && (
                           <Table.Tr>
-                            <Table.Td colSpan={6}>
+                            <Table.Td colSpan={5}>
                               <Text ta="center" style={{ color: 'var(--ot-text-dim)' }}>
                                 No rankings yet.
                               </Text>
@@ -551,11 +543,6 @@ export default function PlayersPage() {
                             <Table.Td ta="center">
                               <Text className="ot-stat-value">{r.level}</Text>
                             </Table.Td>
-                            <Table.Td ta="right">
-                              <Text className="ot-stat-value">
-                                {r.score.toLocaleString()}
-                              </Text>
-                            </Table.Td>
                           </Table.Tr>
                         ))}
                       </Table.Tbody>
@@ -590,10 +577,6 @@ export default function PlayersPage() {
               You are about to attack <Text span fw={700} style={{ color: 'var(--ot-gold)' }}>{attackTarget.displayName}</Text>.
             </Text>
             <SimpleGrid cols={2} spacing="xs">
-              <Paper p="xs" withBorder>
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Their Defense</Text>
-                <Text fw={600}>{attackTarget.defense.toLocaleString()}</Text>
-              </Paper>
               <Paper p="xs" withBorder>
                 <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Their Fort Level</Text>
                 <Text fw={600}>{attackTarget.fortLevel}</Text>

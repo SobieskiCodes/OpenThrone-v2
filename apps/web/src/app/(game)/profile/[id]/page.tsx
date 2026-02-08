@@ -25,6 +25,19 @@ import { useSession } from 'next-auth/react';
 import { useApi } from '@/hooks/use-api';
 import { getFortificationByLevel, getLevelForXP, toLocale } from '@openthrone/game-logic';
 
+interface AllianceIntelData {
+  spiedByName: string;
+  spiedAt: string;
+  revealPercent: number;
+  intelData: Record<string, any>;
+}
+
+interface PersonalLastSpy {
+  spiedAt: string | null;
+  revealPercent: number;
+  intelData: Record<string, any>;
+}
+
 interface PlayerProfile {
   id: string;
   displayName: string;
@@ -35,15 +48,17 @@ interface PlayerProfile {
   stats: {
     experience: number;
     rank: number;
-    offense: number;
-    defense: number;
-    spy: number;
-    sentry: number;
+    offense?: number;
+    defense?: number;
+    spy?: number;
+    sentry?: number;
     level: number;
   } | null;
   fortification: {
     fortLevel: number;
   } | null;
+  allianceIntel?: AllianceIntelData | null;
+  personalLastSpy?: PersonalLastSpy | null;
 }
 
 interface AttackResult {
@@ -120,13 +135,15 @@ export default function PlayerProfilePage() {
     );
   }
 
+  const isOwnProfile = (session as any)?.user?.id === player.id;
   const experience = player.stats?.experience ?? 0;
   const rank = player.stats?.rank ?? 0;
-  const offense = player.stats?.offense ?? 0;
-  const defense = player.stats?.defense ?? 0;
-  const spy = player.stats?.spy ?? 0;
-  const sentry = player.stats?.sentry ?? 0;
+  const offense = player.stats?.offense;
+  const defense = player.stats?.defense;
+  const spy = player.stats?.spy;
+  const sentry = player.stats?.sentry;
   const fortLevel = player.fortification?.fortLevel ?? 1;
+  const hasStats = offense !== undefined;
 
   const level = getLevelForXP(experience);
   const fort = getFortificationByLevel(fortLevel);
@@ -249,10 +266,75 @@ export default function PlayerProfilePage() {
           <OTCard>
             <Stack gap="sm">
               <Title order={4}>Combat Stats</Title>
-              <StatRow label="Offense" value={toLocale(offense)} />
-              <StatRow label="Defense" value={toLocale(defense)} />
-              <StatRow label="Spy" value={toLocale(spy)} />
-              <StatRow label="Sentry" value={toLocale(sentry)} />
+              {hasStats ? (
+                <>
+                  <StatRow label="Offense" value={toLocale(offense ?? 0)} />
+                  <StatRow label="Defense" value={toLocale(defense ?? 0)} />
+                  <StatRow label="Spy" value={toLocale(spy ?? 0)} />
+                  <StatRow label="Sentry" value={toLocale(sentry ?? 0)} />
+                </>
+              ) : (
+                <>
+                  {/* Personal last spy */}
+                  {player.personalLastSpy && Object.keys(player.personalLastSpy.intelData).length > 0 && (
+                    <>
+                      <Text size="xs" fw={600} style={{ color: 'var(--ot-gold)' }}>
+                        Your last spy {player.personalLastSpy.spiedAt
+                          ? `on ${new Date(player.personalLastSpy.spiedAt).toLocaleDateString()}`
+                          : ''} ({player.personalLastSpy.revealPercent}% revealed)
+                      </Text>
+                      {player.personalLastSpy.intelData.offense !== undefined && (
+                        <StatRow label="Offense" value={toLocale(player.personalLastSpy.intelData.offense)} />
+                      )}
+                      {player.personalLastSpy.intelData.defense !== undefined && (
+                        <StatRow label="Defense" value={toLocale(player.personalLastSpy.intelData.defense)} />
+                      )}
+                      {player.personalLastSpy.intelData.spy !== undefined && (
+                        <StatRow label="Spy" value={toLocale(player.personalLastSpy.intelData.spy)} />
+                      )}
+                      {player.personalLastSpy.intelData.sentry !== undefined && (
+                        <StatRow label="Sentry" value={toLocale(player.personalLastSpy.intelData.sentry)} />
+                      )}
+                    </>
+                  )}
+
+                  {/* Alliance intel (if different from personal) */}
+                  {player.allianceIntel && (
+                    <>
+                      <Text size="xs" fw={600} mt={player.personalLastSpy ? 'sm' : 0} style={{ color: 'var(--ot-text-dim)' }}>
+                        Alliance intel &mdash; spied by {player.allianceIntel.spiedByName} on{' '}
+                        {new Date(player.allianceIntel.spiedAt).toLocaleDateString()} ({player.allianceIntel.revealPercent}% revealed)
+                      </Text>
+                      {player.allianceIntel.intelData.offense !== undefined && (
+                        <StatRow label="Offense" value={toLocale(player.allianceIntel.intelData.offense)} />
+                      )}
+                      {player.allianceIntel.intelData.defense !== undefined && (
+                        <StatRow label="Defense" value={toLocale(player.allianceIntel.intelData.defense)} />
+                      )}
+                      {player.allianceIntel.intelData.spy !== undefined && (
+                        <StatRow label="Spy" value={toLocale(player.allianceIntel.intelData.spy)} />
+                      )}
+                      {player.allianceIntel.intelData.sentry !== undefined && (
+                        <StatRow label="Sentry" value={toLocale(player.allianceIntel.intelData.sentry)} />
+                      )}
+                    </>
+                  )}
+
+                  {/* No intel at all */}
+                  {!player.personalLastSpy && !player.allianceIntel && (
+                    <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                      Send spies to uncover this player&apos;s stats.
+                    </Text>
+                  )}
+
+                  {/* Show prompt even with intel (in case only partial) */}
+                  {(player.personalLastSpy || player.allianceIntel) && (
+                    <Text size="xs" mt="xs" style={{ color: 'var(--ot-text-dim)', fontStyle: 'italic' }}>
+                      Send more spies for more detail.
+                    </Text>
+                  )}
+                </>
+              )}
             </Stack>
           </OTCard>
 
@@ -279,10 +361,6 @@ export default function PlayerProfilePage() {
             You are about to attack <Text span fw={700} style={{ color: 'var(--ot-gold)' }}>{player.displayName}</Text>.
           </Text>
           <SimpleGrid cols={2} spacing="xs">
-            <Paper p="xs" withBorder>
-              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Their Defense</Text>
-              <Text fw={600}>{toLocale(defense)}</Text>
-            </Paper>
             <Paper p="xs" withBorder>
               <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Their Fort</Text>
               <Text fw={600}>Lv {fortLevel} - {fortName}</Text>

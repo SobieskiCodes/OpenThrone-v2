@@ -46,6 +46,50 @@ const RACE_COLORS: Record<string, string> = {
   UNDEAD: 'grape',
 };
 
+const SPY_TYPES = ['intel', 'assassinate', 'infiltrate', 'steal_gold', 'sabotage'];
+
+function getTypeBadge(log: BattleLogEntry) {
+  if (SPY_TYPES.includes(log.type)) {
+    const labels: Record<string, string> = {
+      intel: 'Intel',
+      assassinate: 'Assassination',
+      infiltrate: 'Infiltration',
+      steal_gold: 'Steal Gold',
+      sabotage: 'Sabotage',
+    };
+    return (
+      <Badge variant="light" size="sm" color="violet">
+        {labels[log.type] ?? log.type}
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="light" size="sm" color={log.isAttacker ? 'red' : 'blue'}>
+      {log.isAttacker ? 'Attack' : 'Defense'}
+    </Badge>
+  );
+}
+
+function getGoldDisplay(log: BattleLogEntry, didWin: boolean) {
+  if (SPY_TYPES.includes(log.type) && log.type !== 'steal_gold') {
+    return (
+      <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>--</Text>
+    );
+  }
+  const goldAmount = parseInt(log.goldStolen, 10) || 0;
+  return (
+    <Text
+      size="sm"
+      style={{
+        color: didWin ? 'var(--ot-success)' : 'var(--ot-danger)',
+      }}
+    >
+      {didWin ? '+' : '-'}
+      {goldAmount.toLocaleString()} gold
+    </Text>
+  );
+}
+
 export default function BattleHistoryPage() {
   const { api, isReady } = useApi();
   const router = useRouter();
@@ -75,6 +119,7 @@ export default function BattleHistoryPage() {
             { value: 'all', label: 'All' },
             { value: 'attack', label: 'Attacks' },
             { value: 'defense', label: 'Defenses' },
+            { value: 'spy', label: 'Spy Missions' },
           ]}
           value={filterType}
           onChange={(val) => {
@@ -113,7 +158,6 @@ export default function BattleHistoryPage() {
                     const didWin = log.isAttacker
                       ? log.winner === log.attacker.id
                       : log.winner === log.defender.id;
-                    const goldAmount = parseInt(log.goldStolen, 10) || 0;
 
                     return (
                       <Table.Tr
@@ -147,13 +191,7 @@ export default function BattleHistoryPage() {
                           </Group>
                         </Table.Td>
                         <Table.Td ta="center">
-                          <Badge
-                            variant="light"
-                            size="sm"
-                            color={log.isAttacker ? 'red' : 'blue'}
-                          >
-                            {log.isAttacker ? 'Attack' : 'Defense'}
-                          </Badge>
+                          {getTypeBadge(log)}
                         </Table.Td>
                         <Table.Td ta="center">
                           <Badge
@@ -165,15 +203,7 @@ export default function BattleHistoryPage() {
                           </Badge>
                         </Table.Td>
                         <Table.Td ta="right">
-                          <Text
-                            size="sm"
-                            style={{
-                              color: didWin ? 'var(--ot-success)' : 'var(--ot-danger)',
-                            }}
-                          >
-                            {didWin ? '+' : '-'}
-                            {goldAmount.toLocaleString()} gold
-                          </Text>
+                          {getGoldDisplay(log, didWin)}
                         </Table.Td>
                       </Table.Tr>
                     );

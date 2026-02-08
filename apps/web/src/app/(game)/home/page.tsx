@@ -541,8 +541,8 @@ export default function DashboardPage() {
               {battles && battles.data.length > 0 ? (
                 battles.data.slice(0, 5).map((battle) => {
                   const won = battle.isAttacker
-                    ? battle.winner === 'ATTACKER'
-                    : battle.winner === 'DEFENDER';
+                    ? battle.winner === battle.attacker.id
+                    : battle.winner === battle.defender.id;
                   const opponent = battle.isAttacker ? battle.defender : battle.attacker;
                   const action = battle.isAttacker ? 'Attacked' : 'Defended vs';
                   return (

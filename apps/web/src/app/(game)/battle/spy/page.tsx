@@ -32,8 +32,6 @@ interface PlayerEntry {
   race: string;
   class: string;
   level: number;
-  offense: number;
-  defense: number;
 }
 
 interface PaginatedResponse<T> {
@@ -51,6 +49,9 @@ interface SpyResult {
   unitsKilled?: number;
   targetUnitType?: string;
   fortDamage?: number;
+  attackLogId?: number;
+  goldStolen?: string;
+  destroyedItems?: { itemType: string; usage: string; level: number }[];
 }
 
 const TARGET_UNIT_OPTIONS = [
@@ -89,8 +90,6 @@ function SpyPageContent() {
         race: targetPlayer.race,
         class: targetPlayer.class,
         level: targetPlayer.stats?.level ?? 1,
-        offense: targetPlayer.stats?.offense ?? 0,
-        defense: targetPlayer.stats?.defense ?? 0,
       });
       setTargetLoaded(true);
     }
@@ -121,11 +120,27 @@ function SpyPageContent() {
     },
   });
 
+  const shareIntelMutation = useMutation({
+    mutationFn: (attackLogId: number) =>
+      api.post('/battle/intel/share', { attackLogId }),
+    onSuccess: () => {
+      notifications.show({ title: 'Intel Shared', message: 'Intel report shared with your alliance.', color: 'green' });
+    },
+    onError: (err: Error) => {
+      notifications.show({ title: 'Share Failed', message: err.message, color: 'red' });
+    },
+  });
+
   const handleExecuteMission = () => {
     if (!selectedTarget) return;
-    const missionType = missionTab === 'intel' ? 'INTEL'
-      : missionTab === 'assassinate' ? 'ASSASSINATE'
-      : 'INFILTRATE';
+    const missionTypeMap: Record<string, string> = {
+      intel: 'INTEL',
+      assassinate: 'ASSASSINATE',
+      infiltrate: 'INFILTRATE',
+      steal_gold: 'STEAL_GOLD',
+      sabotage: 'SABOTAGE',
+    };
+    const missionType = missionTypeMap[missionTab] ?? 'INTEL';
 
     const body: any = {
       type: missionType,
@@ -228,9 +243,11 @@ function SpyPageContent() {
         {selectedTarget && (
           <Tabs value={missionTab} onChange={(v) => { setMissionTab(v ?? 'intel'); setResult(null); }}>
             <Tabs.List>
-              <Tabs.Tab value="intel">Intel</Tabs.Tab>
-              <Tabs.Tab value="assassinate">Assassination</Tabs.Tab>
-              <Tabs.Tab value="infiltrate">Infiltration</Tabs.Tab>
+              <Tabs.Tab value="intel">Intel (3,000g / 2 turns)</Tabs.Tab>
+              <Tabs.Tab value="assassinate">Assassination (1 turn)</Tabs.Tab>
+              <Tabs.Tab value="infiltrate">Infiltration (1 turn)</Tabs.Tab>
+              <Tabs.Tab value="steal_gold">Steal Gold (10,000g / 5 turns)</Tabs.Tab>
+              <Tabs.Tab value="sabotage">Sabotage (10,000g / 5 turns)</Tabs.Tab>
             </Tabs.List>
 
             {/* Intel Tab */}
@@ -239,7 +256,7 @@ function SpyPageContent() {
                 <Stack gap="sm">
                   <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                     Send spies to gather intelligence on the target. Each spy reveals 10% of their information.
-                    Requires Spy units (level 1+).
+                    Costs 3,000 gold and 2 attack turns.
                   </Text>
                   <NumberInput
                     label="Spies to Send"
@@ -256,7 +273,7 @@ function SpyPageContent() {
                     style={{ backgroundColor: 'var(--ot-gold)', color: '#000' }}
                     w={200}
                   >
-                    Send Spies
+                    Send Spies (3,000g)
                   </Button>
                 </Stack>
               </OTCard>
@@ -267,7 +284,7 @@ function SpyPageContent() {
               <OTCard>
                 <Stack gap="sm">
                   <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                    Send assassins to eliminate specific enemy units. Requires Assassin units (spy level 3).
+                    Send assassins to eliminate specific enemy units.
                     Higher risk but can take out key units.
                   </Text>
                   <Group>
@@ -305,7 +322,7 @@ function SpyPageContent() {
               <OTCard>
                 <Stack gap="sm">
                   <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                    Send infiltrators to sabotage the enemy&apos;s fortifications. Requires Infiltrator units (spy level 2).
+                    Send infiltrators to sabotage the enemy&apos;s fortifications.
                     Deals direct damage to their fort hitpoints.
                   </Text>
                   <NumberInput
@@ -328,6 +345,66 @@ function SpyPageContent() {
                 </Stack>
               </OTCard>
             </Tabs.Panel>
+
+            {/* Steal Gold Tab */}
+            <Tabs.Panel value="steal_gold" pt="md">
+              <OTCard>
+                <Stack gap="sm">
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                    Send spies to steal gold from the target&apos;s coffers. Steals 5-10% of their hand gold on success.
+                    High risk: 50% spy loss on failure. Costs 10,000 gold and 5 attack turns.
+                  </Text>
+                  <Badge color="orange" variant="light">Requires Spy Level 2+</Badge>
+                  <NumberInput
+                    label="Spies to Send"
+                    value={spiesSent}
+                    onChange={(v) => setSpiesSent(Number(v) || 1)}
+                    min={1}
+                    max={10}
+                    w={200}
+                  />
+                  <Button
+                    onClick={handleExecuteMission}
+                    loading={spyMutation.isPending}
+                    disabled={!selectedTarget}
+                    color="yellow"
+                    w={200}
+                  >
+                    Steal Gold (10,000g)
+                  </Button>
+                </Stack>
+              </OTCard>
+            </Tabs.Panel>
+
+            {/* Sabotage Tab */}
+            <Tabs.Panel value="sabotage" pt="md">
+              <OTCard>
+                <Stack gap="sm">
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                    Send spies to destroy the enemy&apos;s equipped items. Destroys 3-5 random items on success.
+                    High risk: 50% spy loss on failure. Costs 10,000 gold and 5 attack turns.
+                  </Text>
+                  <Badge color="orange" variant="light">Requires Spy Level 2+</Badge>
+                  <NumberInput
+                    label="Spies to Send"
+                    value={spiesSent}
+                    onChange={(v) => setSpiesSent(Number(v) || 1)}
+                    min={1}
+                    max={10}
+                    w={200}
+                  />
+                  <Button
+                    onClick={handleExecuteMission}
+                    loading={spyMutation.isPending}
+                    disabled={!selectedTarget}
+                    color="grape"
+                    w={200}
+                  >
+                    Sabotage (10,000g)
+                  </Button>
+                </Stack>
+              </OTCard>
+            </Tabs.Panel>
           </Tabs>
         )}
 
@@ -340,7 +417,7 @@ function SpyPageContent() {
                   {result.success ? 'Mission Successful' : 'Mission Failed'}
                 </Text>
                 <Badge color={result.success ? 'green' : 'red'} variant="light">
-                  {result.missionType.toUpperCase()}
+                  {result.missionType.toUpperCase().replace('_', ' ')}
                 </Badge>
               </Group>
 
@@ -376,7 +453,43 @@ function SpyPageContent() {
                     <Text fw={600} style={{ color: 'var(--ot-warning)' }}>{result.fortDamage}</Text>
                   </Paper>
                 )}
+
+                {result.goldStolen !== undefined && Number(result.goldStolen) > 0 && (
+                  <Paper p="xs" withBorder>
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold Stolen</Text>
+                    <Text fw={600} style={{ color: 'var(--ot-success)' }}>
+                      {Number(result.goldStolen).toLocaleString()}
+                    </Text>
+                  </Paper>
+                )}
               </SimpleGrid>
+
+              {/* Sabotage: destroyed items list */}
+              {result.destroyedItems && result.destroyedItems.length > 0 && (
+                <>
+                  <Text fw={600} style={{ color: 'var(--ot-danger)' }} mt="sm">
+                    Items Destroyed
+                  </Text>
+                  <Table striped>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Item</Table.Th>
+                        <Table.Th>Usage</Table.Th>
+                        <Table.Th ta="right">Level</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {result.destroyedItems.map((item, i) => (
+                        <Table.Tr key={i}>
+                          <Table.Td>{item.itemType}</Table.Td>
+                          <Table.Td>{item.usage}</Table.Td>
+                          <Table.Td ta="right">{item.level}</Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </>
+              )}
 
               {/* Intel Data */}
               {result.intelData && Object.keys(result.intelData).length > 0 && (
@@ -459,6 +572,20 @@ function SpyPageContent() {
                         </Table.Tbody>
                       </Table>
                     </>
+                  )}
+
+                  {/* Save to Alliance button */}
+                  {result.attackLogId && (
+                    <Button
+                      variant="light"
+                      color="blue"
+                      onClick={() => shareIntelMutation.mutate(result.attackLogId!)}
+                      loading={shareIntelMutation.isPending}
+                      disabled={shareIntelMutation.isSuccess}
+                      mt="sm"
+                    >
+                      {shareIntelMutation.isSuccess ? 'Shared with Alliance' : 'Save to Alliance'}
+                    </Button>
                   )}
                 </>
               )}
