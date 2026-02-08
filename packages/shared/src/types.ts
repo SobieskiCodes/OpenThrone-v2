@@ -6,7 +6,6 @@ import type {
   ItemUsage,
   BonusType,
   BattleUpgradeType,
-  StructureUpgradeType,
   AccountStatus,
   PermissionType,
   Locale,

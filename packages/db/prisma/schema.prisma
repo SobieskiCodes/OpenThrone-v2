@@ -38,6 +38,7 @@ model Player {
   fortification       PlayerFortification?
   bonus_points        PlayerBonusPoint[]
   stats               PlayerStats?
+  cumulative_stats    PlayerCumulativeStats?
 
   attacks_made        AttackLog[]          @relation("attacker")
   attacks_received    AttackLog[]          @relation("defender")
@@ -69,6 +70,8 @@ model Player {
 
   mail_sent           Mail[]
   mail_received       MailRecipient[]
+
+  mercenary_purchases MercenaryDailyPurchase[]
 
   @@index([created_at])
   @@map("players")
@@ -126,7 +129,7 @@ model PlayerBattleUpgrade {
 
   player Player @relation(fields: [player_id], references: [id])
 
-  @@unique([player_id, upgrade_type])
+  @@unique([player_id, upgrade_type, level])
   @@index([player_id])
   @@map("player_battle_upgrades")
 }
@@ -186,6 +189,53 @@ model PlayerStats {
   player Player @relation(fields: [player_id], references: [id])
 
   @@map("player_stats")
+}
+
+model PlayerCumulativeStats {
+  id                  Int      @id @default(autoincrement())
+  player_id           String   @unique
+
+  // Combat
+  attack_wins         Int      @default(0)
+  defense_wins        Int      @default(0)
+  total_attacks       Int      @default(0)
+  total_defends       Int      @default(0)
+  gold_stolen         BigInt   @default(0)
+  fort_damage_dealt   Int      @default(0)
+  units_killed        Int      @default(0)
+  units_lost          Int      @default(0)
+
+  // Spy
+  spy_wins            Int      @default(0)
+  counter_spy_wins    Int      @default(0)
+  total_spy_ops       Int      @default(0)
+  spies_lost          Int      @default(0)
+
+  // Economy
+  gold_spent          BigInt   @default(0)
+  gold_income         BigInt   @default(0)
+
+  // Army
+  units_trained       Int      @default(0)
+
+  // Social
+  messages_sent       Int      @default(0)
+  citizens_recruited  Int      @default(0)
+
+  // Daily counters (reset by scheduler at midnight)
+  daily_attack_wins   Int      @default(0)
+  daily_defense_wins  Int      @default(0)
+  daily_gold_stolen   BigInt   @default(0)
+  daily_gold_income   BigInt   @default(0)
+  daily_spy_wins      Int      @default(0)
+  daily_units_trained Int      @default(0)
+  daily_reset_at      DateTime?
+
+  updated_at          DateTime @updatedAt
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@map("player_cumulative_stats")
 }
 
 model AttackLog {
@@ -518,4 +568,17 @@ model JobLog {
 
   @@index([job_name, started_at])
   @@map("job_logs")
+}
+
+model MercenaryDailyPurchase {
+  id         Int      @id @default(autoincrement())
+  player_id  String
+  unit_type  String   // OFFENSE, DEFENSE, SPY, SENTRY
+  purchased  Int      @default(0)
+  reset_date DateTime @default(now())
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@unique([player_id, unit_type])
+  @@map("mercenary_daily_purchases")
 }

@@ -128,11 +128,25 @@ export const purchaseStructureUpgradeSchema = z.object({
 
 export const purchaseBattleUpgradeSchema = z.object({
   upgradeType: z.nativeEnum(BattleUpgradeType),
+  level: z.number().int().min(1),
+  quantity: z.number().int().min(1),
+});
+
+export const sellBattleUpgradeSchema = z.object({
+  upgradeType: z.nativeEnum(BattleUpgradeType),
+  level: z.number().int().min(1),
   quantity: z.number().int().min(1),
 });
 
 export const repairFortSchema = z.object({
   points: z.number().int().min(1),
+});
+
+export const buyMercenarySchema = z.object({
+  units: z.array(z.object({
+    unitType: z.enum(['OFFENSE', 'DEFENSE', 'SPY', 'SENTRY']),
+    quantity: z.number().int().min(1).max(100),
+  })).min(1),
 });
 
 // ─── Recruitment Schemas ─────────────────────────────────────────────
@@ -217,6 +231,11 @@ export const adminUpdatePlayerSchema = z.object({
   attackTurns: z.number().int().min(0).optional(),
   status: z.nativeEnum(AccountStatus).optional(),
   experience: z.number().int().min(0).optional(),
+  offense: z.number().int().min(0).optional(),
+  defense: z.number().int().min(0).optional(),
+  spy: z.number().int().min(0).optional(),
+  sentry: z.number().int().min(0).optional(),
+  bonusPoints: z.record(z.string(), z.number().int().min(0).max(75)).optional(),
 });
 
 export const adminAccountActionSchema = z.object({
@@ -246,6 +265,14 @@ export const battleRankingsQuerySchema = z.object({
   type: z.enum(['overall', 'offense', 'defense', 'spy', 'sentry']).default('overall'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const detailedRankingsQuerySchema = z.object({
+  category: z.enum(['global', 'combat', 'spy', 'economy', 'army', 'social']).default('global'),
+  subType: z.string().default('overall_power'),
+  period: z.enum(['allTime', 'today']).default('allTime'),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 export const battleHistoryQuerySchema = z.object({
@@ -312,7 +339,9 @@ export type EquipItemDto = z.infer<typeof equipItemSchema>;
 export type UnequipItemDto = z.infer<typeof unequipItemSchema>;
 export type PurchaseStructureUpgradeDto = z.infer<typeof purchaseStructureUpgradeSchema>;
 export type PurchaseBattleUpgradeDto = z.infer<typeof purchaseBattleUpgradeSchema>;
+export type SellBattleUpgradeDto = z.infer<typeof sellBattleUpgradeSchema>;
 export type RepairFortDto = z.infer<typeof repairFortSchema>;
+export type BuyMercenaryDto = z.infer<typeof buyMercenarySchema>;
 export type ClaimRecruitLinkDto = z.infer<typeof claimRecruitLinkSchema>;
 export type AddFriendDto = z.infer<typeof addFriendSchema>;
 export type RespondToRequestDto = z.infer<typeof respondToRequestSchema>;
@@ -331,6 +360,7 @@ export type AdminAccountActionDto = z.infer<typeof adminAccountActionSchema>;
 export type AdminGrantPermissionDto = z.infer<typeof adminGrantPermissionSchema>;
 export type BattlePlayersQueryDto = z.infer<typeof battlePlayersQuerySchema>;
 export type BattleRankingsQueryDto = z.infer<typeof battleRankingsQuerySchema>;
+export type DetailedRankingsQueryDto = z.infer<typeof detailedRankingsQuerySchema>;
 export type BattleHistoryQueryDto = z.infer<typeof battleHistoryQuerySchema>;
 export type AttackDto = z.infer<typeof attackSchema>;
 export type SpyMissionDto = z.infer<typeof spyMissionSchema>;

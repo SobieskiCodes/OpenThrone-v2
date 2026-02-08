@@ -123,6 +123,27 @@ export const HouseUpgrades: HouseUpgradeDefinition[] = [
   { name: 'Housing Level 6', fortLevel: 22, citizensDaily: 60, cost: 5000000, level: 7 },
 ];
 
+// ─── Mercenary Camp Upgrades ─────────────────────────────────────────
+
+export interface MercenaryCampDefinition {
+  name: string;
+  level: number;
+  fortLevel: number;
+  cost: number;
+  dailyStock: number;
+}
+
+export const MercenaryCampUpgrades: MercenaryCampDefinition[] = [
+  { name: 'No Camp',              level: 1, fortLevel: 0,  cost: 0,         dailyStock: 0 },
+  { name: 'Mercenary Tent',      level: 2, fortLevel: 3,  cost: 250000,    dailyStock: 10 },
+  { name: 'Mercenary Outpost',   level: 3, fortLevel: 7,  cost: 750000,    dailyStock: 20 },
+  { name: 'Mercenary Barracks',  level: 4, fortLevel: 11, cost: 2000000,   dailyStock: 30 },
+  { name: 'Mercenary Garrison',  level: 5, fortLevel: 15, cost: 5000000,   dailyStock: 40 },
+  { name: 'Mercenary Fortress',  level: 6, fortLevel: 19, cost: 12000000,  dailyStock: 50 },
+];
+
+export const MERCENARY_PRICE_MULTIPLIER = 1.5;
+
 // ─── Helper Functions ─────────────────────────────────────────────────
 
 /**
@@ -177,4 +198,30 @@ export function getHouseUpgradeByLevel(
   level: number,
 ): HouseUpgradeDefinition | undefined {
   return HouseUpgrades.find((h) => h.level === level);
+}
+
+/**
+ * Returns the mercenary camp definition for the given level.
+ */
+export function getMercenaryCampByLevel(
+  level: number,
+): MercenaryCampDefinition | undefined {
+  return MercenaryCampUpgrades.find((m) => m.level === level);
+}
+
+/**
+ * Distributes daily stock across unit types: 30% offense, 30% defense, 20% spy, 20% sentry.
+ */
+export function getMercenaryStockDistribution(
+  dailyStock: number,
+): { OFFENSE: number; DEFENSE: number; SPY: number; SENTRY: number } {
+  if (dailyStock <= 0) return { OFFENSE: 0, DEFENSE: 0, SPY: 0, SENTRY: 0 };
+
+  const offense = Math.round(dailyStock * 0.3);
+  const defense = Math.round(dailyStock * 0.3);
+  const spy = Math.round(dailyStock * 0.2);
+  // Sentry gets the remainder to ensure total adds up
+  const sentry = dailyStock - offense - defense - spy;
+
+  return { OFFENSE: offense, DEFENSE: defense, SPY: spy, SENTRY: sentry };
 }

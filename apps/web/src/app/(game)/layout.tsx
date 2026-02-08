@@ -28,34 +28,38 @@ import { RaceThemeProvider, useRaceTheme } from '@/context/race-theme';
 const navItems = [
   { label: 'Home', href: '/home' },
   {
-    label: 'Battle',
+    label: 'Army',
     children: [
       { label: 'Training', href: '/battle/training' },
+      { label: 'Armory', href: '/structures/armory' },
       { label: 'Upgrades', href: '/battle/upgrades' },
-      { label: 'Players', href: '/battle/players' },
-      { label: 'History', href: '/battle/history' },
+      { label: 'Proficiencies', href: '/battle/proficiencies' },
     ],
   },
   {
-    label: 'Structures',
+    label: 'Battle',
+    children: [
+      { label: 'Attack', href: '/battle/players' },
+      { label: 'War History', href: '/battle/history' },
+    ],
+  },
+  {
+    label: 'Kingdom',
     children: [
       { label: 'Bank', href: '/structures/bank' },
-      { label: 'Armory', href: '/structures/armory' },
-      { label: 'Housing', href: '/structures/housing' },
-      { label: 'Upgrades', href: '/structures/upgrades' },
+      { label: 'Buildings', href: '/structures/upgrades' },
       { label: 'Repair', href: '/structures/repair' },
     ],
   },
   {
-    label: 'Social',
+    label: 'World',
     children: [
-      { label: 'Social', href: '/social' },
+      { label: 'Rankings', href: '/world/rankings' },
       { label: 'Alliances', href: '/alliances' },
       { label: 'Messaging', href: '/messaging' },
+      { label: 'Recruit', href: '/recruit' },
     ],
   },
-  { label: 'Community', href: '/community' },
-  { label: 'Recruitment', href: '/recruit' },
 ];
 
 const adminNavItems = [
@@ -115,7 +119,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
               onClick={toggleMobile}
               hiddenFrom="sm"
               size="sm"
-              color="var(--ot-gold-muted)"
+              color="var(--ot-text-dim)"
             />
             <Title
               order={3}
@@ -152,7 +156,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
               size="lg"
               onClick={toggleColorScheme}
               aria-label="Toggle color scheme"
-              style={{ color: 'var(--ot-gold-dim)' }}
+              style={{ color: 'var(--ot-text-dim)' }}
             >
               {computedColorScheme === 'dark' ? '\u2600' : '\u263E'}
             </ActionIcon>
@@ -242,12 +246,8 @@ function GameShell({ children }: { children: React.ReactNode }) {
           <Button
             variant="subtle"
             fullWidth
+            color="red"
             onClick={handleLogout}
-            style={{
-              color: 'var(--ot-danger)',
-              fontFamily:
-                "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-            }}
           >
             Logout
           </Button>
@@ -256,7 +256,9 @@ function GameShell({ children }: { children: React.ReactNode }) {
 
       {/* ── Main Content ────────────────────────────────── */}
       <AppShell.Main>
-        <div className="ot-page-content">{children}</div>
+        <div className="ot-page-content" style={{ maxWidth: 1200, margin: '0 auto' }}>
+          {children}
+        </div>
       </AppShell.Main>
     </AppShell>
   );

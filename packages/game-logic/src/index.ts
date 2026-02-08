@@ -35,6 +35,7 @@ export {
   getItemDefinition,
   getItemsByUsage,
   getItemsByUsageAndType,
+  computeArmoryValue,
 } from './items';
 
 export {
@@ -54,12 +55,17 @@ export { calculateGoldPerTurn } from './economy';
 
 export {
   calculateFullStats,
+  calculateFullDetailedBreakdown,
   calculateGoldPerTurnBreakdown,
   calculateCitizensPerDayBreakdown,
 } from './stats';
 export type {
   StatBreakdown,
   FullStatBreakdown,
+  DetailedStatBreakdown,
+  FullDetailedBreakdown,
+  LineItem,
+  BonusLine,
   GoldPerTurnBreakdown,
   CitizensPerDayBreakdown,
   StatCalcInput,
@@ -98,10 +104,15 @@ export {
   SentryUpgrades,
   ArmoryUpgrades,
   HouseUpgrades,
+  MercenaryCampUpgrades,
+  MERCENARY_PRICE_MULTIPLIER,
   getEconomyUpgradeByLevel,
   getOffensiveUpgradeByLevel,
   getSpyUpgradeByLevel,
   getSentryUpgradeByLevel,
   getArmoryUpgradeByLevel,
   getHouseUpgradeByLevel,
+  getMercenaryCampByLevel,
+  getMercenaryStockDistribution,
 } from './structure-upgrades';
+export type { MercenaryCampDefinition } from './structure-upgrades';

@@ -62,6 +62,7 @@ export enum StructureUpgradeType {
   ECONOMY = 'ECONOMY',
   HOUSE = 'HOUSE',
   FORT = 'FORT',
+  MERCENARY_CAMP = 'MERCENARY_CAMP',
 }
 
 export enum AccountStatus {
@@ -98,6 +99,7 @@ export enum BankTransferHistoryType {
   RECRUITMENT = 'RECRUITMENT',
   FORT_REPAIR = 'FORT_REPAIR',
   DAILY_RECRUIT = 'DAILY_RECRUIT',
+  MERCENARY_PURCHASE = 'MERCENARY_PURCHASE',
 }
 
 export enum Locale {

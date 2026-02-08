@@ -19,8 +19,13 @@ import {
   getArmoryUpgradeByLevel,
   HouseUpgrades,
   getHouseUpgradeByLevel,
+  MercenaryCampUpgrades,
+  getMercenaryCampByLevel,
+  getMercenaryStockDistribution,
+  MERCENARY_PRICE_MULTIPLIER,
   BattleUpgrades,
   getBattleUpgradesByType,
+  getUnitByTypeAndLevel,
   getLevelForXP,
 } from '@openthrone/game-logic';
 import {
@@ -28,8 +33,9 @@ import {
   BattleUpgradeType,
   BankAccountType,
   BankTransferHistoryType,
+  UnitType,
 } from '@openthrone/shared';
-import type { PurchaseStructureUpgradeDto, PurchaseBattleUpgradeDto, RepairFortDto } from '@openthrone/shared';
+import type { PurchaseStructureUpgradeDto, PurchaseBattleUpgradeDto, SellBattleUpgradeDto, RepairFortDto, BuyMercenaryDto } from '@openthrone/shared';
 
 @Injectable()
 export class StructuresService {
@@ -39,12 +45,13 @@ export class StructuresService {
   ) {}
 
   async getStructuresStatus(playerId: string) {
-    const [economy, fort, structureUpgrades, battleUpgrades, stats] = await Promise.all([
+    const [economy, fort, structureUpgrades, battleUpgrades, stats, units] = await Promise.all([
       this.prisma.playerEconomy.findUnique({ where: { player_id: playerId } }),
       this.prisma.playerFortification.findUnique({ where: { player_id: playerId } }),
       this.prisma.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
       this.prisma.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
       this.prisma.playerStats.findUnique({ where: { player_id: playerId } }),
+      this.prisma.playerUnit.findMany({ where: { player_id: playerId } }),
     ]);
 
     if (!economy) throw new BadRequestException('Player economy not found');
@@ -79,11 +86,17 @@ export class StructuresService {
         spy: getStructureLevel(StructureUpgradeType.SPY),
         sentry: getStructureLevel(StructureUpgradeType.SENTRY),
         armory: getStructureLevel(StructureUpgradeType.ARMORY),
+        mercenaryCamp: getStructureLevel(StructureUpgradeType.MERCENARY_CAMP),
       },
       battleUpgrades: battleUpgrades.map((bu) => ({
         upgradeType: bu.upgrade_type,
         level: bu.level,
         quantity: bu.quantity,
+      })),
+      units: units.map((u) => ({
+        unitType: u.unit_type,
+        level: u.level,
+        quantity: u.quantity,
       })),
       definitions: {
         fortifications: Fortifications,
@@ -94,6 +107,7 @@ export class StructuresService {
         sentry: SentryUpgrades,
         armory: ArmoryUpgrades,
         battle: BattleUpgrades,
+        mercenaryCamp: MercenaryCampUpgrades,
       },
     };
   }
@@ -122,6 +136,11 @@ export class StructuresService {
 
         case StructureUpgradeType.ECONOMY:
           return this.handleEconomyUpgrade(tx, playerId, gold, fortLevel, economy.economy_level || 1);
+
+        case StructureUpgradeType.MERCENARY_CAMP:
+          return this.handleMercenaryCampUpgrade(
+            tx, playerId, gold, fortLevel, structureUpgrades,
+          );
 
         case StructureUpgradeType.OFFENSE:
         case StructureUpgradeType.SPY:
@@ -424,37 +443,41 @@ export class StructuresService {
 
   async purchaseBattleUpgrade(playerId: string, dto: PurchaseBattleUpgradeDto) {
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, existingUpgrades, structureUpgrades] = await Promise.all([
+      const [economy, existingUpgrades, units] = await Promise.all([
         tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
         tx.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
-        tx.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
+        tx.playerUnit.findMany({ where: { player_id: playerId } }),
       ]);
 
       if (!economy) throw new BadRequestException('Player economy not found');
 
-      // Check siege upgrade level requirement
-      const offenseUpgrade = structureUpgrades.find(
-        (u) => u.upgrade_type === StructureUpgradeType.OFFENSE,
-      );
-      const offenseLevel = offenseUpgrade?.level ?? 1;
-
       // Find the battle upgrade definition
       const allDefsForType = getBattleUpgradesByType(dto.upgradeType as BattleUpgradeType);
-      // Battle upgrades must be purchased in level order
-      const existing = existingUpgrades.find((u) => u.upgrade_type === dto.upgradeType);
-      const currentQty = existing?.quantity ?? 0;
-      const currentLevel = existing?.level ?? 0;
-
-      // Determine which level to purchase (must buy level 1 before level 2)
-      const targetLevel = currentLevel === 0 ? 1 : currentLevel;
-      const def = allDefsForType.find((d) => d.level === targetLevel);
+      const def = allDefsForType.find((d) => d.level === dto.level);
       if (!def) {
-        throw new BadRequestException(`No battle upgrade found for ${dto.upgradeType} level ${targetLevel}`);
+        throw new BadRequestException(`No battle upgrade found for ${dto.upgradeType} level ${dto.level}`);
       }
 
-      if (offenseLevel < def.siegeUpgradeLevel) {
+      // Check unit tier requirement — player must have units of the required tier
+      const unitType = this.battleUpgradeTypeToUnitType(dto.upgradeType);
+      const unitsOfTier = units.find(
+        (u) => u.unit_type === unitType && u.level === def.minUnitLevel,
+      );
+      const tierUnitCount = unitsOfTier?.quantity ?? 0;
+      if (tierUnitCount <= 0) {
         throw new BadRequestException(
-          `${def.name} requires offense upgrade level ${def.siegeUpgradeLevel} (you have ${offenseLevel})`,
+          `${def.name} requires Tier ${def.minUnitLevel} ${unitType} units. Train them first!`,
+        );
+      }
+
+      // Max is limited by units of the required tier
+      const existing = existingUpgrades.find(
+        (u) => u.upgrade_type === dto.upgradeType && u.level === dto.level,
+      );
+      const currentQty = existing?.quantity ?? 0;
+      if (currentQty + dto.quantity > tierUnitCount) {
+        throw new BadRequestException(
+          `Cannot own more ${def.name} than Tier ${def.minUnitLevel} units (${tierUnitCount}). You already own ${currentQty}.`,
         );
       }
 
@@ -474,23 +497,24 @@ export class StructuresService {
 
       await tx.playerBattleUpgrade.upsert({
         where: {
-          player_id_upgrade_type: {
+          player_id_upgrade_type_level: {
             player_id: playerId,
             upgrade_type: dto.upgradeType,
+            level: dto.level,
           },
         },
-        update: { quantity: currentQty + dto.quantity, level: targetLevel },
+        update: { quantity: currentQty + dto.quantity },
         create: {
           player_id: playerId,
           upgrade_type: dto.upgradeType,
-          level: targetLevel,
+          level: dto.level,
           quantity: dto.quantity,
         },
       });
 
       await this.createBankHistory(tx, playerId, BigInt(totalCost), 'BATTLE_UPGRADE', {
         upgradeType: dto.upgradeType,
-        level: targetLevel,
+        level: dto.level,
         quantity: dto.quantity,
         name: def.name,
       });
@@ -519,6 +543,337 @@ export class StructuresService {
         BigInt(result.goldSpent),
       ),
     );
+
+    return result;
+  }
+
+  async sellBattleUpgrade(playerId: string, dto: SellBattleUpgradeDto) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const [economy, existingUpgrades] = await Promise.all([
+        tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
+        tx.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
+      ]);
+
+      if (!economy) throw new BadRequestException('Player economy not found');
+
+      const allDefsForType = getBattleUpgradesByType(dto.upgradeType as BattleUpgradeType);
+      const def = allDefsForType.find((d) => d.level === dto.level);
+      if (!def) {
+        throw new BadRequestException(`No battle upgrade found for ${dto.upgradeType} level ${dto.level}`);
+      }
+
+      const existing = existingUpgrades.find(
+        (u) => u.upgrade_type === dto.upgradeType && u.level === dto.level,
+      );
+      const currentQty = existing?.quantity ?? 0;
+      if (currentQty < dto.quantity) {
+        throw new BadRequestException(
+          `Not enough ${def.name} to sell. You have ${currentQty}, tried to sell ${dto.quantity}.`,
+        );
+      }
+
+      const totalRefund = Math.floor(def.cost * dto.quantity * 0.75);
+      const newGold = BigInt(economy.gold) + BigInt(totalRefund);
+
+      await tx.playerEconomy.update({
+        where: { player_id: playerId },
+        data: { gold: newGold },
+      });
+
+      await tx.playerBattleUpgrade.update({
+        where: {
+          player_id_upgrade_type_level: {
+            player_id: playerId,
+            upgrade_type: dto.upgradeType,
+            level: dto.level,
+          },
+        },
+        data: { quantity: currentQty - dto.quantity },
+      });
+
+      await this.createBankHistory(tx, playerId, BigInt(totalRefund), 'BATTLE_UPGRADE_SELL', {
+        upgradeType: dto.upgradeType,
+        level: dto.level,
+        quantity: dto.quantity,
+        name: def.name,
+      });
+
+      const updatedUpgrades = await tx.playerBattleUpgrade.findMany({
+        where: { player_id: playerId },
+      });
+
+      return {
+        gold: newGold.toString(),
+        refund: totalRefund,
+        battleUpgrades: updatedUpgrades.map((bu) => ({
+          upgradeType: bu.upgrade_type,
+          level: bu.level,
+          quantity: bu.quantity,
+        })),
+      };
+    });
+
+    return result;
+  }
+
+  private battleUpgradeTypeToUnitType(upgradeType: string): string {
+    switch (upgradeType) {
+      case BattleUpgradeType.OFFENSE: return 'OFFENSE';
+      case BattleUpgradeType.DEFENSE: return 'DEFENSE';
+      case BattleUpgradeType.SPY: return 'SPY';
+      case BattleUpgradeType.SENTRY: return 'SENTRY';
+      default: return 'OFFENSE';
+    }
+  }
+
+  private async handleMercenaryCampUpgrade(
+    tx: any,
+    playerId: string,
+    gold: bigint,
+    fortLevel: number,
+    structureUpgrades: Array<{ upgrade_type: string; level: number }>,
+  ) {
+    const current = structureUpgrades.find(
+      (u) => u.upgrade_type === StructureUpgradeType.MERCENARY_CAMP,
+    );
+    const currentLevel = current?.level ?? 1;
+    const nextDef = getMercenaryCampByLevel(currentLevel + 1);
+
+    if (!nextDef) {
+      throw new BadRequestException('Mercenary Camp is already at maximum level');
+    }
+
+    if (fortLevel < nextDef.fortLevel) {
+      throw new BadRequestException(
+        `${nextDef.name} requires fort level ${nextDef.fortLevel} (you have fort level ${fortLevel})`,
+      );
+    }
+
+    if (gold < BigInt(nextDef.cost)) {
+      throw new BadRequestException(
+        `Not enough gold. Required: ${nextDef.cost}, Available: ${gold}`,
+      );
+    }
+
+    const newGold = gold - BigInt(nextDef.cost);
+    await tx.playerEconomy.update({
+      where: { player_id: playerId },
+      data: { gold: newGold },
+    });
+
+    await tx.playerStructureUpgrade.upsert({
+      where: {
+        player_id_upgrade_type: {
+          player_id: playerId,
+          upgrade_type: StructureUpgradeType.MERCENARY_CAMP,
+        },
+      },
+      update: { level: nextDef.level },
+      create: {
+        player_id: playerId,
+        upgrade_type: StructureUpgradeType.MERCENARY_CAMP,
+        level: nextDef.level,
+      },
+    });
+
+    await this.createBankHistory(tx, playerId, BigInt(nextDef.cost), 'MERCENARY_CAMP_UPGRADE', {
+      fromLevel: currentLevel,
+      toLevel: nextDef.level,
+      name: nextDef.name,
+    });
+
+    return { newGold: newGold.toString(), newLevel: nextDef.level, goldSpent: nextDef.cost };
+  }
+
+  async getMercenaryStatus(playerId: string) {
+    const [structureUpgrades, purchases] = await Promise.all([
+      this.prisma.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
+      this.prisma.mercenaryDailyPurchase.findMany({ where: { player_id: playerId } }),
+    ]);
+
+    const campEntry = structureUpgrades.find(
+      (u) => u.upgrade_type === StructureUpgradeType.MERCENARY_CAMP,
+    );
+    const campLevel = campEntry?.level ?? 1;
+    const campDef = getMercenaryCampByLevel(campLevel);
+    const nextDef = getMercenaryCampByLevel(campLevel + 1);
+    const distribution = getMercenaryStockDistribution(campDef?.dailyStock ?? 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const unitTypes = ['OFFENSE', 'DEFENSE', 'SPY', 'SENTRY'] as const;
+    const stock = unitTypes.map((ut) => {
+      const total = distribution[ut];
+      const record = purchases.find((p) => p.unit_type === ut);
+
+      // Self-reset: if the record's reset_date is before today, treat purchased as 0
+      let purchased = 0;
+      if (record) {
+        const resetDate = new Date(record.reset_date);
+        resetDate.setHours(0, 0, 0, 0);
+        purchased = resetDate.getTime() < today.getTime() ? 0 : record.purchased;
+      }
+
+      const unitDef = getUnitByTypeAndLevel(ut as UnitType, 1);
+      const baseCost = unitDef?.cost ?? 0;
+      const cost = Math.ceil(baseCost * MERCENARY_PRICE_MULTIPLIER);
+
+      return {
+        unitType: ut,
+        unitName: unitDef?.name ?? ut,
+        available: Math.max(0, total - purchased),
+        total,
+        purchased,
+        cost,
+        baseCost,
+      };
+    });
+
+    return {
+      campLevel,
+      campName: campDef?.name ?? 'No Camp',
+      nextUpgrade: nextDef
+        ? { name: nextDef.name, cost: nextDef.cost, fortLevel: nextDef.fortLevel, dailyStock: nextDef.dailyStock }
+        : null,
+      stock,
+    };
+  }
+
+  async buyMercenary(playerId: string, dto: BuyMercenaryDto) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const [economy, structureUpgrades] = await Promise.all([
+        tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
+        tx.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
+      ]);
+
+      if (!economy) throw new BadRequestException('Player economy not found');
+
+      const campEntry = structureUpgrades.find(
+        (u) => u.upgrade_type === StructureUpgradeType.MERCENARY_CAMP,
+      );
+      const campLevel = campEntry?.level ?? 1;
+      if (campLevel <= 1) {
+        throw new BadRequestException('You must build a Mercenary Camp first');
+      }
+
+      const campDef = getMercenaryCampByLevel(campLevel);
+      const distribution = getMercenaryStockDistribution(campDef?.dailyStock ?? 0);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      let totalGoldCost = BigInt(0);
+      const purchases: Array<{ unitType: string; quantity: number; cost: number }> = [];
+
+      for (const unit of dto.units) {
+        const maxStock = distribution[unit.unitType as keyof typeof distribution];
+        if (!maxStock || maxStock <= 0) {
+          throw new BadRequestException(`No mercenary stock available for ${unit.unitType}`);
+        }
+
+        // Get/reset daily purchase record
+        let record = await tx.mercenaryDailyPurchase.findUnique({
+          where: {
+            player_id_unit_type: { player_id: playerId, unit_type: unit.unitType },
+          },
+        });
+
+        let currentPurchased = 0;
+        if (record) {
+          const resetDate = new Date(record.reset_date);
+          resetDate.setHours(0, 0, 0, 0);
+          if (resetDate.getTime() < today.getTime()) {
+            // Reset stale record
+            await tx.mercenaryDailyPurchase.update({
+              where: { id: record.id },
+              data: { purchased: 0, reset_date: new Date() },
+            });
+            currentPurchased = 0;
+          } else {
+            currentPurchased = record.purchased;
+          }
+        }
+
+        const available = maxStock - currentPurchased;
+        if (unit.quantity > available) {
+          throw new BadRequestException(
+            `Not enough ${unit.unitType} mercenaries. Available: ${available}, requested: ${unit.quantity}`,
+          );
+        }
+
+        const unitDef = getUnitByTypeAndLevel(unit.unitType as UnitType, 1);
+        const costPerUnit = Math.ceil((unitDef?.cost ?? 0) * MERCENARY_PRICE_MULTIPLIER);
+        const lineCost = BigInt(costPerUnit) * BigInt(unit.quantity);
+        totalGoldCost += lineCost;
+
+        purchases.push({ unitType: unit.unitType, quantity: unit.quantity, cost: costPerUnit });
+      }
+
+      const gold = BigInt(economy.gold);
+      if (gold < totalGoldCost) {
+        throw new BadRequestException(
+          `Not enough gold. Required: ${totalGoldCost}, Available: ${gold}`,
+        );
+      }
+
+      const newGold = gold - totalGoldCost;
+      await tx.playerEconomy.update({
+        where: { player_id: playerId },
+        data: { gold: newGold },
+      });
+
+      // Add units and update purchase counters
+      for (const purchase of purchases) {
+        await tx.playerUnit.upsert({
+          where: {
+            player_id_unit_type_level: {
+              player_id: playerId,
+              unit_type: purchase.unitType,
+              level: 1,
+            },
+          },
+          update: { quantity: { increment: purchase.quantity } },
+          create: {
+            player_id: playerId,
+            unit_type: purchase.unitType,
+            level: 1,
+            quantity: purchase.quantity,
+          },
+        });
+
+        await tx.mercenaryDailyPurchase.upsert({
+          where: {
+            player_id_unit_type: { player_id: playerId, unit_type: purchase.unitType },
+          },
+          update: { purchased: { increment: purchase.quantity } },
+          create: {
+            player_id: playerId,
+            unit_type: purchase.unitType,
+            purchased: purchase.quantity,
+            reset_date: new Date(),
+          },
+        });
+      }
+
+      await tx.bankHistory.create({
+        data: {
+          gold_amount: totalGoldCost,
+          from_user_id: playerId,
+          from_account_type: BankAccountType.HAND,
+          to_user_id: playerId,
+          to_account_type: BankAccountType.BANK,
+          date_time: new Date(),
+          history_type: BankTransferHistoryType.MERCENARY_PURCHASE,
+          stats: JSON.stringify({
+            type: 'MERCENARY_PURCHASE',
+            units: purchases,
+          }),
+        },
+      });
+
+      return { gold: newGold.toString(), purchases };
+    });
 
     return result;
   }
