@@ -14,6 +14,7 @@ import {
   getLevelForXP,
   getXPToNextLevel,
   calculateFullStats,
+  calculateFullDetailedBreakdown,
   calculateGoldPerTurnBreakdown,
   calculateCitizensPerDayBreakdown,
 } from '@openthrone/game-logic';
@@ -223,6 +224,7 @@ export class PlayerService {
         structure_upgrades: true,
         fortification: true,
         bonus_points: true,
+        stats: true,
       },
     });
 
@@ -261,17 +263,16 @@ export class PlayerService {
     };
 
     const stats = calculateFullStats(statInput);
+    const detailed = calculateFullDetailedBreakdown(statInput);
 
     // Gold per turn breakdown
-    const economyLevel = player.economy?.economy_level ?? 1;
-    const workerCount = player.units
+    const workers = player.units
       .filter((u) => u.unit_type === 'WORKER')
-      .reduce((sum, u) => sum + u.quantity, 0);
+      .map((u) => ({ level: u.level, quantity: u.quantity }));
     const incomeBonus = player.bonus_points.find((bp) => bp.bonus_type === 'INCOME')?.level ?? 0;
     const goldPerTurn = calculateGoldPerTurnBreakdown(
       fortLevel,
-      economyLevel,
-      workerCount,
+      workers,
       incomeBonus,
     );
 
@@ -304,10 +305,20 @@ export class PlayerService {
       },
     });
 
+    const experience = player.stats?.experience ?? 0;
+    const level = getLevelForXP(experience);
+    const totalSpent = player.bonus_points.reduce((sum, bp) => sum + bp.level, 0);
+
     return {
       ...stats,
+      detailed,
       goldPerTurn,
       citizensPerDay,
+      bonusPoints: player.bonus_points.map((bp) => ({
+        bonusType: bp.bonus_type,
+        level: bp.level,
+      })),
+      availablePoints: level - totalSpent,
     };
   }
 

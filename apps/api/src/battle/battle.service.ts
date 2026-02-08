@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   getLevelForXP,
   calculateFullStats,
+  calculateFullDetailedBreakdown,
   buildCombatProfile,
   resolveAttack,
   resolveIntel,
@@ -320,19 +321,25 @@ export class BattleService {
       // stats might not be valid JSON
     }
 
+    // Use snapshotted meta if available (new logs), fall back to live player data (old logs)
+    const attackerMeta = parsedStats.attackerMeta;
+    const defenderMeta = parsedStats.defenderMeta;
+
     return {
       id: log.id,
       attacker: {
         id: log.attacker.id,
         displayName: log.attacker.display_name,
-        race: log.attacker.race,
-        class: log.attacker.player_class,
+        race: attackerMeta?.race ?? log.attacker.race,
+        class: attackerMeta?.playerClass ?? log.attacker.player_class,
+        level: attackerMeta?.level ?? null,
       },
       defender: {
         id: log.defender.id,
         displayName: log.defender.display_name,
-        race: log.defender.race,
-        class: log.defender.player_class,
+        race: defenderMeta?.race ?? log.defender.race,
+        class: defenderMeta?.playerClass ?? log.defender.player_class,
+        level: defenderMeta?.level ?? null,
       },
       winner: log.winner,
       type: log.type,
@@ -390,9 +397,12 @@ export class BattleService {
       );
     }
 
-    // Build combat profiles
-    const attackerProfile = this.buildProfile(attackerPlayer);
-    const defenderProfile = this.buildProfile(defenderPlayer);
+    // Build combat profiles + detailed breakdowns
+    const { profile: attackerProfile, statsInput: attackerStatsInput } = this.buildProfileWithInput(attackerPlayer);
+    const { profile: defenderProfile, statsInput: defenderStatsInput } = this.buildProfileWithInput(defenderPlayer);
+
+    const attackerDetailedBreakdown = calculateFullDetailedBreakdown(attackerStatsInput);
+    const defenderDetailedBreakdown = calculateFullDetailedBreakdown(defenderStatsInput);
 
     // Resolve attack
     const result = resolveAttack(attackerProfile, defenderProfile, DEFAULT_COMBAT_CONFIG);
@@ -489,6 +499,27 @@ export class BattleService {
             defenderXP: result.defenderXP,
             fortShield: Math.round(result.fortShield * 100) / 100,
             effectiveDefense: Math.round(result.effectiveDefense),
+            roll: Math.round(result.roll * 1000) / 1000,
+            attackerOffense: attackerProfile.offense,
+            defenderDefense: defenderProfile.defense,
+            attackerBreakdown: attackerDetailedBreakdown.offense,
+            defenderBreakdown: defenderDetailedBreakdown.defense,
+            attackerMeta: {
+              race: attackerPlayer.race,
+              playerClass: attackerPlayer.player_class,
+              level: getLevelForXP(attackerPlayer.stats?.experience ?? 0),
+              fortLevel: attackerPlayer.fortification?.fort_level ?? 1,
+              fortHP: attackerPlayer.fortification?.hitpoints ?? 0,
+              fortMaxHP: getFortificationByLevel(attackerPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
+            },
+            defenderMeta: {
+              race: defenderPlayer.race,
+              playerClass: defenderPlayer.player_class,
+              level: getLevelForXP(defenderPlayer.stats?.experience ?? 0),
+              fortLevel: defenderPlayer.fortification?.fort_level ?? 1,
+              fortHP: defenderPlayer.fortification?.hitpoints ?? 0,
+              fortMaxHP: getFortificationByLevel(defenderPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
+            },
           }),
         },
       });
@@ -745,6 +776,10 @@ export class BattleService {
   }
 
   private buildProfile(player: NonNullable<Awaited<ReturnType<typeof this.loadFullPlayer>>>): CombatProfile {
+    return this.buildProfileWithInput(player).profile;
+  }
+
+  private buildProfileWithInput(player: NonNullable<Awaited<ReturnType<typeof this.loadFullPlayer>>>) {
     const statsInput = {
       race: player.race,
       playerClass: player.player_class,
@@ -798,7 +833,7 @@ export class BattleService {
       sentry: fullStats.sentry.total,
     };
 
-    return buildCombatProfile(data);
+    return { profile: buildCombatProfile(data), statsInput };
   }
 
   private async applyCasualties(

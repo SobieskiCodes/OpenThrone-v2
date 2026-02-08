@@ -128,6 +128,20 @@ export class DailyTickService {
         }
       }
 
+      // ─── Reset Daily Ranking Counters ─────────────────────────
+      await this.prisma.playerCumulativeStats.updateMany({
+        data: {
+          daily_attack_wins: 0,
+          daily_defense_wins: 0,
+          daily_gold_stolen: BigInt(0),
+          daily_gold_income: BigInt(0),
+          daily_spy_wins: 0,
+          daily_units_trained: 0,
+          daily_reset_at: new Date(),
+        },
+      });
+      this.logger.log('Reset daily ranking counters');
+
       // ─── DB Cleanup (20+ days old) ───────────────────────────
       const cutoffDate = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
 

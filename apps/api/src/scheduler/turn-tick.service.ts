@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { calculateGoldPerTurn, calculateRankScore } from '@openthrone/game-logic';
+import { calculateGoldPerTurn, calculateRankScore, computeArmoryValue } from '@openthrone/game-logic';
 import { TurnTickEvent, RankingsRecalculatedEvent } from '@openthrone/events';
 import { BankAccountType, BankTransferHistoryType } from '@openthrone/shared';
 
@@ -52,7 +52,6 @@ export class TurnTickService {
           fortification: true,
           units: { where: { unit_type: 'WORKER' } },
           bonus_points: { where: { bonus_type: 'INCOME' } },
-          structure_upgrades: { where: { upgrade_type: 'ECONOMY' } },
         },
       });
 
@@ -63,22 +62,17 @@ export class TurnTickService {
           if (!economy || !fort) continue;
 
           const fortLevel = fort.fort_level;
-          const economyUpgrade = player.structure_upgrades.find(
-            (u) => u.upgrade_type === 'ECONOMY',
-          );
-          const economyLevel = economyUpgrade?.level ?? 1;
-          const workerCount = player.units.reduce(
-            (sum, u) => sum + u.quantity,
-            0,
-          );
+          const workers = player.units.map((u) => ({
+            level: u.level,
+            quantity: u.quantity,
+          }));
           const incomeBonus =
             player.bonus_points.find((b) => b.bonus_type === 'INCOME')?.level ??
             0;
 
           const goldEarned = calculateGoldPerTurn(
             fortLevel,
-            economyLevel,
-            workerCount,
+            workers,
             incomeBonus,
           );
 
@@ -148,32 +142,43 @@ export class TurnTickService {
   }
 
   private async recalculateRankings() {
-    // TODO: Cache with Redis for faster leaderboard queries
     const players = await this.prisma.player.findMany({
       where: { status: 'ACTIVE' },
       include: {
         stats: true,
+        economy: { select: { gold: true, gold_in_bank: true } },
         fortification: true,
-        structure_upgrades: { where: { upgrade_type: 'HOUSE' } },
-        units: true,
-        items: true,
+        items: { select: { item_type: true, usage: true, level: true, quantity: true } },
       },
     });
 
     const scored = players
       .filter((p) => p.stats)
-      .map((p) => ({
-        statsId: p.stats!.id,
-        score: calculateRankScore({
-          experience: p.stats!.experience,
-          fortLevel: p.fortification?.fort_level ?? 1,
-          houseLevel:
-            p.structure_upgrades.find((u) => u.upgrade_type === 'HOUSE')
-              ?.level ?? 1,
-          totalUnits: p.units.reduce((s, u) => s + u.quantity, 0),
-          totalItems: p.items.reduce((s, i) => s + i.quantity, 0),
-        }),
-      }))
+      .map((p) => {
+        const armory = computeArmoryValue(
+          (p.items ?? []).map((i) => ({
+            itemType: i.item_type,
+            usage: i.usage,
+            level: i.level,
+            quantity: i.quantity,
+          })),
+        );
+        const gold = Number(p.economy?.gold ?? 0);
+        const bank = Number(p.economy?.gold_in_bank ?? 0);
+
+        return {
+          statsId: p.stats!.id,
+          score: calculateRankScore({
+            offense: p.stats!.offense,
+            defense: p.stats!.defense,
+            spy: p.stats!.spy,
+            sentry: p.stats!.sentry,
+            fortLevel: p.fortification?.fort_level ?? 1,
+            experience: p.stats!.experience,
+            netWorth: gold + bank + armory,
+          }),
+        };
+      })
       .sort((a, b) => b.score - a.score);
 
     for (const [i, entry] of scored.entries()) {

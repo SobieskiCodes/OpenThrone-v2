@@ -1,139 +1,102 @@
 import type { ItemDefinition } from '@openthrone/shared';
-import { ItemType, ItemUsage, PlayerRace } from '@openthrone/shared';
+import { ItemType, ItemUsage } from '@openthrone/shared';
 
 export const ItemTypes: ItemDefinition[] = [
-  // ─── OFFENSE WEAPONS ────────────────────────────────────────────────
-  { id: 'DAGGER', name: 'Dagger', usage: ItemUsage.OFFENSE, level: 1, bonus: 25, cost: 12500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 20, defenseStrength: 5 },
-  { id: 'HATCHET', name: 'Hatchet', usage: ItemUsage.OFFENSE, level: 2, bonus: 50, cost: 25000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 40, defenseStrength: 10 },
-  { id: 'QUARTERSTAFF', name: 'Quarterstaff', usage: ItemUsage.OFFENSE, level: 3, bonus: 100, cost: 50000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 3, killingStrength: 80, defenseStrength: 20 },
-  { id: 'MACE', name: 'Mace', usage: ItemUsage.OFFENSE, level: 4, bonus: 225, cost: 100000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 4, killingStrength: 180, defenseStrength: 45 },
-  { id: 'BATTLE-AXE', name: 'Battle Axe', usage: ItemUsage.OFFENSE, level: 5, bonus: 700, cost: 200000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 5, killingStrength: 560, defenseStrength: 140 },
-  { id: 'SHORT-SWORD', name: 'Short Sword', usage: ItemUsage.OFFENSE, level: 6, bonus: 1000, cost: 500000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 6, killingStrength: 800, defenseStrength: 200 },
-  { id: 'LONG-SWORD', name: 'Long Sword', usage: ItemUsage.OFFENSE, level: 7, bonus: 1500, cost: 750000, type: ItemType.WEAPON, race: PlayerRace.HUMAN, armoryLevel: 7, killingStrength: 1200, defenseStrength: 300 },
-  { id: 'GREAT-SWORD', name: 'Great Sword', usage: ItemUsage.OFFENSE, level: 6, bonus: 1200, cost: 600000, type: ItemType.WEAPON, race: PlayerRace.HUMAN, armoryLevel: 5, killingStrength: 960, defenseStrength: 240 },
-  { id: 'ELVEN-LONGBOW', name: 'Elven Longbow', usage: ItemUsage.OFFENSE, level: 6, bonus: 1200, cost: 600000, type: ItemType.WEAPON, race: PlayerRace.ELF, armoryLevel: 5, killingStrength: 960, defenseStrength: 240 },
+  // ─── OFFENSE WEAPONS (10 tiers, gated by Armory building) ─────────
+  { id: 'OFF-WPN-1', name: 'Dagger', usage: ItemUsage.OFFENSE, level: 1, bonus: 25, cost: 12500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-WPN-2', name: 'Hatchet', usage: ItemUsage.OFFENSE, level: 2, bonus: 50, cost: 25000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-WPN-3', name: 'Quarterstaff', usage: ItemUsage.OFFENSE, level: 3, bonus: 100, cost: 50000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-WPN-4', name: 'Mace', usage: ItemUsage.OFFENSE, level: 4, bonus: 150, cost: 75000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-WPN-5', name: 'Short Sword', usage: ItemUsage.OFFENSE, level: 5, bonus: 200, cost: 100000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-WPN-6', name: 'Long Sword', usage: ItemUsage.OFFENSE, level: 6, bonus: 275, cost: 137500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-WPN-7', name: 'Broad Sword', usage: ItemUsage.OFFENSE, level: 7, bonus: 350, cost: 175000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-WPN-8', name: 'Battle Axe', usage: ItemUsage.OFFENSE, level: 8, bonus: 450, cost: 225000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 3, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-WPN-9', name: 'Great Sword', usage: ItemUsage.OFFENSE, level: 9, bonus: 550, cost: 275000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 4, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-WPN-10', name: 'War Hammer', usage: ItemUsage.OFFENSE, level: 10, bonus: 700, cost: 350000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 5, killingStrength: 0, defenseStrength: 0 },
 
-  // ─── OFFENSE HELMS ──────────────────────────────────────────────────
-  { id: 'OFF-PADDED-HOOD', name: 'Padded Hood', usage: ItemUsage.OFFENSE, level: 1, bonus: 6, cost: 3000, type: ItemType.HELM, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 5 },
-  { id: 'OFF-LEATHER-HOOD', name: 'Leather Hood', usage: ItemUsage.OFFENSE, level: 2, bonus: 12, cost: 6000, type: ItemType.HELM, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 10 },
-  { id: 'OFF-STUDDED-LEATHER-HOOD', name: 'Studded Leather Hood', usage: ItemUsage.OFFENSE, level: 3, bonus: 25, cost: 12500, type: ItemType.HELM, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 20 },
+  // ─── OFFENSE ARMOR (10 tiers, gated by Armory building) ───────────
+  { id: 'OFF-ARM-1', name: 'Padded Armor', usage: ItemUsage.OFFENSE, level: 1, bonus: 19, cost: 9500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-ARM-2', name: 'Leather Armor', usage: ItemUsage.OFFENSE, level: 2, bonus: 38, cost: 19000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-ARM-3', name: 'Studded Leather Armor', usage: ItemUsage.OFFENSE, level: 3, bonus: 75, cost: 37500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-ARM-4', name: 'Bronze Chainmail', usage: ItemUsage.OFFENSE, level: 4, bonus: 120, cost: 60000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-ARM-5', name: 'Iron Chainmail', usage: ItemUsage.OFFENSE, level: 5, bonus: 180, cost: 90000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-ARM-6', name: 'Steel Chainmail', usage: ItemUsage.OFFENSE, level: 6, bonus: 250, cost: 125000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-ARM-7', name: 'Bronze Plate', usage: ItemUsage.OFFENSE, level: 7, bonus: 350, cost: 175000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-ARM-8', name: 'Iron Plate', usage: ItemUsage.OFFENSE, level: 8, bonus: 450, cost: 225000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 3, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-ARM-9', name: 'Steel Plate', usage: ItemUsage.OFFENSE, level: 9, bonus: 575, cost: 287500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 4, killingStrength: 0, defenseStrength: 0 },
+  { id: 'OFF-ARM-10', name: 'Mithril Plate', usage: ItemUsage.OFFENSE, level: 10, bonus: 750, cost: 375000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 5, killingStrength: 0, defenseStrength: 0 },
 
-  // ─── OFFENSE ARMOR ──────────────────────────────────────────────────
-  { id: 'OFF-PADDED-ARMOR', name: 'Padded Armor', usage: ItemUsage.OFFENSE, level: 1, bonus: 19, cost: 9500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 4, defenseStrength: 15 },
-  { id: 'OFF-LEATHER-ARMOR', name: 'Leather Armor', usage: ItemUsage.OFFENSE, level: 2, bonus: 38, cost: 19000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 8, defenseStrength: 30 },
-  { id: 'OFF-STUDDED-LEATHER-ARMOR', name: 'Studded Leather Armor', usage: ItemUsage.OFFENSE, level: 3, bonus: 75, cost: 37500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 3, killingStrength: 15, defenseStrength: 60 },
+  // ─── DEFENSE WEAPONS (10 tiers, gated by Armory building) ─────────
+  { id: 'DEF-WPN-1', name: 'Sling', usage: ItemUsage.DEFENSE, level: 1, bonus: 25, cost: 12500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-WPN-2', name: 'Hatchet', usage: ItemUsage.DEFENSE, level: 2, bonus: 50, cost: 25000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-WPN-3', name: 'Spear', usage: ItemUsage.DEFENSE, level: 3, bonus: 100, cost: 50000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-WPN-4', name: 'Javelin', usage: ItemUsage.DEFENSE, level: 4, bonus: 150, cost: 75000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-WPN-5', name: 'Crossbow', usage: ItemUsage.DEFENSE, level: 5, bonus: 200, cost: 100000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-WPN-6', name: 'Heavy Crossbow', usage: ItemUsage.DEFENSE, level: 6, bonus: 275, cost: 137500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-WPN-7', name: 'Ballista Bolt', usage: ItemUsage.DEFENSE, level: 7, bonus: 350, cost: 175000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-WPN-8', name: 'Greek Fire', usage: ItemUsage.DEFENSE, level: 8, bonus: 450, cost: 225000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 3, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-WPN-9', name: 'Scorpion', usage: ItemUsage.DEFENSE, level: 9, bonus: 550, cost: 275000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 4, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-WPN-10', name: 'Ballista', usage: ItemUsage.DEFENSE, level: 10, bonus: 700, cost: 350000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 5, killingStrength: 0, defenseStrength: 0 },
 
-  // ─── OFFENSE BOOTS ──────────────────────────────────────────────────
-  { id: 'OFF-PADDED-BOOTS', name: 'Padded Boots', usage: ItemUsage.OFFENSE, level: 1, bonus: 6, cost: 3000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 5 },
-  { id: 'OFF-LEATHER-BOOTS', name: 'Leather Boots', usage: ItemUsage.OFFENSE, level: 2, bonus: 12, cost: 6000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 10 },
-  { id: 'OFF-STUDDED-LEATHER-BOOTS', name: 'Studded Leather Boots', usage: ItemUsage.OFFENSE, level: 3, bonus: 25, cost: 12500, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 20 },
+  // ─── DEFENSE ARMOR (10 tiers, gated by Armory building) ───────────
+  { id: 'DEF-ARM-1', name: 'Padded Armor', usage: ItemUsage.DEFENSE, level: 1, bonus: 19, cost: 9500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-ARM-2', name: 'Leather Armor', usage: ItemUsage.DEFENSE, level: 2, bonus: 38, cost: 19000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-ARM-3', name: 'Studded Leather Armor', usage: ItemUsage.DEFENSE, level: 3, bonus: 75, cost: 37500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-ARM-4', name: 'Bronze Chainmail', usage: ItemUsage.DEFENSE, level: 4, bonus: 120, cost: 60000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-ARM-5', name: 'Iron Chainmail', usage: ItemUsage.DEFENSE, level: 5, bonus: 180, cost: 90000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-ARM-6', name: 'Steel Chainmail', usage: ItemUsage.DEFENSE, level: 6, bonus: 250, cost: 125000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-ARM-7', name: 'Bronze Plate', usage: ItemUsage.DEFENSE, level: 7, bonus: 350, cost: 175000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-ARM-8', name: 'Iron Plate', usage: ItemUsage.DEFENSE, level: 8, bonus: 450, cost: 225000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 3, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-ARM-9', name: 'Steel Plate', usage: ItemUsage.DEFENSE, level: 9, bonus: 575, cost: 287500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 4, killingStrength: 0, defenseStrength: 0 },
+  { id: 'DEF-ARM-10', name: 'Mithril Plate', usage: ItemUsage.DEFENSE, level: 10, bonus: 750, cost: 375000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 5, killingStrength: 0, defenseStrength: 0 },
 
-  // ─── OFFENSE BRACERS ────────────────────────────────────────────────
-  { id: 'OFF-PADDED-BRACERS', name: 'Padded Bracers', usage: ItemUsage.OFFENSE, level: 1, bonus: 3, cost: 1500, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 2 },
-  { id: 'OFF-LEATHER-BRACERS', name: 'Leather Bracers', usage: ItemUsage.OFFENSE, level: 2, bonus: 5, cost: 2500, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 3 },
-  { id: 'OFF-STUDDED-LEATHER-BRACERS', name: 'Studded Leather Bracers', usage: ItemUsage.OFFENSE, level: 3, bonus: 10, cost: 5000, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 5 },
+  // ─── SPY WEAPONS (10 tiers, gated by Spy Academy building) ────────
+  { id: 'SPY-WPN-1', name: 'Throwing Knife', usage: ItemUsage.SPY, level: 1, bonus: 12, cost: 6000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-WPN-2', name: 'Garrote Wire', usage: ItemUsage.SPY, level: 2, bonus: 25, cost: 12500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-WPN-3', name: 'Blowgun', usage: ItemUsage.SPY, level: 3, bonus: 50, cost: 25000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-WPN-4', name: 'Poison Dagger', usage: ItemUsage.SPY, level: 4, bonus: 80, cost: 40000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-WPN-5', name: 'Stiletto', usage: ItemUsage.SPY, level: 5, bonus: 120, cost: 60000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-WPN-6', name: 'Shadow Blade', usage: ItemUsage.SPY, level: 6, bonus: 170, cost: 85000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-WPN-7', name: 'Assassin Crossbow', usage: ItemUsage.SPY, level: 7, bonus: 230, cost: 115000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-WPN-8', name: 'Nightblade', usage: ItemUsage.SPY, level: 8, bonus: 300, cost: 150000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 3, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-WPN-9', name: 'Wrist Blade', usage: ItemUsage.SPY, level: 9, bonus: 380, cost: 190000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 4, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-WPN-10', name: 'Void Dagger', usage: ItemUsage.SPY, level: 10, bonus: 480, cost: 240000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 5, killingStrength: 0, defenseStrength: 0 },
 
-  // ─── OFFENSE SHIELDS ────────────────────────────────────────────────
-  { id: 'OFF-SMALL-WOODEN-SHIELD', name: 'Small Wooden Shield', usage: ItemUsage.OFFENSE, level: 1, bonus: 12, cost: 6000, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 1, killingStrength: 2, defenseStrength: 10 },
-  { id: 'OFF-MEDIUM-WOODEN-SHIELD', name: 'Medium Wooden Shield', usage: ItemUsage.OFFENSE, level: 2, bonus: 25, cost: 12500, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 2, killingStrength: 5, defenseStrength: 20 },
-  { id: 'OFF-LARGE-WOODEN-SHIELD', name: 'Large Wooden Shield', usage: ItemUsage.OFFENSE, level: 3, bonus: 50, cost: 25000, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 3, killingStrength: 10, defenseStrength: 40 },
+  // ─── SPY ARMOR (10 tiers, gated by Spy Academy building) ──────────
+  { id: 'SPY-ARM-1', name: 'Dark Cloak', usage: ItemUsage.SPY, level: 1, bonus: 12, cost: 6000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-ARM-2', name: 'Shadow Vest', usage: ItemUsage.SPY, level: 2, bonus: 25, cost: 12500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-ARM-3', name: 'Infiltrator Garb', usage: ItemUsage.SPY, level: 3, bonus: 50, cost: 25000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-ARM-4', name: 'Nightstalker Suit', usage: ItemUsage.SPY, level: 4, bonus: 80, cost: 40000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-ARM-5', name: 'Phantom Cloak', usage: ItemUsage.SPY, level: 5, bonus: 120, cost: 60000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-ARM-6', name: 'Assassin Leathers', usage: ItemUsage.SPY, level: 6, bonus: 170, cost: 85000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-ARM-7', name: 'Shadow Weave', usage: ItemUsage.SPY, level: 7, bonus: 230, cost: 115000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-ARM-8', name: 'Void Shroud', usage: ItemUsage.SPY, level: 8, bonus: 300, cost: 150000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 3, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-ARM-9', name: 'Wraithcloak', usage: ItemUsage.SPY, level: 9, bonus: 380, cost: 190000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 4, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SPY-ARM-10', name: 'Shadowmeld Armor', usage: ItemUsage.SPY, level: 10, bonus: 480, cost: 240000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 5, killingStrength: 0, defenseStrength: 0 },
 
-  // ─── DEFENSE WEAPONS ────────────────────────────────────────────────
-  { id: 'DEF-SLING', name: 'Sling', usage: ItemUsage.DEFENSE, level: 1, bonus: 25, cost: 12500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 20, defenseStrength: 5 },
-  { id: 'DEF-HATCHET', name: 'Hatchet', usage: ItemUsage.DEFENSE, level: 2, bonus: 50, cost: 25000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 40, defenseStrength: 10 },
-  { id: 'DEF-SPEAR', name: 'Spear', usage: ItemUsage.DEFENSE, level: 3, bonus: 100, cost: 50000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 3, killingStrength: 80, defenseStrength: 20 },
+  // ─── SENTRY WEAPONS (10 tiers, gated by Spy Academy building) ─────
+  { id: 'SEN-WPN-1', name: 'Club', usage: ItemUsage.SENTRY, level: 1, bonus: 12, cost: 6000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-WPN-2', name: 'Hatchet', usage: ItemUsage.SENTRY, level: 2, bonus: 25, cost: 12500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-WPN-3', name: 'Mace', usage: ItemUsage.SENTRY, level: 3, bonus: 50, cost: 25000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-WPN-4', name: 'Morning Star', usage: ItemUsage.SENTRY, level: 4, bonus: 80, cost: 40000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-WPN-5', name: 'Flail', usage: ItemUsage.SENTRY, level: 5, bonus: 120, cost: 60000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-WPN-6', name: 'War Pick', usage: ItemUsage.SENTRY, level: 6, bonus: 170, cost: 85000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-WPN-7', name: 'Guard Pike', usage: ItemUsage.SENTRY, level: 7, bonus: 230, cost: 115000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-WPN-8', name: 'Sentinel Hammer', usage: ItemUsage.SENTRY, level: 8, bonus: 300, cost: 150000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 3, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-WPN-9', name: 'Inquisitor Blade', usage: ItemUsage.SENTRY, level: 9, bonus: 380, cost: 190000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 4, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-WPN-10', name: 'Nullifier', usage: ItemUsage.SENTRY, level: 10, bonus: 480, cost: 240000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 5, killingStrength: 0, defenseStrength: 0 },
 
-  // ─── DEFENSE HELMS ──────────────────────────────────────────────────
-  { id: 'DEF-PADDED-HOOD', name: 'Padded Hood', usage: ItemUsage.DEFENSE, level: 1, bonus: 6, cost: 3000, type: ItemType.HELM, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 5 },
-  { id: 'DEF-LEATHER-HOOD', name: 'Leather Hood', usage: ItemUsage.DEFENSE, level: 2, bonus: 12, cost: 6000, type: ItemType.HELM, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 10 },
-  { id: 'DEF-STUDDED-LEATHER-HOOD', name: 'Studded Leather Hood', usage: ItemUsage.DEFENSE, level: 3, bonus: 25, cost: 12500, type: ItemType.HELM, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 20 },
-
-  // ─── DEFENSE ARMOR ──────────────────────────────────────────────────
-  { id: 'DEF-PADDED-ARMOR', name: 'Padded Armor', usage: ItemUsage.DEFENSE, level: 1, bonus: 19, cost: 9500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 4, defenseStrength: 15 },
-  { id: 'DEF-LEATHER-ARMOR', name: 'Leather Armor', usage: ItemUsage.DEFENSE, level: 2, bonus: 38, cost: 19000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 8, defenseStrength: 30 },
-  { id: 'DEF-STUDDED-LEATHER-ARMOR', name: 'Studded Leather Armor', usage: ItemUsage.DEFENSE, level: 3, bonus: 75, cost: 37500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 3, killingStrength: 15, defenseStrength: 60 },
-
-  // ─── DEFENSE BOOTS ──────────────────────────────────────────────────
-  { id: 'DEF-PADDED-BOOTS', name: 'Padded Boots', usage: ItemUsage.DEFENSE, level: 1, bonus: 6, cost: 3000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 5 },
-  { id: 'DEF-LEATHER-BOOTS', name: 'Leather Boots', usage: ItemUsage.DEFENSE, level: 2, bonus: 12, cost: 6000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 10 },
-  { id: 'DEF-STUDDED-LEATHER-BOOTS', name: 'Studded Leather Boots', usage: ItemUsage.DEFENSE, level: 3, bonus: 25, cost: 12500, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 20 },
-
-  // ─── DEFENSE BRACERS ────────────────────────────────────────────────
-  { id: 'DEF-PADDED-BRACERS', name: 'Padded Bracers', usage: ItemUsage.DEFENSE, level: 1, bonus: 3, cost: 1500, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 2 },
-  { id: 'DEF-LEATHER-BRACERS', name: 'Leather Bracers', usage: ItemUsage.DEFENSE, level: 2, bonus: 5, cost: 2500, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 3 },
-  { id: 'DEF-STUDDED-LEATHER-BRACERS', name: 'Studded Leather Bracers', usage: ItemUsage.DEFENSE, level: 3, bonus: 10, cost: 5000, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 5 },
-
-  // ─── DEFENSE SHIELDS ────────────────────────────────────────────────
-  { id: 'DEF-SMALL-WOODEN-SHIELD', name: 'Small Wooden Shield', usage: ItemUsage.DEFENSE, level: 1, bonus: 12, cost: 6000, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 1, killingStrength: 2, defenseStrength: 10 },
-  { id: 'DEF-MEDIUM-WOODEN-SHIELD', name: 'Medium Wooden Shield', usage: ItemUsage.DEFENSE, level: 2, bonus: 25, cost: 12500, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 2, killingStrength: 5, defenseStrength: 20 },
-  { id: 'DEF-LARGE-WOODEN-SHIELD', name: 'Large Wooden Shield', usage: ItemUsage.DEFENSE, level: 3, bonus: 50, cost: 25000, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 3, killingStrength: 10, defenseStrength: 40 },
-
-  // ─── SPY WEAPONS ────────────────────────────────────────────────────
-  { id: 'SPY-SLING', name: 'Sling', usage: ItemUsage.SPY, level: 1, bonus: 25, cost: 12500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 20, defenseStrength: 5 },
-  { id: 'SPY-BRASS-KNUCKLES', name: 'Brass Knuckles', usage: ItemUsage.SPY, level: 2, bonus: 50, cost: 25000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 40, defenseStrength: 10 },
-  { id: 'SPY-CUDGEL', name: 'Cudgel', usage: ItemUsage.SPY, level: 3, bonus: 100, cost: 50000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 3, killingStrength: 80, defenseStrength: 20 },
-  { id: 'SPY-KNIFE', name: 'Knife', usage: ItemUsage.SPY, level: 4, bonus: 225, cost: 100000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 4, killingStrength: 180, defenseStrength: 45 },
-
-  // ─── SPY HELMS ──────────────────────────────────────────────────────
-  { id: 'SPY-CLOTH-CAP', name: 'Cloth Cap', usage: ItemUsage.SPY, level: 1, bonus: 6, cost: 3000, type: ItemType.HELM, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 5 },
-  { id: 'SPY-PADDED-CAP', name: 'Padded Cap', usage: ItemUsage.SPY, level: 2, bonus: 12, cost: 6000, type: ItemType.HELM, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 10 },
-  { id: 'SPY-LEATHER-CAP', name: 'Leather Cap', usage: ItemUsage.SPY, level: 3, bonus: 25, cost: 12500, type: ItemType.HELM, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 20 },
-  { id: 'SPY-CLOTH-HOOD', name: 'Cloth Hood', usage: ItemUsage.SPY, level: 4, bonus: 50, cost: 25000, type: ItemType.HELM, race: 'ALL', armoryLevel: 4, killingStrength: 10, defenseStrength: 40 },
-
-  // ─── SPY ARMOR ──────────────────────────────────────────────────────
-  { id: 'SPY-DARK-CLOTH-ARMOR', name: 'Dark Cloth Armor', usage: ItemUsage.SPY, level: 1, bonus: 19, cost: 9500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 4, defenseStrength: 15 },
-  { id: 'SPY-PADDED-CLOTH-ARMOR', name: 'Padded Cloth Armor', usage: ItemUsage.SPY, level: 2, bonus: 38, cost: 19000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 8, defenseStrength: 30 },
-  { id: 'SPY-LEATHER-ARMOR', name: 'Leather Armor', usage: ItemUsage.SPY, level: 3, bonus: 75, cost: 37500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 3, killingStrength: 15, defenseStrength: 60 },
-  { id: 'SPY-PADDED-LEATHER-ARMOR', name: 'Padded Leather Armor', usage: ItemUsage.SPY, level: 4, bonus: 150, cost: 75000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 4, killingStrength: 60, defenseStrength: 90 },
-
-  // ─── SPY BOOTS ──────────────────────────────────────────────────────
-  { id: 'SPY-CLOTH-BOOTS', name: 'Cloth Boots', usage: ItemUsage.SPY, level: 1, bonus: 6, cost: 3000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 5 },
-  { id: 'SPY-PADDED-BOOTS', name: 'Padded Boots', usage: ItemUsage.SPY, level: 2, bonus: 12, cost: 6000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 10 },
-  { id: 'SPY-LEATHER-BOOTS', name: 'Leather Boots', usage: ItemUsage.SPY, level: 3, bonus: 25, cost: 12500, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 20 },
-  { id: 'SPY-PADDED-LEATHER-BOOTS', name: 'Padded Leather Boots', usage: ItemUsage.SPY, level: 4, bonus: 50, cost: 25000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 4, killingStrength: 20, defenseStrength: 30 },
-
-  // ─── SPY BRACERS ────────────────────────────────────────────────────
-  { id: 'SPY-CLOTH-BRACERS', name: 'Cloth Bracers', usage: ItemUsage.SPY, level: 1, bonus: 3, cost: 1500, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 2 },
-  { id: 'SPY-PADDED-BRACERS', name: 'Padded Bracers', usage: ItemUsage.SPY, level: 2, bonus: 5, cost: 2500, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 3 },
-  { id: 'SPY-LEATHER-BRACERS', name: 'Leather Bracers', usage: ItemUsage.SPY, level: 3, bonus: 10, cost: 5000, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 5 },
-  { id: 'SPY-PADDED-LEATHER-BRACERS', name: 'Padded Leather Bracers', usage: ItemUsage.SPY, level: 4, bonus: 20, cost: 10000, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 4, killingStrength: 8, defenseStrength: 12 },
-
-  // ─── SENTRY WEAPONS ─────────────────────────────────────────────────
-  { id: 'SEN-SLING', name: 'Sling', usage: ItemUsage.SENTRY, level: 1, bonus: 25, cost: 12500, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 1, killingStrength: 20, defenseStrength: 5 },
-  { id: 'SEN-DAGGER', name: 'Dagger', usage: ItemUsage.SENTRY, level: 2, bonus: 50, cost: 25000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 2, killingStrength: 40, defenseStrength: 10 },
-  { id: 'SEN-HATCHET', name: 'Hatchet', usage: ItemUsage.SENTRY, level: 3, bonus: 100, cost: 50000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 3, killingStrength: 80, defenseStrength: 20 },
-  { id: 'SEN-QUARTERSTAFF', name: 'Quarterstaff', usage: ItemUsage.SENTRY, level: 4, bonus: 225, cost: 100000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 4, killingStrength: 180, defenseStrength: 45 },
-  { id: 'SEN-MACE', name: 'Mace', usage: ItemUsage.SENTRY, level: 5, bonus: 700, cost: 200000, type: ItemType.WEAPON, race: 'ALL', armoryLevel: 5, killingStrength: 560, defenseStrength: 140 },
-
-  // ─── SENTRY HELMS ──────────────────────────────────────────────────
-  { id: 'SEN-PADDED-HOOD', name: 'Padded Hood', usage: ItemUsage.SENTRY, level: 1, bonus: 6, cost: 3000, type: ItemType.HELM, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 5 },
-  { id: 'SEN-LEATHER-HOOD', name: 'Leather Hood', usage: ItemUsage.SENTRY, level: 2, bonus: 12, cost: 6000, type: ItemType.HELM, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 10 },
-  { id: 'SEN-STUDDED-LEATHER-HOOD', name: 'Studded Leather Hood', usage: ItemUsage.SENTRY, level: 3, bonus: 25, cost: 12500, type: ItemType.HELM, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 20 },
-  { id: 'SEN-BRONZE-CAP', name: 'Bronze Cap', usage: ItemUsage.SENTRY, level: 4, bonus: 50, cost: 25000, type: ItemType.HELM, race: 'ALL', armoryLevel: 4, killingStrength: 10, defenseStrength: 40 },
-
-  // ─── SENTRY ARMOR ──────────────────────────────────────────────────
-  { id: 'SEN-PADDED-ARMOR', name: 'Padded Armor', usage: ItemUsage.SENTRY, level: 1, bonus: 19, cost: 9500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 4, defenseStrength: 15 },
-  { id: 'SEN-LEATHER-ARMOR', name: 'Leather Armor', usage: ItemUsage.SENTRY, level: 2, bonus: 38, cost: 19000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 8, defenseStrength: 30 },
-  { id: 'SEN-STUDDED-LEATHER-ARMOR', name: 'Studded Leather Armor', usage: ItemUsage.SENTRY, level: 3, bonus: 75, cost: 37500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 3, killingStrength: 15, defenseStrength: 60 },
-  { id: 'SEN-BRONZE-CHAINMAIL', name: 'Bronze Chainmail', usage: ItemUsage.SENTRY, level: 4, bonus: 150, cost: 75000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 4, killingStrength: 60, defenseStrength: 90 },
-
-  // ─── SENTRY BOOTS ──────────────────────────────────────────────────
-  { id: 'SEN-PADDED-BOOTS', name: 'Padded Boots', usage: ItemUsage.SENTRY, level: 1, bonus: 6, cost: 3000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 5 },
-  { id: 'SEN-LEATHER-BOOTS', name: 'Leather Boots', usage: ItemUsage.SENTRY, level: 2, bonus: 12, cost: 6000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 10 },
-  { id: 'SEN-STUDDED-LEATHER-GREAVES', name: 'Studded Leather Greaves', usage: ItemUsage.SENTRY, level: 3, bonus: 25, cost: 12500, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 20 },
-  { id: 'SEN-BRONZE-CHAIN-GREAVES', name: 'Bronze Chain Greaves', usage: ItemUsage.SENTRY, level: 4, bonus: 50, cost: 25000, type: ItemType.BOOTS, race: 'ALL', armoryLevel: 4, killingStrength: 20, defenseStrength: 30 },
-
-  // ─── SENTRY BRACERS ────────────────────────────────────────────────
-  { id: 'SEN-PADDED-BRACERS', name: 'Padded Bracers', usage: ItemUsage.SENTRY, level: 1, bonus: 3, cost: 1500, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 1, killingStrength: 1, defenseStrength: 2 },
-  { id: 'SEN-LEATHER-BRACERS', name: 'Leather Bracers', usage: ItemUsage.SENTRY, level: 2, bonus: 5, cost: 2500, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 2, killingStrength: 2, defenseStrength: 3 },
-  { id: 'SEN-STUDDED-LEATHER-BRACERS', name: 'Studded Leather Bracers', usage: ItemUsage.SENTRY, level: 3, bonus: 10, cost: 5000, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 3, killingStrength: 5, defenseStrength: 5 },
-  { id: 'SEN-BRONZE-CHAIN-BRACERS', name: 'Bronze Chain Bracers', usage: ItemUsage.SENTRY, level: 4, bonus: 20, cost: 10000, type: ItemType.BRACERS, race: 'ALL', armoryLevel: 4, killingStrength: 8, defenseStrength: 12 },
-
-  // ─── SENTRY SHIELDS ────────────────────────────────────────────────
-  { id: 'SEN-SMALL-WOODEN-SHIELD', name: 'Small Wooden Shield', usage: ItemUsage.SENTRY, level: 1, bonus: 12, cost: 6000, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 1, killingStrength: 2, defenseStrength: 10 },
-  { id: 'SEN-MEDIUM-WOODEN-SHIELD', name: 'Medium Wooden Shield', usage: ItemUsage.SENTRY, level: 2, bonus: 25, cost: 12500, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 2, killingStrength: 5, defenseStrength: 20 },
-  { id: 'SEN-LARGE-WOODEN-SHIELD', name: 'Large Wooden Shield', usage: ItemUsage.SENTRY, level: 3, bonus: 50, cost: 25000, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 3, killingStrength: 10, defenseStrength: 40 },
-  { id: 'SEN-BRONZE-STUDDED-SHIELD', name: 'Bronze Studded Shield', usage: ItemUsage.SENTRY, level: 4, bonus: 100, cost: 50000, type: ItemType.SHIELD, race: 'ALL', armoryLevel: 4, killingStrength: 40, defenseStrength: 60 },
+  // ─── SENTRY ARMOR (10 tiers, gated by Spy Academy building) ───────
+  { id: 'SEN-ARM-1', name: 'Padded Guard Vest', usage: ItemUsage.SENTRY, level: 1, bonus: 12, cost: 6000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-ARM-2', name: 'Leather Guard Armor', usage: ItemUsage.SENTRY, level: 2, bonus: 25, cost: 12500, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-ARM-3', name: 'Studded Guard Armor', usage: ItemUsage.SENTRY, level: 3, bonus: 50, cost: 25000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 0, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-ARM-4', name: 'Bronze Guard Plate', usage: ItemUsage.SENTRY, level: 4, bonus: 80, cost: 40000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-ARM-5', name: 'Iron Guard Plate', usage: ItemUsage.SENTRY, level: 5, bonus: 120, cost: 60000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 1, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-ARM-6', name: 'Steel Guard Plate', usage: ItemUsage.SENTRY, level: 6, bonus: 170, cost: 85000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-ARM-7', name: 'Warden Plate', usage: ItemUsage.SENTRY, level: 7, bonus: 230, cost: 115000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 2, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-ARM-8', name: 'Sentinel Bulwark', usage: ItemUsage.SENTRY, level: 8, bonus: 300, cost: 150000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 3, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-ARM-9', name: 'Inquisitor Shield', usage: ItemUsage.SENTRY, level: 9, bonus: 380, cost: 190000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 4, killingStrength: 0, defenseStrength: 0 },
+  { id: 'SEN-ARM-10', name: 'Aegis of Vigilance', usage: ItemUsage.SENTRY, level: 10, bonus: 480, cost: 240000, type: ItemType.ARMOR, race: 'ALL', armoryLevel: 5, killingStrength: 0, defenseStrength: 0 },
 ];
 
 /**
@@ -164,4 +127,21 @@ export function getItemsByUsageAndType(
   type: ItemType,
 ): ItemDefinition[] {
   return ItemTypes.filter((i) => i.usage === usage && i.type === type);
+}
+
+/**
+ * Computes total armory value from a list of player items.
+ * Reusable on both frontend and backend.
+ */
+export function computeArmoryValue(
+  items: Array<{ itemType: string; usage: string; level: number; quantity: number }>,
+): number {
+  return items.reduce((sum, item) => {
+    const def = getItemDefinition(
+      item.itemType as ItemType,
+      item.usage as ItemUsage,
+      item.level,
+    );
+    return sum + (def?.cost ?? 0) * item.quantity;
+  }, 0);
 }

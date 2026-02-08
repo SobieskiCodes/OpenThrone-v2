@@ -1,11 +1,46 @@
 import { UnitType, BonusType, ItemUsage, BattleUpgradeType } from '@openthrone/shared';
-import type { UnitDefinition, ItemDefinition, BattleUpgradeDefinition } from '@openthrone/shared';
 import { getFortificationByLevel } from './fortifications';
-import { getOffensiveUpgradeByLevel, getSpyUpgradeByLevel, getSentryUpgradeByLevel, getEconomyUpgradeByLevel, getHouseUpgradeByLevel } from './structure-upgrades';
+import { getOffensiveUpgradeByLevel, getSpyUpgradeByLevel, getSentryUpgradeByLevel, getHouseUpgradeByLevel } from './structure-upgrades';
 import { Bonuses } from './bonuses';
 import { UnitTypes } from './units';
 import { ItemTypes } from './items';
 import { BattleUpgrades } from './battle-upgrades';
+
+// ─── Detailed Breakdown Types ───────────────────────────────────────────
+
+export interface LineItem {
+  name: string;        // "Soldier", "Dagger"
+  quantity: number;
+  bonusEach: number;   // per-unit bonus
+  total: number;       // bonusEach * quantity
+}
+
+export interface BonusLine {
+  label: string;       // "Race (Human)", "Class (Fighter)", "Proficiency (3 pts)"
+  percent: number;     // e.g. 5
+}
+
+export interface DetailedStatBreakdown {
+  statType: string;
+  unitLines: LineItem[];
+  unitTotal: number;
+  itemLines: LineItem[];
+  itemTotal: number;
+  upgradeLines: LineItem[];
+  upgradeTotal: number;
+  subtotal: number;           // units + items + upgrades
+  bonusLines: BonusLine[];    // each modifier source
+  bonusPercent: number;       // total additive %
+  bonusAmount: number;        // Math.round(bonusPercent/100 * subtotal)
+  total: number;              // ceil(subtotal + bonusAmount)
+}
+
+export interface FullDetailedBreakdown {
+  offense: DetailedStatBreakdown;
+  defense: DetailedStatBreakdown;
+  spy: DetailedStatBreakdown;
+  sentry: DetailedStatBreakdown;
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -183,6 +218,131 @@ function calculateSingleStat(
   return { units: unitStat, items: itemStat, battleUpgrades: battleUpgradeStat, bonusPercent, bonusAmount, total };
 }
 
+// ─── Detailed single-stat calculation (itemized) ────────────────────────
+
+function calculateDetailedSingleStat(
+  statType: 'OFFENSE' | 'DEFENSE' | 'SPY' | 'SENTRY',
+  input: StatCalcInput,
+): DetailedStatBreakdown {
+  const mapping = STAT_TYPE_MAP[statType]!;
+
+  // 1. Units
+  const unitLines: LineItem[] = [];
+  let unitTotal = 0;
+  for (const pu of input.units) {
+    if (pu.unitType !== mapping.unitType) continue;
+    const def = UnitTypes.find((u) => u.type === pu.unitType && u.level === pu.level);
+    if (def && pu.quantity > 0) {
+      const total = def.bonus * pu.quantity;
+      unitLines.push({ name: def.name, quantity: pu.quantity, bonusEach: def.bonus, total });
+      unitTotal += total;
+    }
+  }
+
+  // 2. Items
+  const itemLines: LineItem[] = [];
+  let itemTotal = 0;
+  for (const pi of input.items) {
+    if (pi.usage !== mapping.itemUsage) continue;
+    const def = ItemTypes.find(
+      (i) => i.type === pi.itemType && i.usage === pi.usage && i.level === pi.level,
+    );
+    if (def && pi.quantity > 0) {
+      const total = def.bonus * pi.quantity;
+      itemLines.push({ name: def.name, quantity: pi.quantity, bonusEach: def.bonus, total });
+      itemTotal += total;
+    }
+  }
+
+  // 3. Battle upgrades
+  const upgradeLines: LineItem[] = [];
+  let upgradeTotal = 0;
+  for (const pbu of input.battleUpgrades) {
+    if (pbu.upgradeType !== mapping.battleType) continue;
+    const def = BattleUpgrades.find(
+      (b) => b.type === pbu.upgradeType && b.level === pbu.level,
+    );
+    if (def && pbu.quantity > 0) {
+      const covered = pbu.quantity * def.unitsCovered;
+      const total = def.bonus * covered;
+      upgradeLines.push({ name: def.name, quantity: covered, bonusEach: def.bonus, total });
+      upgradeTotal += total;
+    }
+  }
+
+  // 4. Bonus percentage
+  const bonusLines: BonusLine[] = [];
+  let bonusPercent = 0;
+
+  const bonusType = statType === 'OFFENSE' ? BonusType.OFFENSE
+    : statType === 'DEFENSE' ? BonusType.DEFENSE
+    : BonusType.INTEL;
+
+  for (const b of Bonuses) {
+    if (b.bonusType !== bonusType) continue;
+    if (b.race === input.race) {
+      bonusLines.push({ label: `Race (${input.race})`, percent: b.bonusAmount });
+      bonusPercent += b.bonusAmount;
+    }
+    if (b.race === input.playerClass) {
+      bonusLines.push({ label: `Class (${input.playerClass})`, percent: b.bonusAmount });
+      bonusPercent += b.bonusAmount;
+    }
+  }
+
+  // Proficiency points
+  const profBonusType = statType === 'SPY' || statType === 'SENTRY' ? BonusType.INTEL : bonusType;
+  const profPoints = input.bonusPoints.find((bp) => bp.bonusType === profBonusType);
+  if (profPoints && profPoints.level > 0) {
+    bonusLines.push({ label: `Proficiency (${profPoints.level} pts)`, percent: profPoints.level });
+    bonusPercent += profPoints.level;
+  }
+
+  // Structure upgrade bonus percentage
+  if (statType === 'OFFENSE') {
+    const offUpgrade = input.structureUpgrades.find((su) => su.upgradeType === 'OFFENSE');
+    const offDef = getOffensiveUpgradeByLevel(offUpgrade?.level ?? 1);
+    if (offDef && offDef.offenseBonusPercentage > 0) {
+      bonusLines.push({ label: `Siege (${offDef.name})`, percent: offDef.offenseBonusPercentage });
+      bonusPercent += offDef.offenseBonusPercentage;
+    }
+  } else if (statType === 'DEFENSE') {
+    const fort = getFortificationByLevel(input.fortLevel);
+    if (fort && fort.defenseBonusPercentage > 0) {
+      bonusLines.push({ label: `Fort (${fort.name})`, percent: fort.defenseBonusPercentage });
+      bonusPercent += fort.defenseBonusPercentage;
+    }
+  } else if (statType === 'SPY') {
+    const spyUpgrade = input.structureUpgrades.find((su) => su.upgradeType === 'SPY');
+    const spyDef = getSpyUpgradeByLevel(spyUpgrade?.level ?? 1);
+    if (spyDef && spyDef.offenseBonusPercentage > 0) {
+      bonusLines.push({ label: `Spy Upgrade (${spyDef.name})`, percent: spyDef.offenseBonusPercentage });
+      bonusPercent += spyDef.offenseBonusPercentage;
+    }
+  } else if (statType === 'SENTRY') {
+    const senUpgrade = input.structureUpgrades.find((su) => su.upgradeType === 'SENTRY');
+    const senDef = getSentryUpgradeByLevel(senUpgrade?.level ?? 1);
+    if (senDef && senDef.defenseBonusPercentage > 0) {
+      bonusLines.push({ label: `Sentry Upgrade (${senDef.name})`, percent: senDef.defenseBonusPercentage });
+      bonusPercent += senDef.defenseBonusPercentage;
+    }
+  }
+
+  const subtotal = unitTotal + itemTotal + upgradeTotal;
+  const bonusAmount = Math.round((bonusPercent / 100) * subtotal);
+  const total = Math.ceil(subtotal + bonusAmount);
+
+  return {
+    statType,
+    unitLines, unitTotal,
+    itemLines, itemTotal,
+    upgradeLines, upgradeTotal,
+    subtotal,
+    bonusLines, bonusPercent, bonusAmount,
+    total,
+  };
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────
 
 export function calculateFullStats(input: StatCalcInput): FullStatBreakdown {
@@ -194,17 +354,31 @@ export function calculateFullStats(input: StatCalcInput): FullStatBreakdown {
   };
 }
 
+export function calculateFullDetailedBreakdown(input: StatCalcInput): FullDetailedBreakdown {
+  return {
+    offense: calculateDetailedSingleStat('OFFENSE', input),
+    defense: calculateDetailedSingleStat('DEFENSE', input),
+    spy: calculateDetailedSingleStat('SPY', input),
+    sentry: calculateDetailedSingleStat('SENTRY', input),
+  };
+}
+
 export function calculateGoldPerTurnBreakdown(
   fortLevel: number,
-  economyLevel: number,
-  workerCount: number,
+  workers: Array<{ level: number; quantity: number }>,
   incomeBonusLevel: number,
 ): GoldPerTurnBreakdown {
   const fort = getFortificationByLevel(fortLevel);
-  const eco = getEconomyUpgradeByLevel(economyLevel);
   const fortGold = fort?.goldPerTurn ?? 1000;
-  const goldPerWorker = eco?.goldPerWorker ?? 50;
-  const workerGold = workerCount * goldPerWorker;
+
+  let workerGold = 0;
+  for (const w of workers) {
+    const def = UnitTypes.find(
+      (u) => u.type === UnitType.WORKER && u.level === w.level,
+    );
+    workerGold += (def?.bonus ?? 50) * w.quantity;
+  }
+
   const base = fortGold + workerGold;
   const incomeBonus = Math.round((incomeBonusLevel / 100) * base);
 

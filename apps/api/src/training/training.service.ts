@@ -76,7 +76,9 @@ export class TrainingService {
       const pricesBonusPercent = pricesBonus?.level ?? 0;
 
       let totalCost = 0;
-      let totalQuantity = 0;
+      let citizensNeeded = 0;
+      // Track lower-tier units needed for Lv2+ training
+      const lowerTierNeeded: Record<string, number> = {};
 
       for (const entry of dto.units) {
         const unitDef = getUnitByTypeAndLevel(entry.unitType as UnitType, entry.level);
@@ -96,7 +98,22 @@ export class TrainingService {
 
         const discountedCost = unitDef.cost - Math.round((pricesBonusPercent / 100) * unitDef.cost);
         totalCost += discountedCost * entry.quantity;
-        totalQuantity += entry.quantity;
+
+        if (entry.level === 1) {
+          // Level 1: costs citizens
+          citizensNeeded += entry.quantity;
+        } else {
+          // Level 2+: costs 1 lower-tier unit per unit trained
+          const lowerLevel = entry.level - 1;
+          const lowerDef = getUnitByTypeAndLevel(entry.unitType as UnitType, lowerLevel);
+          if (!lowerDef) {
+            throw new BadRequestException(
+              `No lower tier unit found for ${unitDef.name}`,
+            );
+          }
+          const key = `${entry.unitType}_${lowerLevel}`;
+          lowerTierNeeded[key] = (lowerTierNeeded[key] ?? 0) + entry.quantity;
+        }
       }
 
       const gold = BigInt(economy.gold);
@@ -106,14 +123,33 @@ export class TrainingService {
         );
       }
 
-      const citizenRow = units.find(
-        (u) => u.unit_type === UnitType.CITIZEN && u.level === 1,
-      );
-      const citizens = citizenRow?.quantity ?? 0;
-      if (citizens < totalQuantity) {
-        throw new BadRequestException(
-          `Not enough citizens. Required: ${totalQuantity}, Available: ${citizens}`,
+      // Check citizens for Lv1 training
+      if (citizensNeeded > 0) {
+        const citizenRow = units.find(
+          (u) => u.unit_type === UnitType.CITIZEN && u.level === 1,
         );
+        const citizens = citizenRow?.quantity ?? 0;
+        if (citizens < citizensNeeded) {
+          throw new BadRequestException(
+            `Not enough citizens. Required: ${citizensNeeded}, Available: ${citizens}`,
+          );
+        }
+      }
+
+      // Check lower-tier units for Lv2+ training
+      for (const [key, needed] of Object.entries(lowerTierNeeded)) {
+        const [unitType = '', levelStr = '0'] = key.split('_');
+        const level = Number(levelStr);
+        const existing = units.find(
+          (u) => u.unit_type === unitType && u.level === level,
+        );
+        const available = existing?.quantity ?? 0;
+        const lowerDef = getUnitByTypeAndLevel(unitType as UnitType, level);
+        if (available < needed) {
+          throw new BadRequestException(
+            `Not enough ${lowerDef?.name ?? unitType}. Required: ${needed}, Available: ${available}`,
+          );
+        }
       }
 
       // Deduct gold
@@ -123,23 +159,49 @@ export class TrainingService {
         data: { gold: newGold },
       });
 
-      // Deduct citizens
-      await tx.playerUnit.upsert({
-        where: {
-          player_id_unit_type_level: {
+      // Deduct citizens for Lv1 training
+      if (citizensNeeded > 0) {
+        const citizenRow = units.find(
+          (u) => u.unit_type === UnitType.CITIZEN && u.level === 1,
+        );
+        const citizens = citizenRow?.quantity ?? 0;
+        await tx.playerUnit.upsert({
+          where: {
+            player_id_unit_type_level: {
+              player_id: playerId,
+              unit_type: UnitType.CITIZEN,
+              level: 1,
+            },
+          },
+          update: { quantity: citizens - citizensNeeded },
+          create: {
             player_id: playerId,
             unit_type: UnitType.CITIZEN,
             level: 1,
+            quantity: citizens - citizensNeeded,
           },
-        },
-        update: { quantity: citizens - totalQuantity },
-        create: {
-          player_id: playerId,
-          unit_type: UnitType.CITIZEN,
-          level: 1,
-          quantity: citizens - totalQuantity,
-        },
-      });
+        });
+      }
+
+      // Deduct lower-tier units for Lv2+ training
+      for (const [key, needed] of Object.entries(lowerTierNeeded)) {
+        const [unitType = '', levelStr = '0'] = key.split('_');
+        const level = Number(levelStr);
+        const existing = units.find(
+          (u) => u.unit_type === unitType && u.level === level,
+        );
+        const currentQty = existing?.quantity ?? 0;
+        await tx.playerUnit.update({
+          where: {
+            player_id_unit_type_level: {
+              player_id: playerId,
+              unit_type: unitType,
+              level,
+            },
+          },
+          data: { quantity: currentQty - needed },
+        });
+      }
 
       // Upsert each trained unit
       for (const entry of dto.units) {

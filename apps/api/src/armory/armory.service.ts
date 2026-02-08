@@ -44,7 +44,12 @@ export class ArmoryService {
     const armoryUpgrade = structureUpgrades.find(
       (u) => u.upgrade_type === StructureUpgradeType.ARMORY,
     );
-    const armoryLevel = armoryUpgrade?.level ?? 1;
+    const armoryLevel = armoryUpgrade?.level ?? 0;
+
+    const spyUpgrade = structureUpgrades.find(
+      (u) => u.upgrade_type === StructureUpgradeType.SPY,
+    );
+    const spyAcademyLevel = spyUpgrade?.level ?? 0;
 
     const pricesBonus = bonusPoints.find(
       (bp) => bp.bonus_type === BonusType.PRICES,
@@ -57,6 +62,7 @@ export class ArmoryService {
       gold: economy.gold.toString(),
       goldInBank: economy.gold_in_bank.toString(),
       armoryLevel,
+      spyAcademyLevel,
       pricesBonusLevel,
       playerRace,
       items: items.map((i) => ({
@@ -90,7 +96,12 @@ export class ArmoryService {
       const armoryUpgrade = structureUpgrades.find(
         (u) => u.upgrade_type === StructureUpgradeType.ARMORY,
       );
-      const armoryLevel = armoryUpgrade?.level ?? 1;
+      const armoryLevel = armoryUpgrade?.level ?? 0;
+
+      const spyUpgrade = structureUpgrades.find(
+        (u) => u.upgrade_type === StructureUpgradeType.SPY,
+      );
+      const spyAcademyLevel = spyUpgrade?.level ?? 0;
 
       const pricesBonus = bonusPoints.find(
         (bp) => bp.bonus_type === BonusType.PRICES,
@@ -111,10 +122,15 @@ export class ArmoryService {
         );
       }
 
-      // Check armory level requirement
-      if (itemDef.armoryLevel > armoryLevel) {
+      // Check building level requirement (Armory for OFF/DEF, Spy Academy for SPY/SENTRY)
+      const isSpyItem = dto.usage === ItemUsage.SPY || dto.usage === ItemUsage.SENTRY;
+      const requiredLevel = itemDef.armoryLevel;
+      const playerBuildingLevel = isSpyItem ? spyAcademyLevel : armoryLevel;
+      const buildingName = isSpyItem ? 'Spy Academy' : 'Armory';
+
+      if (requiredLevel > playerBuildingLevel) {
         throw new BadRequestException(
-          `${itemDef.name} requires armory level ${itemDef.armoryLevel} (you have ${armoryLevel})`,
+          `${itemDef.name} requires ${buildingName} level ${requiredLevel} (you have ${playerBuildingLevel})`,
         );
       }
 

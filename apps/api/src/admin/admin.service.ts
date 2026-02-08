@@ -197,11 +197,36 @@ export class AdminService {
         });
       }
 
-      if (dto.experience !== undefined && player.stats) {
+      if (player.stats && (dto.experience !== undefined || dto.offense !== undefined || dto.defense !== undefined || dto.spy !== undefined || dto.sentry !== undefined)) {
+        const statsData: Record<string, number> = {};
+        if (dto.experience !== undefined) statsData.experience = dto.experience;
+        if (dto.offense !== undefined) statsData.offense = dto.offense;
+        if (dto.defense !== undefined) statsData.defense = dto.defense;
+        if (dto.spy !== undefined) statsData.spy = dto.spy;
+        if (dto.sentry !== undefined) statsData.sentry = dto.sentry;
         await tx.playerStats.update({
           where: { player_id: id },
-          data: { experience: dto.experience },
+          data: statsData,
         });
+      }
+
+      if (dto.bonusPoints !== undefined) {
+        for (const [bonusType, level] of Object.entries(dto.bonusPoints)) {
+          await tx.playerBonusPoint.upsert({
+            where: {
+              player_id_bonus_type: {
+                player_id: id,
+                bonus_type: bonusType,
+              },
+            },
+            update: { level },
+            create: {
+              player_id: id,
+              bonus_type: bonusType,
+              level,
+            },
+          });
+        }
       }
 
       if (dto.status !== undefined) {

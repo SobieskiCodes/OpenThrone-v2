@@ -3,7 +3,6 @@
 import {
   Container,
   SimpleGrid,
-  Paper,
   Group,
   Stack,
   Title,
@@ -12,11 +11,17 @@ import {
   Badge,
   Skeleton,
   Tooltip,
+  Anchor,
+  Button,
+  ThemeIcon,
 } from '@mantine/core';
+import { OTCard } from '@/components/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRaceTheme } from '@/context/race-theme';
+import Link from 'next/link';
 import {
+  computeArmoryValue,
   getFortificationByLevel,
   getLevelForXP,
   getXPForLevel,
@@ -24,8 +29,18 @@ import {
   toLocale,
 } from '@openthrone/game-logic';
 
+// ─── Types ──────────────────────────────────────────────────────────────
+
 interface PlayerUnit {
   unitType: string;
+  level: number;
+  quantity: number;
+}
+
+interface PlayerItem {
+  itemType: string;
+  usage: string;
+  level: number;
   quantity: number;
 }
 
@@ -43,6 +58,7 @@ interface PlayerData {
   };
   stats: {
     experience: number;
+    rank: number;
     offense: number;
     defense: number;
     spy: number;
@@ -53,6 +69,7 @@ interface PlayerData {
     hitpoints: number;
   };
   units: PlayerUnit[];
+  items: PlayerItem[];
 }
 
 interface StatBreakdown {
@@ -79,23 +96,109 @@ interface CitizensPerDayBreakdown {
   total: number;
 }
 
+interface BonusLine {
+  label: string;
+  percent: number;
+}
+
+interface LineItem {
+  name: string;
+  quantity: number;
+  bonusEach: number;
+  total: number;
+}
+
+interface DetailedStatBreakdown {
+  statType: string;
+  unitLines: LineItem[];
+  unitTotal: number;
+  itemLines: LineItem[];
+  itemTotal: number;
+  upgradeLines: LineItem[];
+  upgradeTotal: number;
+  subtotal: number;
+  bonusLines: BonusLine[];
+  bonusPercent: number;
+  bonusAmount: number;
+  total: number;
+}
+
+interface BonusPoint {
+  bonusType: string;
+  level: number;
+}
+
 interface BreakdownData {
   offense: StatBreakdown;
   defense: StatBreakdown;
   spy: StatBreakdown;
   sentry: StatBreakdown;
+  detailed?: {
+    offense: DetailedStatBreakdown;
+    defense: DetailedStatBreakdown;
+    spy: DetailedStatBreakdown;
+    sentry: DetailedStatBreakdown;
+  };
   goldPerTurn: GoldPerTurnBreakdown;
   citizensPerDay: CitizensPerDayBreakdown;
+  bonusPoints?: BonusPoint[];
+  availablePoints?: number;
 }
 
-function StatTooltipContent({ label, bd }: { label: string; bd: StatBreakdown }) {
+interface BattleLogEntry {
+  id: number;
+  attacker: { id: string; displayName: string; race: string };
+  defender: { id: string; displayName: string; race: string };
+  winner: string;
+  type: string;
+  goldStolen: string;
+  timestamp: string;
+  isAttacker: boolean;
+}
+
+interface BattleHistoryResponse {
+  data: BattleLogEntry[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+interface MailItem {
+  id: number;
+  subject: string;
+  mailType: string;
+  sender: { id: string; displayName: string } | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+interface MailResponse {
+  items: MailItem[];
+  total: number;
+  page: number;
+  unreadCount: number;
+}
+
+// ─── Tooltip Content ────────────────────────────────────────────────────
+
+function StatTooltipContent({ label, bd, detailed }: { label: string; bd: StatBreakdown; detailed?: DetailedStatBreakdown }) {
   return (
     <Stack gap={2}>
       <Text size="xs" fw={700}>{label} Breakdown</Text>
       <Text size="xs">Units: {toLocale(bd.units)}</Text>
       <Text size="xs">Items: {toLocale(bd.items)}</Text>
       <Text size="xs">Battle Upgrades: {toLocale(bd.battleUpgrades)}</Text>
-      <Text size="xs">Bonus: +{bd.bonusPercent}% ({toLocale(bd.bonusAmount)})</Text>
+      {detailed?.bonusLines && detailed.bonusLines.length > 0 ? (
+        <>
+          <Text size="xs" fw={600} mt={2}>Bonus Sources (+{bd.bonusPercent}%):</Text>
+          {detailed.bonusLines.map((bl, i) => (
+            <Text size="xs" key={i} pl={8}>
+              {bl.label}: +{bl.percent}%
+            </Text>
+          ))}
+          <Text size="xs">= {toLocale(bd.bonusAmount)} bonus</Text>
+        </>
+      ) : (
+        <Text size="xs">Bonus: +{bd.bonusPercent}% ({toLocale(bd.bonusAmount)})</Text>
+      )}
       <Text size="xs" fw={600}>Total: {toLocale(bd.total)}</Text>
     </Stack>
   );
@@ -128,6 +231,8 @@ function CitizensTooltipContent({ bd }: { bd: CitizensPerDayBreakdown }) {
   );
 }
 
+// ─── Page ───────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
   const { api, isReady } = useApi();
   const { colorName } = useRaceTheme();
@@ -144,13 +249,25 @@ export default function DashboardPage() {
     enabled: isReady,
   });
 
+  const { data: battles } = useQuery<BattleHistoryResponse>({
+    queryKey: ['battle', 'history', 'dashboard'],
+    queryFn: () => api.get('/battle/history?limit=5'),
+    enabled: isReady,
+  });
+
+  const { data: mail } = useQuery<MailResponse>({
+    queryKey: ['mail', 'dashboard'],
+    queryFn: () => api.get('/mail?limit=5'),
+    enabled: isReady,
+  });
+
   if (isLoading || !player) {
     return (
       <Container>
         <Stack gap="md">
           <Skeleton height={40} width={300} />
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: 9 }).map((_, i) => (
               <Skeleton key={i} height={180} radius="sm" />
             ))}
           </SimpleGrid>
@@ -165,11 +282,12 @@ export default function DashboardPage() {
   const attackTurns = player.economy?.attackTurns ?? 0;
   const fortLevel = player.fortification?.fortLevel ?? 1;
   const fortHitpoints = player.fortification?.hitpoints ?? 0;
+  const rank = player.stats?.rank ?? 0;
 
   const level = getLevelForXP(experience);
-  const currentLevelXP = getXPForLevel(level);
-  const xpToNext = getXPToNextLevel(experience);
-  const nextLevelXP = getXPForLevel(level + 1);
+  const currentLevelXP = level === 1 ? 0 : getXPForLevel(level);
+  const nextLevelXP = level === 1 ? getXPForLevel(1) : getXPForLevel(level + 1);
+  const xpToNext = Math.max(0, nextLevelXP - experience);
   const xpProgress =
     nextLevelXP > currentLevelXP
       ? ((experience - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100
@@ -182,12 +300,16 @@ export default function DashboardPage() {
 
   const totalUnits = player.units?.reduce((sum, u) => sum + u.quantity, 0) ?? 0;
 
+  const armoryValue = computeArmoryValue(player.items ?? []);
+
   const offense = breakdown?.offense.total ?? player.stats?.offense ?? 0;
   const defense = breakdown?.defense.total ?? player.stats?.defense ?? 0;
   const spy = breakdown?.spy.total ?? player.stats?.spy ?? 0;
   const sentry = breakdown?.sentry.total ?? player.stats?.sentry ?? 0;
   const goldPerTurn = breakdown?.goldPerTurn.total ?? fort?.goldPerTurn ?? 0;
   const citizensPerDay = breakdown?.citizensPerDay.total ?? 0;
+
+  const unreadCount = mail?.unreadCount ?? 0;
 
   return (
     <Container size="xl">
@@ -201,12 +323,82 @@ export default function DashboardPage() {
             <Badge variant="light" color="ot">
               {player.class}
             </Badge>
+            {rank > 0 && (
+              <Badge variant="filled" color="yellow" size="lg">
+                Rank #{rank}
+              </Badge>
+            )}
           </Group>
         </Group>
 
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" className="ot-stagger">
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+          {/* Quick Actions */}
+          <OTCard>
+            <Stack gap="sm">
+              <Title order={4}>Quick Actions</Title>
+              <SimpleGrid cols={2} spacing="xs">
+                <Button
+                  component={Link}
+                  href="/battle/players"
+                  variant="light"
+                  color="red"
+                  leftSection={'\u2694\uFE0F'}
+                  size="sm"
+                  fullWidth
+                >
+                  Attack
+                </Button>
+                <Button
+                  component={Link}
+                  href="/battle/training"
+                  variant="light"
+                  color="blue"
+                  leftSection={'\uD83C\uDFCB\uFE0F'}
+                  size="sm"
+                  fullWidth
+                >
+                  Train
+                </Button>
+                <Button
+                  component={Link}
+                  href="/structures/bank"
+                  variant="light"
+                  color="green"
+                  leftSection={'\uD83C\uDFE6'}
+                  size="sm"
+                  fullWidth
+                >
+                  Bank
+                </Button>
+                <Button
+                  component={Link}
+                  href="/structures/armory"
+                  variant="light"
+                  color="grape"
+                  leftSection={'\uD83D\uDEE1\uFE0F'}
+                  size="sm"
+                  fullWidth
+                >
+                  Armory
+                </Button>
+              </SimpleGrid>
+              <Group justify="space-between" mt={4}>
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                  Attack Turns
+                </Text>
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color={attackTurns > 0 ? 'green' : 'red'}
+                >
+                  {toLocale(attackTurns)} remaining
+                </Badge>
+              </Group>
+            </Stack>
+          </OTCard>
+
           {/* Kingdom Overview */}
-          <Paper withBorder p="md" className="ot-card">
+          <OTCard>
             <Stack gap="sm">
               <Title order={4}>Kingdom Overview</Title>
               <Group justify="space-between">
@@ -224,16 +416,22 @@ export default function DashboardPage() {
                     {toLocale(experience)} / {toLocale(nextLevelXP || experience)}
                   </Text>
                 </Group>
-                <Progress value={xpProgress} size="sm" color={colorName} />
+                <Progress value={xpProgress} size="lg" color={colorName} radius="sm" />
                 <Text size="xs" style={{ color: 'var(--ot-text-dim)' }} mt={4}>
-                  {toLocale(xpToNext)} XP to next level
+                  {xpToNext > 0 ? `${toLocale(xpToNext)} XP to next level (${Math.round(xpProgress)}%)` : 'Max level reached!'}
                 </Text>
               </div>
+              <Group justify="space-between">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                  Total Units
+                </Text>
+                <Text fw={600} className="ot-stat-value">{toLocale(totalUnits)}</Text>
+              </Group>
             </Stack>
-          </Paper>
+          </OTCard>
 
           {/* Economy */}
-          <Paper withBorder p="md" className="ot-card">
+          <OTCard>
             <Stack gap="sm">
               <Title order={4}>Economy</Title>
               <Group justify="space-between">
@@ -247,12 +445,6 @@ export default function DashboardPage() {
                   Gold in Bank
                 </Text>
                 <Text fw={600} className="ot-stat-value">{toLocale(goldInBank)}</Text>
-              </Group>
-              <Group justify="space-between">
-                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                  Attack Turns
-                </Text>
-                <Text fw={600} style={{ color: 'var(--ot-race-primary)' }}>{toLocale(attackTurns)}</Text>
               </Group>
               <Tooltip
                 label={breakdown?.goldPerTurn ? <GoldTooltipContent bd={breakdown.goldPerTurn} /> : 'Loading...'}
@@ -282,23 +474,48 @@ export default function DashboardPage() {
                   </Text>
                 </Group>
               </Tooltip>
+              <Tooltip
+                label={
+                  <Stack gap={2}>
+                    <Text size="xs" fw={700}>Net Worth Breakdown</Text>
+                    <Text size="xs">Gold on Hand: {toLocale(gold)}</Text>
+                    <Text size="xs">Gold in Bank: {toLocale(goldInBank)}</Text>
+                    {armoryValue > 0 && (
+                      <Text size="xs">Armory Value: {toLocale(armoryValue)}</Text>
+                    )}
+                    <Text size="xs" fw={600}>Total: {toLocale(gold + goldInBank + armoryValue)}</Text>
+                  </Stack>
+                }
+                multiline
+                w={220}
+              >
+                <Group justify="space-between" style={{ cursor: 'help' }}>
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
+                    Net Worth
+                  </Text>
+                  <Text fw={600} className="ot-stat-value">
+                    {toLocale(gold + goldInBank + armoryValue)}
+                  </Text>
+                </Group>
+              </Tooltip>
             </Stack>
-          </Paper>
+          </OTCard>
 
           {/* Military Summary */}
-          <Paper withBorder p="md" className="ot-card">
+          <OTCard>
             <Stack gap="sm">
               <Title order={4}>Military Summary</Title>
               {(['offense', 'defense', 'spy', 'sentry'] as const).map((stat) => {
                 const value = { offense, defense, spy, sentry }[stat];
                 const bd = breakdown?.[stat];
+                const det = breakdown?.detailed?.[stat];
                 const label = stat.charAt(0).toUpperCase() + stat.slice(1);
                 return (
                   <Tooltip
                     key={stat}
-                    label={bd ? <StatTooltipContent label={label} bd={bd} /> : 'Loading...'}
+                    label={bd ? <StatTooltipContent label={label} bd={bd} detailed={det} /> : 'Loading...'}
                     multiline
-                    w={220}
+                    w={250}
                   >
                     <Group justify="space-between" style={{ cursor: 'help' }}>
                       <Text size="sm" style={{ color: 'var(--ot-text-dim)', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
@@ -310,31 +527,115 @@ export default function DashboardPage() {
                 );
               })}
             </Stack>
-          </Paper>
+          </OTCard>
 
-          {/* Population */}
-          <Paper withBorder p="md" className="ot-card">
+          {/* Recent Battles */}
+          <OTCard>
             <Stack gap="sm">
-              <Title order={4}>Population</Title>
-              <Group justify="space-between">
-                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                  Total Units
-                </Text>
-                <Text fw={600} className="ot-stat-value">{toLocale(totalUnits)}</Text>
+              <Group justify="space-between" align="center">
+                <Title order={4}>Recent Battles</Title>
+                <Anchor component={Link} href="/battle/history" size="xs">
+                  View all
+                </Anchor>
               </Group>
-              {player.units?.map((unit) => (
-                <Group key={unit.unitType} justify="space-between">
-                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                    {unit.unitType}
-                  </Text>
-                  <Text size="sm">{toLocale(unit.quantity)}</Text>
-                </Group>
-              ))}
+              {battles && battles.data.length > 0 ? (
+                battles.data.slice(0, 5).map((battle) => {
+                  const won = battle.isAttacker
+                    ? battle.winner === 'ATTACKER'
+                    : battle.winner === 'DEFENDER';
+                  const opponent = battle.isAttacker ? battle.defender : battle.attacker;
+                  const action = battle.isAttacker ? 'Attacked' : 'Defended vs';
+                  return (
+                    <Anchor
+                      key={battle.id}
+                      component={Link}
+                      href={`/battle/report/${battle.id}`}
+                      underline="never"
+                      style={{ display: 'block' }}
+                    >
+                      <Group justify="space-between" gap="xs">
+                        <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={won ? 'green' : 'red'}
+                            style={{ flexShrink: 0 }}
+                          >
+                            {won ? 'W' : 'L'}
+                          </Badge>
+                          <Text size="xs" truncate style={{ color: 'var(--ot-text-dim)' }}>
+                            {action}{' '}
+                            <Text span fw={600} style={{ color: 'var(--ot-gold)' }}>
+                              {opponent.displayName}
+                            </Text>
+                          </Text>
+                        </Group>
+                        {battle.isAttacker && Number(battle.goldStolen) > 0 && (
+                          <Text size="xs" style={{ color: 'var(--ot-success)', flexShrink: 0 }}>
+                            +{toLocale(Number(battle.goldStolen))}g
+                          </Text>
+                        )}
+                      </Group>
+                    </Anchor>
+                  );
+                })
+              ) : (
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                  No battles yet. Find someone to attack!
+                </Text>
+              )}
             </Stack>
-          </Paper>
+          </OTCard>
+
+          {/* Messages */}
+          <OTCard>
+            <Stack gap="sm">
+              <Group justify="space-between" align="center">
+                <Group gap="xs">
+                  <Title order={4}>Messages</Title>
+                  {unreadCount > 0 && (
+                    <Badge size="sm" color="red" variant="filled" circle>
+                      {unreadCount}
+                    </Badge>
+                  )}
+                </Group>
+                <Anchor component={Link} href="/messaging" size="xs">
+                  View all
+                </Anchor>
+              </Group>
+              {mail && mail.items.length > 0 ? (
+                mail.items.slice(0, 5).map((item) => (
+                  <Group key={item.id} justify="space-between" gap="xs">
+                    <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
+                      {!item.isRead && (
+                        <ThemeIcon size={8} radius="xl" color="blue" style={{ flexShrink: 0 }}>
+                          <span />
+                        </ThemeIcon>
+                      )}
+                      <Text
+                        size="xs"
+                        truncate
+                        fw={item.isRead ? 400 : 600}
+                        style={{ color: item.isRead ? 'var(--ot-text-dim)' : undefined }}
+                      >
+                        {item.subject}
+                      </Text>
+                    </Group>
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)', flexShrink: 0 }}>
+                      {item.sender?.displayName ?? 'System'}
+                    </Text>
+                  </Group>
+                ))
+              ) : (
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                  No messages yet.
+                </Text>
+              )}
+            </Stack>
+          </OTCard>
 
           {/* Fort */}
-          <Paper withBorder p="md" className="ot-card">
+          <OTCard>
             <Stack gap="sm">
               <Title order={4}>Fortification</Title>
               <Group justify="space-between">
@@ -361,7 +662,44 @@ export default function DashboardPage() {
                 />
               </div>
             </Stack>
-          </Paper>
+          </OTCard>
+
+          {/* Proficiency Points */}
+          <OTCard>
+            <Stack gap="sm">
+              <Group justify="space-between" align="center">
+                <Title order={4}>Proficiencies</Title>
+                {(breakdown?.availablePoints ?? 0) > 0 && (
+                  <Badge size="sm" color="green" variant="light">
+                    {breakdown?.availablePoints} to spend
+                  </Badge>
+                )}
+              </Group>
+              {breakdown?.bonusPoints && breakdown.bonusPoints.length > 0 ? (
+                breakdown.bonusPoints
+                  .filter((bp) => bp.level > 0)
+                  .map((bp) => (
+                    <Group key={bp.bonusType} justify="space-between">
+                      <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                        {bp.bonusType.charAt(0) + bp.bonusType.slice(1).toLowerCase()}
+                      </Text>
+                      <Text size="sm" fw={600} className="ot-stat-value">
+                        Lv {bp.level}
+                      </Text>
+                    </Group>
+                  ))
+              ) : (
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                  No points allocated yet.
+                </Text>
+              )}
+              {(breakdown?.availablePoints ?? 0) > 0 && (
+                <Anchor component={Link} href="/battle/proficiencies" size="sm">
+                  Allocate points
+                </Anchor>
+              )}
+            </Stack>
+          </OTCard>
         </SimpleGrid>
       </Stack>
     </Container>
