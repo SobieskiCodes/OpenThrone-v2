@@ -48,8 +48,8 @@ jobs:
             pnpm db:generate
             pnpm db:push
 
-            echo "==> Building all packages"
-            NODE_OPTIONS="--max-old-space-size=1536" pnpm build
+            echo "==> Building all packages (--force skips Turborepo cache)"
+            NODE_OPTIONS="--max-old-space-size=1536" pnpm build --force
 
             echo "==> Restoring Prisma schema (keep sqlite for git)"
             git checkout packages/db/prisma/schema.prisma
