@@ -34,6 +34,9 @@ jobs:
             # Trim leading whitespace that GitHub Actions indentation adds
             sed -i 's/^[[:space:]]*//' .env
 
+            # Symlink .env into packages/db so Prisma can find DATABASE_URL
+            ln -sf "$APP_DIR/.env" "$APP_DIR/packages/db/.env"
+
             echo "==> Swapping Prisma provider to postgresql"
             sed -i 's/provider = "sqlite"/provider = "postgresql"/' packages/db/prisma/schema.prisma
 
@@ -45,17 +48,14 @@ jobs:
             pnpm db:push
 
             echo "==> Building all packages"
-            pnpm build
+            NODE_OPTIONS="--max-old-space-size=1536" pnpm build
 
             echo "==> Restoring Prisma schema (keep sqlite for git)"
             git checkout packages/db/prisma/schema.prisma
 
             echo "==> Restarting PM2 processes"
-            if pm2 describe api > /dev/null 2>&1; then
-              pm2 restart ecosystem.config.cjs
-            else
-              pm2 start ecosystem.config.cjs
-            fi
+            pm2 delete all 2>/dev/null || true
+            pm2 start ecosystem.config.cjs
             pm2 save
 
             echo "==> Health check"

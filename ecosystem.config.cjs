@@ -4,12 +4,11 @@ module.exports = {
       name: 'api',
       cwd: './apps/api',
       script: 'dist/main.js',
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
       },
-      // Load root .env (shared across both apps)
-      env_file: './.env',
       instances: 1,
       autorestart: true,
       max_memory_restart: '512M',
@@ -18,13 +17,13 @@ module.exports = {
     {
       name: 'web',
       cwd: './apps/web',
-      script: 'node_modules/.bin/next',
+      script: 'node_modules/next/dist/bin/next',
       args: 'start --port 3000',
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
       },
-      env_file: './.env',
       instances: 1,
       autorestart: true,
       max_memory_restart: '512M',
