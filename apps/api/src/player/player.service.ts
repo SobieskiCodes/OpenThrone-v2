@@ -17,6 +17,7 @@ import {
   calculateFullDetailedBreakdown,
   calculateGoldPerTurnBreakdown,
   calculateCitizensPerDayBreakdown,
+  computeArmoryValue,
 } from '@openthrone/game-logic';
 import type { StatCalcInput } from '@openthrone/game-logic';
 import * as argon2 from 'argon2';
@@ -419,6 +420,45 @@ export class PlayerService {
     const mySentry = stats.sentry.total;
     const overallRank = player.stats?.rank ?? 0;
 
+    // Compute net worth for this player
+    const myGold = Number(player.economy?.gold ?? 0);
+    const myBank = Number(player.economy?.gold_in_bank ?? 0);
+    const myArmory = computeArmoryValue(
+      player.items.map((i) => ({
+        itemType: i.item_type,
+        usage: i.usage,
+        level: i.level,
+        quantity: i.quantity,
+      })),
+    );
+    const myNetWorth = myGold + myBank + myArmory;
+
+    // Compute net worth for all active players to get rank position
+    const allPlayers = await this.prisma.player.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        economy: { select: { gold: true, gold_in_bank: true } },
+        items: { select: { item_type: true, usage: true, level: true, quantity: true } },
+      },
+    });
+
+    let netWorthRank = 1;
+    for (const p of allPlayers) {
+      if (p.id === playerId) continue;
+      const g = Number(p.economy?.gold ?? 0);
+      const b = Number(p.economy?.gold_in_bank ?? 0);
+      const a = computeArmoryValue(
+        p.items.map((i) => ({
+          itemType: i.item_type,
+          usage: i.usage,
+          level: i.level,
+          quantity: i.quantity,
+        })),
+      );
+      if (g + b + a > myNetWorth) netWorthRank++;
+    }
+
     const [offenseRank, defenseRank, spyRank, sentryRank] = await Promise.all([
       this.prisma.playerStats.count({
         where: { offense: { gt: myOffense }, player: { status: 'ACTIVE' } },
@@ -450,6 +490,7 @@ export class PlayerService {
         defense: defenseRank + 1,
         spy: spyRank + 1,
         sentry: sentryRank + 1,
+        netWorth: netWorthRank,
       },
     };
   }

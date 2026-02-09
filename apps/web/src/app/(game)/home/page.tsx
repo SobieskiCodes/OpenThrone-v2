@@ -135,6 +135,7 @@ interface RankPositions {
   defense: number;
   spy: number;
   sentry: number;
+  netWorth: number;
 }
 
 interface BreakdownData {
@@ -496,21 +497,15 @@ export default function DashboardPage() {
                 { label: 'Defense', value: breakdown?.ranks?.defense },
                 { label: 'Spy', value: breakdown?.ranks?.spy },
                 { label: 'Sentry', value: breakdown?.ranks?.sentry },
-                { label: 'Net Worth', value: null, display: toLocale(gold + goldInBank + armoryValue) },
+                { label: 'Net Worth', value: breakdown?.ranks?.netWorth },
               ] as const).map((item) => (
                 <Group key={item.label} justify="space-between">
                   <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
                     {item.label}
                   </Text>
-                  {'display' in item && item.display ? (
-                    <Text size="sm" fw={600} className="ot-stat-value">
-                      {item.display}
-                    </Text>
-                  ) : (
-                    <Text size="sm" fw={600} style={{ color: 'var(--ot-gold)' }}>
-                      {item.value ? `#${item.value}` : '--'}
-                    </Text>
-                  )}
+                  <Text size="sm" fw={600} style={{ color: 'var(--ot-gold)' }}>
+                    {item.value ? `#${item.value}` : '--'}
+                  </Text>
                 </Group>
               ))}
             </Stack>
