@@ -37,7 +37,7 @@ AUTH_TRUST_HOST=true
 
 # API
 API_URL="http://localhost:3001"
-NEXT_PUBLIC_API_URL="http://${DROPLET_IP}/api"
+NEXT_PUBLIC_API_URL="http://${DROPLET_IP}"
 CORS_ORIGIN="http://${DROPLET_IP}"
 PORT=3001
 
