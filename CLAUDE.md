@@ -1,5 +1,7 @@
 # OpenThrone v2 - Architecture & Development Guide
 
+> See also: [DESIGN.md](./DESIGN.md) (game philosophy), [CONTRIBUTING.md](./CONTRIBUTING.md) (dev guide), [BACKLOG.md](./BACKLOG.md) (feature ideas)
+
 ## Quick Start
 
 ```bash
@@ -71,7 +73,8 @@ apps/api/src/<feature>/
 | `@Roles()` | `common/decorators/roles.decorator.ts` | Require specific permission roles |
 
 ### Validation
-- Use `@UsePipes(new ZodValidationPipe(schema))` on every mutating endpoint.
+- Use `@Body(new ZodValidationPipe(schema))` on the body parameter for mutating endpoints.
+- **Never use `@UsePipes()` when the method also has `@CurrentPlayer()`** — `@UsePipes` validates ALL params including the injected player object. Validate only the body instead.
 - Schemas come from `@openthrone/shared` — never define inline Zod schemas in controllers.
 
 ### Service Pattern
@@ -205,20 +208,52 @@ See `.env.example` for the full list. Key ones:
 | 1.5 | Boot-up fixes (SQLite, webpack, auth flow) | Done |
 | 2 | Economy & Banking | Done |
 | 3 | Training & Units | Done |
-| 4 | Armory & Items | Done |
-| 5 | Structures & Upgrades | Done |
-| 6 | Recruitment | Done |
+| 4 | Armory & Items (sell, detailed stats) | Done |
+| 5 | Structures & Upgrades (+ mercenary camp) | Done |
+| 6 | Recruitment (+ auto-recruit pool) | Done |
 | 7 | Social & Alliances | Done |
 | 8 | Messaging & Chat | Done |
 | 9 | Blog & Community | Not Started |
-| 10 | Scheduled Jobs (@nestjs/schedule) | Done |
-| 11 | Admin Panel | Done |
+| 10 | Scheduled Jobs (turn tick, daily tick) | Done |
+| 11 | Admin Panel (+ combat simulator) | Done |
 | 12 | Battle Users & Rankings | Done |
-| 13 | Combat System | Done |
+| 13 | Combat System (multi-turn, daily limits) | Done |
+| 14 | Spy & Intelligence (intel, assassinate, infiltrate, steal gold, sabotage, alliance intel) | Done |
+| 15 | UI Modernization (design system, components, race theming) | Done |
 
 Full phase details: `REBUILD_PLAN.md` Section 9.
 
+## Scheduled Jobs
+
+| Job | Cron | Description |
+|-----|------|-------------|
+| Turn Tick | `0 */30 * * * *` | +1 attack turn, gold income from workers/fort, recalculate rankings |
+| Daily Tick | `0 0 0 * * *` | Citizen generation, daily counter reset, auto-recruit pool reset, DB cleanup |
+
+## Key Game Systems
+
+### Combat
+- Attack costs 1–10 turns (multi-turn scaling: damage multiplier increases sublinearly)
+- Daily attack limit per target (5 attacks/day)
+- Attacker must be within range of defender's level
+- Battle reports include fog of war based on reveal percentage
+
+### Spy & Intelligence
+- 5 mission types: Intel, Assassinate, Infiltrate, Steal Gold, Sabotage
+- Each has gold cost, turn cost, and per-target daily rate limits
+- Intel results can be shared with alliance members
+- Other players' stats are hidden on profiles/attack page — spying is required to reveal them
+- Gold visibility on profiles/attack page gated by spy/sentry ratio (1.1x threshold)
+
+### Auto-Recruit Pool
+- Players click once per day for 250 citizens
+- Clicking also recruits a random player from the daily pool (+1 citizen to them)
+- Pool resets at midnight UTC via daily tick
+
 ## Reference
-- Design philosophy & DarkThrone reference: top of `REBUILD_PLAN.md`
+- Game design philosophy: [`DESIGN.md`](./DESIGN.md)
+- Dev guide: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+- Feature backlog: [`BACKLOG.md`](./BACKLOG.md)
+- Original rebuild plan: [`REBUILD_PLAN.md`](./REBUILD_PLAN.md)
 - Prisma schema: `packages/db/prisma/schema.prisma`
 - API module map: `apps/api/src/app.module.ts`
