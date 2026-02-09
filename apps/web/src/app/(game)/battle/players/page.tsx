@@ -3,7 +3,6 @@
 import {
   Container,
   Title,
-  Tabs,
   Table,
   TextInput,
   Select,
@@ -13,7 +12,6 @@ import {
   Skeleton,
   Stack,
   Pagination,
-  SegmentedControl,
   Button,
   Paper,
   Modal,
@@ -59,15 +57,6 @@ interface PlayerEntry {
   attacksToday: number;
   maxAttacksPerDay: number;
   allianceIntel: AllianceIntelEntry | null;
-}
-
-interface RankingEntry {
-  rank: number;
-  id: string;
-  displayName: string;
-  race: string;
-  class: string;
-  level: number;
 }
 
 interface PaginatedResponse<T> {
@@ -146,20 +135,12 @@ function RankBadge({ rank }: { rank: number }) {
 interface AttackResult {
   id: number;
   attackerWins: boolean;
-  turnsUsed: number;
-  goldStolen: string;
-  fortDamage: number;
-  attackerCasualties: { total: number; offenseUnits: number };
-  defenderCasualties: { total: number; defenseUnits: number; offenseUnits: number };
-  attackerXP: number;
-  defenderXP: number;
 }
 
 export default function PlayersPage() {
   const { api, isReady } = useApi();
   const queryClient = useQueryClient();
   const router = useRouter();
-  const [tab, setTab] = useState<string | null>('players');
 
   // Player list state
   const [search, setSearch] = useState('');
@@ -170,25 +151,25 @@ export default function PlayersPage() {
   const [inRange, setInRange] = useState(true);
   const [playerPage, setPlayerPage] = useState(1);
 
-  // Rankings state
-  const [rankingType, setRankingType] = useState('overall');
-  const [rankingPage, setRankingPage] = useState(1);
-
   // Attack modal state
   const [attackTarget, setAttackTarget] = useState<PlayerEntry | null>(null);
   const [attackTurns, setAttackTurns] = useState(1);
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
-  const [resultOpened, { open: openResult, close: closeResult }] = useDisclosure(false);
-  const [attackResult, setAttackResult] = useState<AttackResult | null>(null);
 
   const attackMutation = useMutation({
     mutationFn: ({ defenderId, turns }: { defenderId: string; turns: number }) =>
       api.post(`/battle/attack/${defenderId}`, { turns }) as Promise<AttackResult>,
     onSuccess: (data: AttackResult) => {
       closeConfirm();
-      setAttackResult(data);
-      openResult();
+      notifications.show({
+        title: data.attackerWins ? 'Victory!' : 'Defeat!',
+        message: data.attackerWins
+          ? `Your attack on ${attackTarget?.displayName ?? 'the enemy'} was successful!`
+          : `Your attack on ${attackTarget?.displayName ?? 'the enemy'} was repelled.`,
+        color: data.attackerWins ? 'green' : 'red',
+      });
       queryClient.invalidateQueries({ queryKey: ['battle'] });
+      router.push(`/battle/report/${data.id}`);
     },
     onError: (err: Error) => {
       closeConfirm();
@@ -212,16 +193,10 @@ export default function PlayersPage() {
   const { data: playersData, isLoading: playersLoading } = useQuery<PaginatedResponse<PlayerEntry>>({
     queryKey: ['battle', 'players', playerPage, search, raceFilter, classFilter, sort, order, inRange],
     queryFn: () => api.get(`/battle/players?${buildPlayerQuery()}`),
-    enabled: isReady && tab === 'players',
+    enabled: isReady,
   });
 
   const myAttackTurns = playersData?.attackTurns ?? 0;
-
-  const { data: rankingsData, isLoading: rankingsLoading } = useQuery<PaginatedResponse<RankingEntry>>({
-    queryKey: ['battle', 'rankings', rankingType, rankingPage],
-    queryFn: () => api.get(`/battle/rankings?type=${rankingType}&page=${rankingPage}&limit=20`),
-    enabled: isReady && tab === 'rankings',
-  });
 
   const handleSortChange = (newSort: SortKey) => {
     if (newSort === sort) {
@@ -237,26 +212,16 @@ export default function PlayersPage() {
     <Container size="lg">
       <Stack gap="md">
         <Group justify="space-between" align="center">
-          <Title order={2}>Players & Rankings</Title>
-          {tab === 'players' && (
-            <Badge
-              size="lg"
-              variant="light"
-              color={myAttackTurns > 0 ? 'green' : 'red'}
-            >
-              {myAttackTurns} Attack Turn{myAttackTurns !== 1 ? 's' : ''}
-            </Badge>
-          )}
+          <Title order={2}>Find Players</Title>
+          <Badge
+            size="lg"
+            variant="light"
+            color={myAttackTurns > 0 ? 'green' : 'red'}
+          >
+            {myAttackTurns} Attack Turn{myAttackTurns !== 1 ? 's' : ''}
+          </Badge>
         </Group>
 
-        <Tabs value={tab} onChange={setTab}>
-          <Tabs.List>
-            <Tabs.Tab value="players">Find Players</Tabs.Tab>
-            <Tabs.Tab value="rankings">Rankings</Tabs.Tab>
-          </Tabs.List>
-
-          {/* ── Find Players Tab ──────────────────────────── */}
-          <Tabs.Panel value="players" pt="md">
             <Stack gap="md">
               <OTCard>
                 <Stack gap="sm">
@@ -466,103 +431,6 @@ export default function PlayersPage() {
                 </>
               )}
             </Stack>
-          </Tabs.Panel>
-
-          {/* ── Rankings Tab ──────────────────────────────── */}
-          <Tabs.Panel value="rankings" pt="md">
-            <Stack gap="md">
-              <SegmentedControl
-                data={[
-                  { value: 'overall', label: 'Overall' },
-                  { value: 'offense', label: 'Offense' },
-                  { value: 'defense', label: 'Defense' },
-                  { value: 'spy', label: 'Spy' },
-                  { value: 'sentry', label: 'Sentry' },
-                ]}
-                value={rankingType}
-                onChange={(val) => {
-                  setRankingType(val);
-                  setRankingPage(1);
-                }}
-              />
-
-              {rankingsLoading ? (
-                <Skeleton height={400} />
-              ) : (
-                <>
-                  <div className="ot-table-scroll">
-                    <Table striped>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Rank</Table.Th>
-                          <Table.Th>Player</Table.Th>
-                          <Table.Th>Race</Table.Th>
-                          <Table.Th>Class</Table.Th>
-                          <Table.Th ta="center">Level</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {rankingsData?.data.length === 0 && (
-                          <Table.Tr>
-                            <Table.Td colSpan={5}>
-                              <Text ta="center" style={{ color: 'var(--ot-text-dim)' }}>
-                                No rankings yet.
-                              </Text>
-                            </Table.Td>
-                          </Table.Tr>
-                        )}
-                        {rankingsData?.data.map((r) => (
-                          <Table.Tr key={r.id}>
-                            <Table.Td>
-                              <RankBadge rank={r.rank} />
-                            </Table.Td>
-                            <Table.Td>
-                              <Text
-                                component={Link}
-                                href={`/profile/${r.id}`}
-                                fw={500}
-                                style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
-                              >
-                                {r.displayName}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Badge
-                                variant="light"
-                                size="sm"
-                                color={RACE_COLORS[r.race] ?? 'gray'}
-                              >
-                                {r.race}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td>
-                              <Badge variant="light" color="gray" size="sm">
-                                {r.class}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td ta="center">
-                              <Text className="ot-stat-value">{r.level}</Text>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </div>
-
-                  {rankingsData && rankingsData.pagination.totalPages > 1 && (
-                    <Group justify="center">
-                      <Pagination
-                        total={rankingsData.pagination.totalPages}
-                        value={rankingPage}
-                        onChange={setRankingPage}
-                      />
-                    </Group>
-                  )}
-                </>
-              )}
-            </Stack>
-          </Tabs.Panel>
-        </Tabs>
       </Stack>
       {/* ── Confirm Attack Modal ─────────────────────── */}
       <Modal
@@ -638,58 +506,6 @@ export default function PlayersPage() {
               >
                 Attack ({attackTurns} turn{attackTurns > 1 ? 's' : ''})
               </Button>
-            </Group>
-          </Stack>
-        )}
-      </Modal>
-
-      {/* ── Attack Result Modal ──────────────────────── */}
-      <Modal
-        opened={resultOpened}
-        onClose={closeResult}
-        title={
-          <Text fw={600} style={{ color: attackResult?.attackerWins ? 'var(--ot-success)' : 'var(--ot-danger)' }}>
-            {attackResult?.attackerWins ? 'Victory!' : 'Defeat!'}
-          </Text>
-        }
-        centered
-        size="md"
-      >
-        {attackResult && attackTarget && (
-          <Stack gap="md">
-            <Text>
-              Your {attackResult.turnsUsed > 1 ? `${attackResult.turnsUsed}-turn ` : ''}attack on{' '}
-              <Text span fw={700} style={{ color: 'var(--ot-gold)' }}>{attackTarget.displayName}</Text>{' '}
-              was {attackResult.attackerWins ? 'successful' : 'repelled'}.
-            </Text>
-            <SimpleGrid cols={2} spacing="xs">
-              {attackResult.attackerWins && (
-                <Paper p="xs" withBorder>
-                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold Stolen</Text>
-                  <Text fw={600} style={{ color: 'var(--ot-success)' }}>{Number(attackResult.goldStolen).toLocaleString()}</Text>
-                </Paper>
-              )}
-              <Paper p="xs" withBorder>
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Your Casualties</Text>
-                <Text fw={600} style={{ color: 'var(--ot-danger)' }}>{attackResult.attackerCasualties.total}</Text>
-              </Paper>
-              <Paper p="xs" withBorder>
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Enemy Casualties</Text>
-                <Text fw={600} c="grape">{attackResult.defenderCasualties.total}</Text>
-              </Paper>
-              {attackResult.fortDamage > 0 && (
-                <Paper p="xs" withBorder>
-                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Damage</Text>
-                  <Text fw={600} style={{ color: 'var(--ot-warning)' }}>{attackResult.fortDamage}</Text>
-                </Paper>
-              )}
-              <Paper p="xs" withBorder>
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>XP Gained</Text>
-                <Text fw={600} style={{ color: 'var(--ot-gold)' }}>{attackResult.attackerXP}</Text>
-              </Paper>
-            </SimpleGrid>
-            <Group justify="flex-end">
-              <Button onClick={closeResult}>Close</Button>
             </Group>
           </Stack>
         )}

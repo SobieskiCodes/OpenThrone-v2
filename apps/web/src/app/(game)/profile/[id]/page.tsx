@@ -15,10 +15,12 @@ import {
   Button,
   Modal,
   Tooltip,
+  Slider,
 } from '@mantine/core';
 import { OTCard, StatRow } from '@/components/ui';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -64,6 +66,7 @@ interface PlayerProfile {
 interface AttackResult {
   id: number;
   attackerWins: boolean;
+  turnsUsed: number;
 }
 
 export default function PlayerProfilePage() {
@@ -73,6 +76,7 @@ export default function PlayerProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
+  const [attackTurns, setAttackTurns] = useState(1);
 
   const { data: player, isLoading } = useQuery<PlayerProfile>({
     queryKey: ['player', params.id],
@@ -80,8 +84,17 @@ export default function PlayerProfilePage() {
     enabled: !!params.id && isReady,
   });
 
+  const { data: meData } = useQuery<{ economy: { attackTurns: number } | null }>({
+    queryKey: ['player', 'me'],
+    queryFn: () => api.get('/player/me'),
+    enabled: isReady,
+  });
+
+  const myAttackTurns = meData?.economy?.attackTurns ?? 0;
+
   const attackMutation = useMutation({
-    mutationFn: (defenderId: string) => api.post(`/battle/attack/${defenderId}`) as Promise<AttackResult>,
+    mutationFn: ({ defenderId, turns }: { defenderId: string; turns: number }) =>
+      api.post(`/battle/attack/${defenderId}`, { turns }) as Promise<AttackResult>,
     onSuccess: (data: AttackResult) => {
       closeConfirm();
       notifications.show({
@@ -93,6 +106,7 @@ export default function PlayerProfilePage() {
       });
       queryClient.invalidateQueries({ queryKey: ['battle'] });
       queryClient.invalidateQueries({ queryKey: ['player', params.id] });
+      queryClient.invalidateQueries({ queryKey: ['player', 'me'] });
       router.push(`/battle/report/${data.id}`);
     },
     onError: (err: Error) => {
@@ -370,17 +384,47 @@ export default function PlayerProfilePage() {
               <Text fw={600}>{level}</Text>
             </Paper>
           </SimpleGrid>
+
+          <Paper p="sm" withBorder style={{ borderColor: 'var(--ot-border)' }}>
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text size="sm" fw={500}>Attack Turns</Text>
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                  {myAttackTurns} available
+                </Text>
+              </Group>
+              <Slider
+                min={1}
+                max={Math.min(10, myAttackTurns)}
+                step={1}
+                value={attackTurns}
+                onChange={setAttackTurns}
+                marks={[
+                  { value: 1, label: '1' },
+                  { value: 5, label: '5' },
+                  { value: 10, label: '10' },
+                ].filter((m) => m.value <= Math.min(10, myAttackTurns))}
+                disabled={myAttackTurns <= 0}
+                styles={{ markLabel: { fontSize: 10 } }}
+              />
+              <Text size="xs" ta="center" style={{ color: 'var(--ot-text-dim)' }}>
+                Using <Text span fw={700} style={{ color: 'var(--ot-gold)' }}>{attackTurns}</Text> turn{attackTurns > 1 ? 's' : ''} &mdash; rewards and casualties scale with turns used
+              </Text>
+            </Stack>
+          </Paper>
+
           <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-            This will cost 1 attack turn. Casualties are permanent.
+            Casualties are permanent. Gold theft, fort damage, and XP scale with turns used.
           </Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={closeConfirm}>Cancel</Button>
             <Button
               color="red"
               loading={attackMutation.isPending}
-              onClick={() => attackMutation.mutate(params.id)}
+              disabled={myAttackTurns < attackTurns}
+              onClick={() => attackMutation.mutate({ defenderId: params.id, turns: attackTurns })}
             >
-              Confirm Attack
+              Attack ({attackTurns} turn{attackTurns > 1 ? 's' : ''})
             </Button>
           </Group>
         </Stack>
