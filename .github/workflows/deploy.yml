@@ -1,0 +1,66 @@
+name: Deploy to Digital Ocean
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Droplet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            APP_DIR=~/OpenThrone-v2
+
+            echo "==> Pulling latest code"
+            cd "$APP_DIR"
+            git fetch origin master
+            git reset --hard origin/master
+            git clean -fd
+
+            echo "==> Writing production .env"
+            cat > .env << 'ENVEOF'
+            ${{ secrets.PRODUCTION_ENV }}
+            ENVEOF
+            # Trim leading whitespace that GitHub Actions indentation adds
+            sed -i 's/^[[:space:]]*//' .env
+
+            echo "==> Swapping Prisma provider to postgresql"
+            sed -i 's/provider = "sqlite"/provider = "postgresql"/' packages/db/prisma/schema.prisma
+
+            echo "==> Installing dependencies"
+            pnpm install --frozen-lockfile
+
+            echo "==> Generating Prisma client & pushing schema"
+            pnpm db:generate
+            pnpm db:push
+
+            echo "==> Building all packages"
+            pnpm build
+
+            echo "==> Restoring Prisma schema (keep sqlite for git)"
+            git checkout packages/db/prisma/schema.prisma
+
+            echo "==> Restarting PM2 processes"
+            if pm2 describe api > /dev/null 2>&1; then
+              pm2 restart ecosystem.config.cjs
+            else
+              pm2 start ecosystem.config.cjs
+            fi
+            pm2 save
+
+            echo "==> Health check"
+            sleep 5
+            curl -sf http://localhost:3001/api > /dev/null && echo "API is healthy" || echo "WARNING: API health check failed"
+            curl -sf http://localhost:3000 > /dev/null && echo "Web is healthy" || echo "WARNING: Web health check failed"
+
+            echo "==> Deploy complete"
