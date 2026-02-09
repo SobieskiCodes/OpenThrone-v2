@@ -1,3 +1,6 @@
+/** Citizens awarded per auto-recruit click (once per day) */
+export const AUTO_RECRUIT_POOL_CITIZENS = 250;
+
 /** Base citizens awarded when someone uses your recruit link */
 export const RECRUIT_LINK_CITIZENS_BONUS = 5;
 

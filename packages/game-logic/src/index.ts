@@ -47,6 +47,7 @@ export {
   RECRUIT_LINK_CITIZENS_BONUS,
   RECRUIT_LINK_IP_COOLDOWN_HOURS,
   RECRUIT_LINK_MAX_PER_DAY,
+  AUTO_RECRUIT_POOL_CITIZENS,
   calculateAutoRecruitCitizens,
   calculateRecruitLinkBonus,
 } from './recruitment';

@@ -7,6 +7,7 @@ import {
   RECRUIT_LINK_CITIZENS_BONUS,
   RECRUIT_LINK_IP_COOLDOWN_HOURS,
   RECRUIT_LINK_MAX_PER_DAY,
+  AUTO_RECRUIT_POOL_CITIZENS,
   calculateRecruitLinkBonus,
   calculateAutoRecruitCitizens,
   getHouseUpgradeByLevel,
@@ -70,14 +71,27 @@ export class RecruitmentService {
       },
     });
 
+    // Check auto-recruit availability
+    const todayStartUTC = new Date();
+    todayStartUTC.setUTCHours(0, 0, 0, 0);
+    const canAutoRecruit = !economy.last_auto_recruit ||
+      new Date(economy.last_auto_recruit) < todayStartUTC;
+
+    // Count today's auto-recruit pool (players who clicked today)
+    const poolCount = await this.prisma.playerEconomy.count({
+      where: { last_auto_recruit: { gte: todayStartUTC } },
+    });
+
     return {
       recruitLink: player.recruit_link,
       recruitingBonusLevel,
       citizensPerRecruit: linkBonus,
-      citizensPerAutoRecruit: autoRecruitCitizens,
+      citizensPerAutoRecruit: AUTO_RECRUIT_POOL_CITIZENS,
       houseLevel: economy.house_level || 1,
       todayRecruits,
       maxRecruitsPerDay: RECRUIT_LINK_MAX_PER_DAY,
+      canAutoRecruit,
+      autoRecruitPoolCount: poolCount,
       history: recentRecruits.map((r) => ({
         id: r.id,
         fromUser: r.from_user,
@@ -217,59 +231,94 @@ export class RecruitmentService {
   }
 
   /**
-   * Trigger auto-recruit: award daily citizens based on house level + recruiting bonus.
+   * Trigger auto-recruit: award flat citizens from the daily pool (once per day).
+   * Picks a random other player from today's pool and "recruits" them too.
    */
   async autoRecruit(playerId: string) {
-    const [economy, bonusPoints] = await Promise.all([
-      this.prisma.playerEconomy.findUnique({ where: { player_id: playerId } }),
-      this.prisma.playerBonusPoint.findMany({ where: { player_id: playerId } }),
-    ]);
+    const economy = await this.prisma.playerEconomy.findUnique({
+      where: { player_id: playerId },
+    });
 
     if (!economy) {
       throw new BadRequestException('Player economy not found');
     }
 
-    const houseLevel = economy.house_level || 1;
-    const houseUpgrade = getHouseUpgradeByLevel(houseLevel);
-    if (!houseUpgrade) {
-      throw new BadRequestException('Invalid house level');
+    // Check daily limit (resets at midnight UTC)
+    const todayStartUTC = new Date();
+    todayStartUTC.setUTCHours(0, 0, 0, 0);
+
+    if (economy.last_auto_recruit && new Date(economy.last_auto_recruit) >= todayStartUTC) {
+      throw new BadRequestException('You have already auto-recruited today. Resets at midnight UTC.');
     }
 
-    const recruitingBonus = bonusPoints.find(
-      (bp) => bp.bonus_type === BonusType.RECRUITING,
-    );
-    const recruitingBonusLevel = recruitingBonus?.level ?? 0;
-    const citizensGained = calculateAutoRecruitCitizens(
-      houseUpgrade.citizensDaily,
-      recruitingBonusLevel,
-    );
+    const citizensGained = AUTO_RECRUIT_POOL_CITIZENS;
 
-    await this.prisma.playerUnit.upsert({
+    // Pick a random other player from today's pool to "recruit" (award them 1 citizen)
+    const poolPlayers = await this.prisma.playerEconomy.findMany({
       where: {
-        player_id_unit_type_level: {
+        last_auto_recruit: { gte: todayStartUTC },
+        player_id: { not: playerId },
+      },
+      select: { player_id: true },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      // Award citizens to the clicking player
+      await tx.playerUnit.upsert({
+        where: {
+          player_id_unit_type_level: {
+            player_id: playerId,
+            unit_type: UnitType.CITIZEN,
+            level: 1,
+          },
+        },
+        update: { quantity: { increment: citizensGained } },
+        create: {
           player_id: playerId,
           unit_type: UnitType.CITIZEN,
           level: 1,
+          quantity: citizensGained,
         },
-      },
-      update: { quantity: { increment: citizensGained } },
-      create: {
-        player_id: playerId,
-        unit_type: UnitType.CITIZEN,
-        level: 1,
-        quantity: citizensGained,
-      },
+      });
+
+      // Mark as recruited today
+      await tx.playerEconomy.update({
+        where: { player_id: playerId },
+        data: { last_auto_recruit: new Date() },
+      });
+
+      // If there's a pool, recruit a random player (they get 1 citizen)
+      if (poolPlayers.length > 0) {
+        const randomIdx = Math.floor(Math.random() * poolPlayers.length);
+        const recruitedPlayerId = poolPlayers[randomIdx]!.player_id;
+        await tx.playerUnit.upsert({
+          where: {
+            player_id_unit_type_level: {
+              player_id: recruitedPlayerId,
+              unit_type: UnitType.CITIZEN,
+              level: 1,
+            },
+          },
+          update: { quantity: { increment: 1 } },
+          create: {
+            player_id: recruitedPlayerId,
+            unit_type: UnitType.CITIZEN,
+            level: 1,
+            quantity: 1,
+          },
+        });
+      }
     });
 
     this.eventEmitter.emit(
       'recruitment.auto',
-      new AutoRecruitEvent(playerId, citizensGained, houseLevel),
+      new AutoRecruitEvent(playerId, citizensGained, economy.house_level || 1),
     );
 
     return {
       citizensGained,
-      houseLevel,
-      message: `Auto-recruit awarded ${citizensGained} citizens.`,
+      poolSize: poolPlayers.length + 1,
+      message: `Auto-recruit awarded ${citizensGained} citizens!`,
     };
   }
 

@@ -128,6 +128,12 @@ export class DailyTickService {
         }
       }
 
+      // ─── Reset Auto-Recruit Pool ─────────────────────────────
+      await this.prisma.playerEconomy.updateMany({
+        data: { last_auto_recruit: null },
+      });
+      this.logger.log('Reset auto-recruit pool');
+
       // ─── Reset Daily Ranking Counters ─────────────────────────
       await this.prisma.playerCumulativeStats.updateMany({
         data: {

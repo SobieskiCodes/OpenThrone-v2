@@ -27,6 +27,8 @@ interface RecruitmentStatus {
   houseLevel: number;
   todayRecruits: number;
   maxRecruitsPerDay: number;
+  canAutoRecruit: boolean;
+  autoRecruitPoolCount: number;
   history: Array<{
     id: number;
     fromUser: string | null;
@@ -123,16 +125,25 @@ export default function RecruitmentPage() {
             Auto-Recruit
           </Title>
           <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} mb="sm">
-            Generate citizens based on your housing level. Currently: Housing
-            Level {data.houseLevel} ({data.citizensPerAutoRecruit} citizens per
-            recruitment).
+            Join today&apos;s recruitment pool and receive {data.citizensPerAutoRecruit} citizens.
+            You also recruit a random player from the pool, giving them a bonus citizen.
+            Available once per day — resets at midnight UTC.
           </Text>
-          <Button
-            onClick={() => autoRecruit.mutate()}
-            loading={autoRecruit.isPending}
-          >
-            Recruit Citizens
-          </Button>
+          <Group gap="md" align="center">
+            <Button
+              onClick={() => autoRecruit.mutate()}
+              loading={autoRecruit.isPending}
+              disabled={!data.canAutoRecruit}
+              color={data.canAutoRecruit ? 'green' : 'gray'}
+            >
+              {data.canAutoRecruit
+                ? `Recruit (+${data.citizensPerAutoRecruit} citizens)`
+                : 'Already Recruited Today'}
+            </Button>
+            <Badge variant="light" color="blue">
+              {data.autoRecruitPoolCount} in today&apos;s pool
+            </Badge>
+          </Group>
         </Paper>
 
         {/* History */}

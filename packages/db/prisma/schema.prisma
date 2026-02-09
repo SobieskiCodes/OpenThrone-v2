@@ -87,7 +87,8 @@ model PlayerEconomy {
   gold_in_bank  BigInt @default(0)
   attack_turns  Int    @default(50)
   house_level   Int    @default(0)
-  economy_level Int    @default(0)
+  economy_level     Int       @default(0)
+  last_auto_recruit DateTime?
 
   player Player @relation(fields: [player_id], references: [id])
 
