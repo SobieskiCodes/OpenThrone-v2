@@ -8,7 +8,6 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 - [ ] Casualties feel too high at 10x turns — needs tuning
 - [ ] XP gained per battle is too generous — flatten the curve
-- [ ] Gold stolen per attack feels low — revisit steal percentages
 - [ ] Spies should have a chance to fail based on a ratio (e.g., if defender has < 2x spy defense, attacker still has some failure chance) — needs design pass
 - [ ] Sabotage destroying 3–5 items is negligible mid-game (less than a turn of gold) — should be percentage-based instead of flat count
 

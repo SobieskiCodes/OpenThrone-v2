@@ -246,8 +246,8 @@ function generatePlayer(index: number, usedNames: Set<string>): GeneratedPlayer 
   const race = pick(RACES);
   const playerClass = pick(CLASSES);
 
-  // Gold scales with level
-  const goldMultiplier = 1 + playerLevel * 0.5;
+  // Gold scales exponentially with level — veteran accounts accumulate wealth
+  const goldMultiplier = 1 + playerLevel * 0.5 + Math.pow(playerLevel, 1.5) * 0.1;
   const baseGold = rand(5000, 100000) * goldMultiplier;
   const gold = BigInt(Math.floor(baseGold));
   const goldInBank = BigInt(Math.floor(rand(0, 5) * baseGold));
@@ -259,7 +259,11 @@ function generatePlayer(index: number, usedNames: Set<string>): GeneratedPlayer 
 
   // ─── Units ─────────────────────────────────────────────────
   const units: GeneratedPlayer['units'] = [];
-  const population = rand(20, 50 + playerLevel * 15);
+  // Veterans accumulate large armies — scale population aggressively at higher levels
+  const population = rand(
+    50 + playerLevel * 10,
+    100 + playerLevel * 40 + Math.floor(Math.pow(playerLevel, 1.8)),
+  );
 
   // Citizens & workers
   const citizenRatio = rand(5, 25) / 100;
@@ -443,20 +447,21 @@ function generatePlayer(index: number, usedNames: Set<string>): GeneratedPlayer 
     bonusPoints.push({ bonusType: bt, level: bpAlloc[bt] ?? 0 });
   }
 
-  // ─── Cumulative Stats ─────────────────────────────────────
-  const totalAttacks = rand(0, playerLevel * 5);
+  // ─── Cumulative Stats — scale with level squared for veteran feel ─────
+  const lvlSq = playerLevel * playerLevel;
+  const totalAttacks = rand(0, playerLevel * 15 + lvlSq);
   const attackWins = Math.floor(totalAttacks * rand(30, 70) / 100);
-  const totalDefends = rand(0, playerLevel * 3);
+  const totalDefends = rand(0, playerLevel * 10 + Math.floor(lvlSq * 0.5));
   const defenseWins = Math.floor(totalDefends * rand(30, 70) / 100);
-  const goldStolen = BigInt(rand(0, playerLevel * 50000));
-  const unitsKilled = rand(0, playerLevel * 20);
-  const unitsLost = rand(0, playerLevel * 10);
-  const spyWins = rand(0, playerLevel * 2);
-  const counterSpyWins = rand(0, playerLevel);
-  const totalSpyOps = spyWins + rand(0, playerLevel);
-  const goldSpent = BigInt(rand(0, playerLevel * 200000));
-  const unitsTrained = rand(0, playerLevel * 30);
-  const messagesSent = rand(0, playerLevel * 2);
+  const goldStolen = BigInt(rand(0, playerLevel * 200000 + lvlSq * 1000));
+  const unitsKilled = rand(0, playerLevel * 50 + lvlSq * 2);
+  const unitsLost = rand(0, playerLevel * 25 + lvlSq);
+  const spyWins = rand(0, playerLevel * 5 + Math.floor(lvlSq * 0.3));
+  const counterSpyWins = rand(0, playerLevel * 3);
+  const totalSpyOps = spyWins + rand(0, playerLevel * 3);
+  const goldSpent = BigInt(rand(0, playerLevel * 500000 + lvlSq * 5000));
+  const unitsTrained = rand(0, playerLevel * 80 + lvlSq * 3);
+  const messagesSent = rand(0, playerLevel * 5);
 
   return {
     index,
