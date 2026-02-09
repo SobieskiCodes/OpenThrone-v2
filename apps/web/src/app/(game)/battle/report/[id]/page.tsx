@@ -628,6 +628,14 @@ function AttackReport({ report }: { report: ReportData }) {
                 {iWon ? 'Victory' : 'Defeat'}
               </Badge>
             </Paper>
+            {stats.turnsUsed > 1 && (
+              <Paper p="sm" withBorder ta="center">
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Turns Used</Text>
+                <Text fw={700} size="lg" mt={4} style={{ color: 'var(--ot-gold)' }}>
+                  {stats.turnsUsed}
+                </Text>
+              </Paper>
+            )}
             {showEnemyStats ? (
               <>
                 <Paper p="sm" withBorder ta="center">
@@ -863,11 +871,24 @@ function AttackReport({ report }: { report: ReportData }) {
           </OTCard>
         </SimpleGrid>
 
-        {/* Back Link */}
-        <Group justify="center">
+        {/* Actions */}
+        <Group justify="center" gap="sm">
           <Button variant="light" onClick={() => router.push('/battle/history')}>
-            Back to Battle History
+            Back to History
           </Button>
+          {report.isAttacker && (
+            <Button
+              color="red"
+              variant="light"
+              leftSection={'\u2694'}
+              onClick={() => {
+                const targetId = report.defender.id;
+                router.push(`/profile/${targetId}`);
+              }}
+            >
+              Attack {report.defender.displayName} Again
+            </Button>
+          )}
         </Group>
       </Stack>
     </Container>
