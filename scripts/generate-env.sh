@@ -33,6 +33,7 @@ JWT_REFRESH_EXPIRY="30d"
 # NextAuth (frontend)
 NEXTAUTH_URL="http://${DROPLET_IP}"
 NEXTAUTH_SECRET="${NEXTAUTH_SECRET}"
+AUTH_TRUST_HOST=true
 
 # API
 API_URL="http://localhost:3001"

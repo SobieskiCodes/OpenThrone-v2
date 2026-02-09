@@ -34,8 +34,10 @@ jobs:
             # Trim leading whitespace that GitHub Actions indentation adds
             sed -i 's/^[[:space:]]*//' .env
 
-            # Symlink .env into packages/db so Prisma can find DATABASE_URL
+            # Symlink .env into subdirectories that need it
             ln -sf "$APP_DIR/.env" "$APP_DIR/packages/db/.env"
+            ln -sf "$APP_DIR/.env" "$APP_DIR/apps/web/.env"
+            ln -sf "$APP_DIR/.env" "$APP_DIR/apps/api/.env"
 
             echo "==> Swapping Prisma provider to postgresql"
             sed -i 's/provider = "sqlite"/provider = "postgresql"/' packages/db/prisma/schema.prisma
