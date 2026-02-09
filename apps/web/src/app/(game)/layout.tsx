@@ -91,6 +91,14 @@ function GameShell({ children }: { children: React.ReactNode }) {
     refetchInterval: 60000,
   });
   const unreadCount = unreadData?.count ?? 0;
+
+  const { data: meData } = useQuery<{ availablePoints?: number }>({
+    queryKey: ['player', 'me'],
+    queryFn: () => api.get('/player/me'),
+    enabled: isReady,
+    refetchInterval: 120000,
+  });
+  const availablePoints = meData?.availablePoints ?? 0;
   const permissions: string[] = (session as any)?.permissions ?? [];
   const isAdmin = permissions.includes('ADMINISTRATOR');
   const allNavItems = isAdmin ? [...navItems, ...adminNavItems] : navItems;
@@ -196,34 +204,41 @@ function GameShell({ children }: { children: React.ReactNode }) {
                     children: { padding: 0 },
                   }}
                 >
-                  {item.children.map((child) => (
-                    <NavLink
-                      key={child.href}
-                      label={
-                        child.href === '/messaging' && unreadCount > 0 ? (
-                          <Group gap="xs">
-                            <span>{child.label}</span>
-                            <Badge
-                              size="xs"
-                              circle
-                              color="red"
-                              variant="filled"
-                              className="ot-badge-pulse"
-                            >
-                              {unreadCount > 99 ? '99+' : unreadCount}
-                            </Badge>
-                          </Group>
-                        ) : (
-                          child.label
-                        )
-                      }
-                      component={Link}
-                      href={child.href}
-                      active={pathname === child.href}
-                      className="ot-nav-link"
-                      onClick={() => toggleMobile()}
-                    />
-                  ))}
+                  {item.children.map((child) => {
+                    const badgeCount =
+                      child.href === '/messaging' ? unreadCount
+                      : child.href === '/battle/proficiencies' ? availablePoints
+                      : 0;
+
+                    return (
+                      <NavLink
+                        key={child.href}
+                        label={
+                          badgeCount > 0 ? (
+                            <Group gap="xs">
+                              <span>{child.label}</span>
+                              <Badge
+                                size="xs"
+                                circle
+                                color={child.href === '/battle/proficiencies' ? 'green' : 'red'}
+                                variant="filled"
+                                className="ot-badge-pulse"
+                              >
+                                {badgeCount > 99 ? '99+' : badgeCount}
+                              </Badge>
+                            </Group>
+                          ) : (
+                            child.label
+                          )
+                        }
+                        component={Link}
+                        href={child.href}
+                        active={pathname === child.href}
+                        className="ot-nav-link"
+                        onClick={() => toggleMobile()}
+                      />
+                    );
+                  })}
                 </NavLink>
               ) : (
                 <NavLink

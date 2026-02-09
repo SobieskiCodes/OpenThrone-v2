@@ -47,6 +47,10 @@ interface PlayerProfile {
   class: string;
   bio: string | null;
   createdAt: string;
+  lastActive: string | null;
+  status: string;
+  population: number;
+  gold: string | null;
   stats: {
     experience: number;
     rank: number;
@@ -186,7 +190,7 @@ export default function PlayerProfilePage() {
                   </Badge>
                 )}
               </Group>
-              <Group gap="xs">
+              <Group gap="xs" wrap="wrap">
                 <Badge variant="light" color="blue">
                   {player.race}
                 </Badge>
@@ -196,10 +200,20 @@ export default function PlayerProfilePage() {
                 <Badge variant="light" color="teal">
                   Level {level}
                 </Badge>
+                <Badge variant="filled" color="orange" leftSection={'\u2B50'}>
+                  Alpha Tester
+                </Badge>
               </Group>
-              <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                Member since {memberSince}
-              </Text>
+              <Group gap="lg">
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                  Member since {memberSince}
+                </Text>
+                {player.lastActive && (
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                    Last online: {new Date(player.lastActive).toLocaleDateString()}
+                  </Text>
+                )}
+              </Group>
               {player.bio && (
                 <Text size="sm" mt="xs">
                   {player.bio}
@@ -275,7 +289,30 @@ export default function PlayerProfilePage() {
           </Tooltip>
         </Group>
 
-        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+        {/* Player Info */}
+        <OTCard>
+          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+            <Paper p="xs" withBorder ta="center">
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Population</Text>
+              <Text fw={700} size="lg">{player.population.toLocaleString()}</Text>
+            </Paper>
+            <Paper p="xs" withBorder ta="center">
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+              <Text fw={700} size="lg" style={player.gold === null ? { color: 'var(--ot-text-dim)' } : { color: 'var(--ot-success)' }}>
+                {player.gold !== null ? Number(player.gold).toLocaleString() : '???'}
+              </Text>
+            </Paper>
+            <Paper p="xs" withBorder ta="center">
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort</Text>
+              <Text fw={700} size="lg">{fortName}</Text>
+            </Paper>
+            <Paper p="xs" withBorder ta="center">
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Level</Text>
+              <Text fw={700} size="lg">{fortLevel}</Text>
+            </Paper>
+          </SimpleGrid>
+        </OTCard>
+
           {/* Combat Stats */}
           <OTCard>
             <Stack gap="sm">
@@ -351,16 +388,6 @@ export default function PlayerProfilePage() {
               )}
             </Stack>
           </OTCard>
-
-          {/* Fortification */}
-          <OTCard>
-            <Stack gap="sm">
-              <Title order={4}>Fortification</Title>
-              <StatRow label="Fort" value={fortName} />
-              <StatRow label="Level" value={fortLevel} />
-            </Stack>
-          </OTCard>
-        </SimpleGrid>
       </Stack>
 
       {/* Confirm Attack Modal */}

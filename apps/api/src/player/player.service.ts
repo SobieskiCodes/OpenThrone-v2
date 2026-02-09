@@ -133,6 +133,7 @@ export class PlayerService {
           }
         : null,
       permissions: player.permission_grants.map((p) => p.type),
+      availablePoints: level - player.bonus_points.reduce((sum, bp) => sum + bp.level, 0),
     };
   }
 
@@ -166,7 +167,14 @@ export class PlayerService {
         },
         economy: {
           select: {
+            gold: true,
+            gold_in_bank: true,
             house_level: true,
+          },
+        },
+        units: {
+          select: {
+            quantity: true,
           },
         },
       },
@@ -179,6 +187,19 @@ export class PlayerService {
     const experience = player.stats?.experience ?? 0;
     const level = getLevelForXP(experience);
     const isOwnProfile = requesterId === playerId;
+    const population = player.units.reduce((sum, u) => sum + u.quantity, 0);
+
+    // Gold visibility: requester can see target's gold if their spy >= target sentry * 1.1
+    let goldVisible = isOwnProfile;
+    if (!isOwnProfile && requesterId && player.stats) {
+      const requesterStats = await this.prisma.playerStats.findUnique({
+        where: { player_id: requesterId },
+        select: { spy: true },
+      });
+      if (requesterStats && requesterStats.spy >= player.stats.sentry * 1.1) {
+        goldVisible = true;
+      }
+    }
 
     // Look up alliance intel if viewing another player's profile
     let allianceIntel: {
@@ -278,6 +299,8 @@ export class PlayerService {
               level,
             }
         : null,
+      population,
+      gold: goldVisible && player.economy ? player.economy.gold.toString() : null,
       fortification: player.fortification
         ? {
             fortLevel: player.fortification.fort_level,
@@ -389,6 +412,28 @@ export class PlayerService {
     const level = getLevelForXP(experience);
     const totalSpent = player.bonus_points.reduce((sum, bp) => sum + bp.level, 0);
 
+    // Compute per-category rank positions
+    const myOffense = stats.offense.total;
+    const myDefense = stats.defense.total;
+    const mySpy = stats.spy.total;
+    const mySentry = stats.sentry.total;
+    const overallRank = player.stats?.rank ?? 0;
+
+    const [offenseRank, defenseRank, spyRank, sentryRank] = await Promise.all([
+      this.prisma.playerStats.count({
+        where: { offense: { gt: myOffense }, player: { status: 'ACTIVE' } },
+      }),
+      this.prisma.playerStats.count({
+        where: { defense: { gt: myDefense }, player: { status: 'ACTIVE' } },
+      }),
+      this.prisma.playerStats.count({
+        where: { spy: { gt: mySpy }, player: { status: 'ACTIVE' } },
+      }),
+      this.prisma.playerStats.count({
+        where: { sentry: { gt: mySentry }, player: { status: 'ACTIVE' } },
+      }),
+    ]);
+
     return {
       ...stats,
       detailed,
@@ -399,6 +444,13 @@ export class PlayerService {
         level: bp.level,
       })),
       availablePoints: level - totalSpent,
+      ranks: {
+        overall: overallRank,
+        offense: offenseRank + 1,
+        defense: defenseRank + 1,
+        spy: spyRank + 1,
+        sentry: sentryRank + 1,
+      },
     };
   }
 

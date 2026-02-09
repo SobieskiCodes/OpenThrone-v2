@@ -16,6 +16,7 @@ import {
   ThemeIcon,
 } from '@mantine/core';
 import { OTCard } from '@/components/ui';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRaceTheme } from '@/context/race-theme';
@@ -128,6 +129,14 @@ interface BonusPoint {
   level: number;
 }
 
+interface RankPositions {
+  overall: number;
+  offense: number;
+  defense: number;
+  spy: number;
+  sentry: number;
+}
+
 interface BreakdownData {
   offense: StatBreakdown;
   defense: StatBreakdown;
@@ -143,6 +152,7 @@ interface BreakdownData {
   citizensPerDay: CitizensPerDayBreakdown;
   bonusPoints?: BonusPoint[];
   availablePoints?: number;
+  ranks?: RankPositions;
 }
 
 interface BattleLogEntry {
@@ -231,11 +241,41 @@ function CitizensTooltipContent({ bd }: { bd: CitizensPerDayBreakdown }) {
   );
 }
 
+// ─── Countdown Hook ─────────────────────────────────────────────────────
+
+function useCountdowns() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Next turn tick: every 30 minutes on the clock (XX:00 and XX:30)
+  const msIn30Min = 30 * 60 * 1000;
+  const nextTurnMs = Math.ceil(now.getTime() / msIn30Min) * msIn30Min - now.getTime();
+  const nextTurnMin = Math.floor(nextTurnMs / 60000);
+  const nextTurnSec = Math.floor((nextTurnMs % 60000) / 1000);
+
+  // Daily reset: midnight UTC
+  const tomorrowUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+  const dailyResetMs = tomorrowUTC.getTime() - now.getTime();
+  const dailyResetH = Math.floor(dailyResetMs / 3600000);
+  const dailyResetM = Math.floor((dailyResetMs % 3600000) / 60000);
+  const dailyResetS = Math.floor((dailyResetMs % 60000) / 1000);
+
+  return {
+    nextTurn: `${nextTurnMin}:${String(nextTurnSec).padStart(2, '0')}`,
+    dailyReset: `${dailyResetH}h ${String(dailyResetM).padStart(2, '0')}m ${String(dailyResetS).padStart(2, '0')}s`,
+  };
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { api, isReady } = useApi();
   const { colorName } = useRaceTheme();
+  const countdowns = useCountdowns();
 
   const { data: player, isLoading } = useQuery<PlayerData>({
     queryKey: ['player', 'me'],
@@ -323,11 +363,6 @@ export default function DashboardPage() {
             <Badge variant="light" color="ot">
               {player.class}
             </Badge>
-            {rank > 0 && (
-              <Badge variant="filled" color="yellow" size="lg">
-                Rank #{rank}
-              </Badge>
-            )}
           </Group>
         </Group>
 
@@ -394,6 +429,22 @@ export default function DashboardPage() {
                   {toLocale(attackTurns)} remaining
                 </Badge>
               </Group>
+              <Group justify="space-between" mt={2}>
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                  Next Turn
+                </Text>
+                <Text size="xs" fw={600} style={{ color: 'var(--ot-gold)', fontVariantNumeric: 'tabular-nums' }}>
+                  {countdowns.nextTurn}
+                </Text>
+              </Group>
+              <Group justify="space-between" mt={2}>
+                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                  Daily Reset
+                </Text>
+                <Text size="xs" fw={600} style={{ color: 'var(--ot-gold)', fontVariantNumeric: 'tabular-nums' }}>
+                  {countdowns.dailyReset}
+                </Text>
+              </Group>
             </Stack>
           </OTCard>
 
@@ -427,6 +478,41 @@ export default function DashboardPage() {
                 </Text>
                 <Text fw={600} className="ot-stat-value">{toLocale(totalUnits)}</Text>
               </Group>
+            </Stack>
+          </OTCard>
+
+          {/* Rankings */}
+          <OTCard>
+            <Stack gap="sm">
+              <Group justify="space-between" align="center">
+                <Title order={4}>Rankings</Title>
+                <Anchor component={Link} href="/world/rankings" size="xs">
+                  Leaderboard
+                </Anchor>
+              </Group>
+              {([
+                { label: 'Overall', value: breakdown?.ranks?.overall ?? rank },
+                { label: 'Offense', value: breakdown?.ranks?.offense },
+                { label: 'Defense', value: breakdown?.ranks?.defense },
+                { label: 'Spy', value: breakdown?.ranks?.spy },
+                { label: 'Sentry', value: breakdown?.ranks?.sentry },
+                { label: 'Net Worth', value: null, display: toLocale(gold + goldInBank + armoryValue) },
+              ] as const).map((item) => (
+                <Group key={item.label} justify="space-between">
+                  <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+                    {item.label}
+                  </Text>
+                  {'display' in item && item.display ? (
+                    <Text size="sm" fw={600} className="ot-stat-value">
+                      {item.display}
+                    </Text>
+                  ) : (
+                    <Text size="sm" fw={600} style={{ color: 'var(--ot-gold)' }}>
+                      {item.value ? `#${item.value}` : '--'}
+                    </Text>
+                  )}
+                </Group>
+              ))}
             </Stack>
           </OTCard>
 
