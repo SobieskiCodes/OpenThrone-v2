@@ -220,6 +220,9 @@ export default function BotDetailPage() {
       <Stack gap="md">
         <Group justify="space-between" align="center">
           <Group gap="sm">
+            <Button variant="subtle" size="compact-sm" component={Link} href="/admin/bots">
+              &larr; All Bots
+            </Button>
             <Title order={2}>{bot.displayName}</Title>
             <Badge
               size="lg"
