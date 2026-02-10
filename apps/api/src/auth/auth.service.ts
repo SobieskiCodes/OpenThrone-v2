@@ -208,6 +208,16 @@ export class AuthService {
     };
   }
 
+  async refresh(user: { id: string; email: string; displayName: string }) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      displayName: user.displayName,
+    };
+    const accessToken = await this.jwtService.signAsync(payload);
+    return { accessToken };
+  }
+
   async forgotPassword(dto: ForgotPasswordDto) {
     // Find player by email - always return success to prevent email enumeration
     const player = await this.prisma.player.findFirst({
