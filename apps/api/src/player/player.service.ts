@@ -18,6 +18,14 @@ import {
   calculateGoldPerTurnBreakdown,
   calculateCitizensPerDayBreakdown,
   computeArmoryValue,
+  Fortifications,
+  EconomyUpgrades,
+  HouseUpgrades,
+  OffensiveUpgrades,
+  SpyUpgrades,
+  SentryUpgrades,
+  ArmoryUpgrades,
+  MercenaryCampUpgrades,
 } from '@openthrone/game-logic';
 import type { StatCalcInput } from '@openthrone/game-logic';
 import * as argon2 from 'argon2';
@@ -135,7 +143,47 @@ export class PlayerService {
         : null,
       permissions: player.permission_grants.map((p) => p.type),
       availablePoints: level - player.bonus_points.reduce((sum, bp) => sum + bp.level, 0),
+      availableUpgrades: this.countAvailableUpgrades(player, level),
     };
+  }
+
+  private countAvailableUpgrades(
+    player: {
+      economy: { gold: bigint; economy_level: number; house_level: number } | null;
+      fortification: { fort_level: number } | null;
+      structure_upgrades: { upgrade_type: string; level: number }[];
+    },
+    playerLevel: number,
+  ): number {
+    const gold = Number(player.economy?.gold ?? 0);
+    const fortLevel = player.fortification?.fort_level ?? 1;
+    const getLevel = (type: string) =>
+      player.structure_upgrades.find((s) => s.upgrade_type === type)?.level ?? 1;
+
+    const categories: Array<{
+      defs: Array<{ level: number; cost: number; [k: string]: any }>;
+      currentLevel: number;
+      reqField: 'levelRequirement' | 'fortLevelRequirement' | 'fortLevel';
+      reqValue: number; // player level or fort level to compare against
+    }> = [
+      { defs: Fortifications, currentLevel: fortLevel, reqField: 'levelRequirement', reqValue: playerLevel },
+      { defs: EconomyUpgrades, currentLevel: player.economy?.economy_level || 1, reqField: 'fortLevel', reqValue: fortLevel },
+      { defs: HouseUpgrades, currentLevel: player.economy?.house_level || 1, reqField: 'fortLevel', reqValue: fortLevel },
+      { defs: OffensiveUpgrades, currentLevel: getLevel('OFFENSE'), reqField: 'fortLevelRequirement', reqValue: fortLevel },
+      { defs: SpyUpgrades, currentLevel: getLevel('SPY'), reqField: 'fortLevelRequirement', reqValue: fortLevel },
+      { defs: SentryUpgrades, currentLevel: getLevel('SENTRY'), reqField: 'fortLevelRequirement', reqValue: fortLevel },
+      { defs: ArmoryUpgrades, currentLevel: getLevel('ARMORY'), reqField: 'fortLevel', reqValue: fortLevel },
+      { defs: MercenaryCampUpgrades, currentLevel: getLevel('MERCENARY_CAMP'), reqField: 'fortLevel', reqValue: fortLevel },
+    ];
+
+    let count = 0;
+    for (const cat of categories) {
+      const nextDef = cat.defs.find((d) => d.level === cat.currentLevel + 1);
+      if (!nextDef) continue;
+      const requirement = (nextDef as any)[cat.reqField] ?? 0;
+      if (cat.reqValue >= requirement) count++;
+    }
+    return count;
   }
 
   async getPublicProfile(playerId: string, requesterId?: string) {

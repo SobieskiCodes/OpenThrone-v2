@@ -18,7 +18,7 @@ import {
   NumberInput,
 } from '@mantine/core';
 import { OTCard } from '@/components/ui';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
@@ -98,6 +98,11 @@ export default function StructureUpgradesPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [mercQuantities, setMercQuantities] = useState<Record<string, number>>({});
+
+  // Refresh nav badge on mount so it reflects current gold
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['player', 'me'] });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: status, isLoading } = useQuery<StructuresStatus>({
     queryKey: ['structures', 'status'],
@@ -227,6 +232,22 @@ export default function StructureUpgradesPage() {
     return '';
   };
 
+  // Per-tab upgrade info — "unlocked" means requirements met (regardless of gold)
+  const getTabUpgradeInfo = (tab: UpgradeTab) => {
+    const lvl = getCurrentLevel(tab);
+    const defs = getDefinitions(tab);
+    const next = defs.find((d: any) => d.level === lvl + 1);
+    if (!next) return { status: 'maxed' as const };
+    const reqMet = meetsRequirement(next, tab);
+    return {
+      status: reqMet ? ('unlocked' as const) : ('locked' as const),
+    };
+  };
+
+  const tabInfoMap = Object.fromEntries(
+    (Object.keys(TAB_LABELS) as UpgradeTab[]).map((tab) => [tab, getTabUpgradeInfo(tab)]),
+  ) as Record<UpgradeTab, ReturnType<typeof getTabUpgradeInfo>>;
+
   const currentLevel = getCurrentLevel(selectedTab);
   const definitions = getDefinitions(selectedTab);
   const nextDef = definitions.find((d) => d.level === currentLevel + 1);
@@ -286,11 +307,29 @@ export default function StructureUpgradesPage() {
           }}
         >
           <Tabs.List>
-            {(Object.keys(TAB_LABELS) as UpgradeTab[]).map((tab) => (
-              <Tabs.Tab key={tab} value={tab}>
-                {TAB_LABELS[tab]}
-              </Tabs.Tab>
-            ))}
+            {(Object.keys(TAB_LABELS) as UpgradeTab[]).map((tab) => {
+              const info = tabInfoMap[tab];
+              return (
+                <Tabs.Tab
+                  key={tab}
+                  value={tab}
+                  rightSection={
+                    info.status === 'unlocked' ? (
+                      <Badge size="xs" circle color="red" variant="filled" className="ot-badge-pulse">!</Badge>
+                    ) : null
+                  }
+                  style={
+                    info.status === 'unlocked'
+                      ? { color: 'var(--ot-success)', fontWeight: 700 }
+                      : info.status === 'maxed'
+                        ? { opacity: 0.5 }
+                        : undefined
+                  }
+                >
+                  {TAB_LABELS[tab]}
+                </Tabs.Tab>
+              );
+            })}
           </Tabs.List>
         </Tabs>
 
@@ -317,15 +356,19 @@ export default function StructureUpgradesPage() {
                 const canAfford = gold >= def.cost;
                 const requirementLabel = getRequirementLabel(def, selectedTab);
 
+                const isUnlocked = isNextLevel && requirementMet;
+
                 return (
                   <Table.Tr
                     key={def.level}
                     style={
-                      isCurrentLevel
-                        ? { backgroundColor: 'var(--mantine-color-blue-light)' }
-                        : !isPast && !requirementMet
-                          ? { opacity: 0.5 }
-                          : undefined
+                      isUnlocked
+                        ? { backgroundColor: 'rgba(64, 192, 87, 0.12)', outline: '1px solid var(--ot-success)' }
+                        : isCurrentLevel
+                          ? { backgroundColor: 'var(--mantine-color-blue-light)' }
+                          : !isPast && !requirementMet
+                            ? { opacity: 0.5 }
+                            : undefined
                     }
                   >
                     <Table.Td>{def.level}</Table.Td>
@@ -336,7 +379,14 @@ export default function StructureUpgradesPage() {
                       )}
                     </Table.Td>
                     <Table.Td ta="right">
-                      {def.cost === 0 ? 'Free' : toLocale(def.cost)}
+                      <Text
+                        size="sm"
+                        span
+                        fw={isUnlocked ? 600 : undefined}
+                        style={isUnlocked && !canAfford ? { color: 'var(--ot-danger)' } : undefined}
+                      >
+                        {def.cost === 0 ? 'Free' : toLocale(def.cost)}
+                      </Text>
                     </Table.Td>
                     <Table.Td ta="center">{getBonusLabel(def, selectedTab)}</Table.Td>
                     <Table.Td ta="center">

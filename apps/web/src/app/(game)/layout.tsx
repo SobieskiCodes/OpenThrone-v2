@@ -92,16 +92,23 @@ function GameShell({ children }: { children: React.ReactNode }) {
   });
   const unreadCount = unreadData?.count ?? 0;
 
-  const { data: meData } = useQuery<{ availablePoints?: number }>({
+  const { data: meData } = useQuery<{ availablePoints?: number; availableUpgrades?: number }>({
     queryKey: ['player', 'me'],
     queryFn: () => api.get('/player/me'),
     enabled: isReady,
     refetchInterval: 120000,
   });
   const availablePoints = meData?.availablePoints ?? 0;
+  const availableUpgrades = meData?.availableUpgrades ?? 0;
   const permissions: string[] = (session as any)?.permissions ?? [];
   const isAdmin = permissions.includes('ADMINISTRATOR');
   const allNavItems = isAdmin ? [...navItems, ...adminNavItems] : navItems;
+
+  // Badge counts keyed by child href
+  const badgeCounts: Record<string, number> = {};
+  if (unreadCount > 0) badgeCounts['/messaging'] = unreadCount;
+  if (availablePoints > 0) badgeCounts['/battle/proficiencies'] = availablePoints;
+  if (availableUpgrades > 0) badgeCounts['/structures/upgrades'] = availableUpgrades;
 
   const toggleColorScheme = () => {
     setColorScheme(computedColorScheme === 'dark' ? 'light' : 'dark');
@@ -200,11 +207,48 @@ function GameShell({ children }: { children: React.ReactNode }) {
         {/* Navigation */}
         <AppShell.Section grow component={ScrollArea} scrollbarSize={6}>
           <Stack gap={2}>
-            {allNavItems.map((item) =>
-              item.children ? (
+            {allNavItems.map((item) => {
+              if (!item.children) {
+                return (
+                  <NavLink
+                    key={item.href}
+                    label={item.label}
+                    component={Link}
+                    href={item.href}
+                    active={pathname === item.href}
+                    className="ot-nav-link"
+                    onClick={() => toggleMobile()}
+                  />
+                );
+              }
+
+              // Sum child badges for the parent group
+              const parentTotal = item.children.reduce(
+                (sum, child) => sum + (badgeCounts[child.href] ?? 0),
+                0,
+              );
+
+              return (
                 <NavLink
                   key={item.label}
-                  label={item.label}
+                  label={
+                    parentTotal > 0 ? (
+                      <Group gap="xs">
+                        <span>{item.label}</span>
+                        <Badge
+                          size="xs"
+                          circle
+                          color="red"
+                          variant="filled"
+                          className="ot-badge-pulse"
+                        >
+                          {parentTotal > 99 ? '99+' : parentTotal}
+                        </Badge>
+                      </Group>
+                    ) : (
+                      item.label
+                    )
+                  }
                   defaultOpened={item.children.some((child) => pathname === child.href)}
                   childrenOffset={16}
                   className="ot-nav-parent"
@@ -213,26 +257,23 @@ function GameShell({ children }: { children: React.ReactNode }) {
                   }}
                 >
                   {item.children.map((child) => {
-                    const badgeCount =
-                      child.href === '/messaging' ? unreadCount
-                      : child.href === '/battle/proficiencies' ? availablePoints
-                      : 0;
+                    const count = badgeCounts[child.href] ?? 0;
 
                     return (
                       <NavLink
                         key={child.href}
                         label={
-                          badgeCount > 0 ? (
+                          count > 0 ? (
                             <Group gap="xs">
                               <span>{child.label}</span>
                               <Badge
                                 size="xs"
                                 circle
-                                color={child.href === '/battle/proficiencies' ? 'green' : 'red'}
+                                color="red"
                                 variant="filled"
                                 className="ot-badge-pulse"
                               >
-                                {badgeCount > 99 ? '99+' : badgeCount}
+                                {count > 99 ? '99+' : count}
                               </Badge>
                             </Group>
                           ) : (
@@ -248,18 +289,8 @@ function GameShell({ children }: { children: React.ReactNode }) {
                     );
                   })}
                 </NavLink>
-              ) : (
-                <NavLink
-                  key={item.href}
-                  label={item.label}
-                  component={Link}
-                  href={item.href}
-                  active={pathname === item.href}
-                  className="ot-nav-link"
-                  onClick={() => toggleMobile()}
-                />
-              ),
-            )}
+              );
+            })}
           </Stack>
         </AppShell.Section>
 
