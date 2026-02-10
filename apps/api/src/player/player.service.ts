@@ -197,6 +197,7 @@ export class PlayerService {
         avatar: true,
         bio: true,
         status: true,
+        is_bot: true,
         last_active: true,
         created_at: true,
         stats: {
@@ -356,6 +357,7 @@ export class PlayerService {
       avatar: player.avatar,
       bio: player.bio,
       status: player.status,
+      isBot: player.is_bot,
       lastActive: player.last_active,
       createdAt: player.created_at,
       stats: player.stats

@@ -64,6 +64,7 @@ export class AdminService {
         race: p.race,
         class: p.player_class,
         status: p.status,
+        isBot: p.is_bot,
         gold: p.economy?.gold.toString() ?? '0',
         goldInBank: p.economy?.gold_in_bank.toString() ?? '0',
         attackTurns: p.economy?.attack_turns ?? 0,

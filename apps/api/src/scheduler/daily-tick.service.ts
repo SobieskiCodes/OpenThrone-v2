@@ -134,6 +134,12 @@ export class DailyTickService {
       });
       this.logger.log('Reset auto-recruit pool');
 
+      // ─── Reset Bot Daily Sessions ─────────────────────────────
+      await this.prisma.botConfig.updateMany({
+        data: { sessions_today: 0 },
+      });
+      this.logger.log('Reset bot daily sessions');
+
       // ─── Reset Daily Ranking Counters ─────────────────────────
       await this.prisma.playerCumulativeStats.updateMany({
         data: {

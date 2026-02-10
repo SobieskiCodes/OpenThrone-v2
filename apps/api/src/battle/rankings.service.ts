@@ -14,6 +14,7 @@ interface RankEntry {
   class: string;
   level: number;
   score: number;
+  isBot: boolean;
 }
 
 interface RankingsResult {
@@ -62,7 +63,7 @@ export class RankingsService {
       const [stats, total] = await Promise.all([
         this.prisma.playerStats.findMany({
           where: { player: { status: 'ACTIVE' } },
-          include: { player: { select: { id: true, display_name: true, race: true, player_class: true } } },
+          include: { player: { select: { id: true, display_name: true, race: true, player_class: true, is_bot: true } } },
           orderBy,
           skip: (page - 1) * limit,
           take: limit,
@@ -79,6 +80,7 @@ export class RankingsService {
         level: getLevelForXP(s.experience),
         score: subType === 'level' ? getLevelForXP(s.experience)
           : subType === 'offense' ? s.offense : s.defense,
+        isBot: s.player.is_bot,
       }));
 
       return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -96,6 +98,7 @@ export class RankingsService {
         display_name: true,
         race: true,
         player_class: true,
+        is_bot: true,
         stats: { select: { offense: true, defense: true, spy: true, sentry: true, experience: true } },
         economy: { select: { gold: true, gold_in_bank: true } },
         fortification: { select: { fort_level: true } },
@@ -134,6 +137,7 @@ export class RankingsService {
           class: p.player_class,
           level: getLevelForXP(p.stats!.experience),
           score,
+          isBot: p.is_bot,
         };
       });
 
@@ -242,6 +246,7 @@ export class RankingsService {
       class: e.player.player_class,
       level: getLevelForXP(e.player.stats?.experience ?? 0),
       score: Number(e[field]),
+      isBot: e.player.is_bot,
     }));
 
     return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -256,6 +261,7 @@ export class RankingsService {
         display_name: true,
         race: true,
         player_class: true,
+        is_bot: true,
         economy: { select: { gold: true, gold_in_bank: true } },
         stats: { select: { experience: true } },
         items: { select: { item_type: true, usage: true, level: true, quantity: true } },
@@ -281,6 +287,7 @@ export class RankingsService {
         class: p.player_class,
         level: getLevelForXP(p.stats?.experience ?? 0),
         score: gold + bank + armory,
+        isBot: p.is_bot,
       };
     });
 
@@ -320,13 +327,13 @@ export class RankingsService {
     const offset = (page - 1) * limit;
     const rows = await this.prisma.$queryRaw<any[]>`
       SELECT pu.player_id, SUM(pu.quantity) as total_units,
-              p.display_name, p.race, p."class",
+              p.display_name, p.race, p."class", p.is_bot,
               COALESCE(ps.experience, 0) as experience
        FROM player_units pu
        JOIN players p ON p.id = pu.player_id
        LEFT JOIN player_stats ps ON ps.player_id = pu.player_id
        WHERE p.status = 'ACTIVE' ${unitFilter}
-       GROUP BY pu.player_id, p.display_name, p.race, p."class", ps.experience
+       GROUP BY pu.player_id, p.display_name, p.race, p."class", p.is_bot, ps.experience
        ORDER BY total_units DESC
        LIMIT ${limit} OFFSET ${offset}`;
 
@@ -338,6 +345,7 @@ export class RankingsService {
       class: r.class,
       level: getLevelForXP(Number(r.experience)),
       score: Number(r.total_units),
+      isBot: !!r.is_bot,
     }));
 
     return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -369,13 +377,13 @@ export class RankingsService {
     const offset = (page - 1) * limit;
     const rows = await this.prisma.$queryRaw<any[]>`
       SELECT s.player_id, COUNT(*) as friend_count,
-              p.display_name, p.race, p."class",
+              p.display_name, p.race, p."class", p.is_bot,
               COALESCE(ps.experience, 0) as experience
        FROM social s
        JOIN players p ON p.id = s.player_id
        LEFT JOIN player_stats ps ON ps.player_id = s.player_id
        WHERE p.status = 'ACTIVE' AND s.status = 'ACCEPTED'
-       GROUP BY s.player_id, p.display_name, p.race, p."class", ps.experience
+       GROUP BY s.player_id, p.display_name, p.race, p."class", p.is_bot, ps.experience
        ORDER BY friend_count DESC
        LIMIT ${limit} OFFSET ${offset}`;
 
@@ -387,6 +395,7 @@ export class RankingsService {
       class: r.class,
       level: getLevelForXP(Number(r.experience)),
       score: Number(r.friend_count),
+      isBot: !!r.is_bot,
     }));
 
     return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -403,13 +412,13 @@ export class RankingsService {
     const offset = (page - 1) * limit;
     const rows = await this.prisma.$queryRaw<any[]>`
       SELECT su.player_id, SUM(su.level) as total_levels,
-              p.display_name, p.race, p."class",
+              p.display_name, p.race, p."class", p.is_bot,
               COALESCE(ps.experience, 0) as experience
        FROM player_structure_upgrades su
        JOIN players p ON p.id = su.player_id
        LEFT JOIN player_stats ps ON ps.player_id = su.player_id
        WHERE p.status = 'ACTIVE'
-       GROUP BY su.player_id, p.display_name, p.race, p."class", ps.experience
+       GROUP BY su.player_id, p.display_name, p.race, p."class", p.is_bot, ps.experience
        ORDER BY total_levels DESC
        LIMIT ${limit} OFFSET ${offset}`;
 
@@ -421,6 +430,7 @@ export class RankingsService {
       class: r.class,
       level: getLevelForXP(Number(r.experience)),
       score: Number(r.total_levels),
+      isBot: !!r.is_bot,
     }));
 
     return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -441,7 +451,7 @@ export class RankingsService {
     const offset = (page - 1) * limit;
     const rows = await this.prisma.$queryRaw<any[]>`
       SELECT cs.player_id, cs.${fieldSql} as score,
-              p.display_name, p.race, p."class",
+              p.display_name, p.race, p."class", p.is_bot,
               COALESCE(ps.experience, 0) as experience
        FROM player_cumulative_stats cs
        JOIN players p ON p.id = cs.player_id
@@ -458,6 +468,7 @@ export class RankingsService {
       class: r.class,
       level: getLevelForXP(Number(r.experience)),
       score: Number(r.score),
+      isBot: !!r.is_bot,
     }));
 
     return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };

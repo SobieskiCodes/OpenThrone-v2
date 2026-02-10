@@ -44,7 +44,7 @@ export class BattleService {
   // ─── Player List / Rankings / History (existing) ────────────────────
 
   async getPlayers(currentPlayerId: string, query: BattlePlayersQueryDto) {
-    const { page, limit, search, race, sort, order, inRange } = query;
+    const { page, limit, search, race, sort, order, inRange, botFilter } = query;
     const playerClass = query.class;
 
     const where: any = {
@@ -60,6 +60,11 @@ export class BattleService {
     }
     if (playerClass) {
       where.player_class = playerClass;
+    }
+    if (botFilter === 'humans') {
+      where.is_bot = false;
+    } else if (botFilter === 'bots') {
+      where.is_bot = true;
     }
 
     // Filter to players within ±10 levels of attacker
@@ -200,6 +205,7 @@ export class BattleService {
         gold: canSeeGold ? (p.economy?.gold ?? BigInt(0)).toString() : null,
         lastActive: p.last_active,
         status: p.status,
+        isBot: p.is_bot,
         attacksToday: attackCountMap.get(p.id) ?? 0,
         maxAttacksPerDay: DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h,
         allianceIntel: allianceIntelMap.get(p.id) ?? null,
@@ -281,6 +287,7 @@ export class BattleService {
               display_name: true,
               race: true,
               player_class: true,
+              is_bot: true,
             },
           },
         },
@@ -301,6 +308,7 @@ export class BattleService {
         race: s.player.race,
         class: s.player.player_class,
         level: getLevelForXP(s.experience),
+        isBot: s.player.is_bot,
       };
     });
 
