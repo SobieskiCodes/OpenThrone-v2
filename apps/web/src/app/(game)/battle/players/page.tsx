@@ -94,7 +94,7 @@ const CLASS_OPTIONS = [
 ];
 
 // Sortable column definitions for table header sorting
-type SortKey = 'rank' | 'gold' | 'level' | 'population' | 'fortLevel';
+type SortKey = 'rank' | 'gold' | 'level' | 'population' | 'fortLevel' | 'displayName' | 'attacksToday';
 
 function SortHeader({
   label,
@@ -203,7 +203,9 @@ export default function PlayersPage() {
       setOrder(order === 'asc' ? 'desc' : 'asc');
     } else {
       setSort(newSort);
-      setOrder(newSort === 'rank' ? 'asc' : 'desc');
+      // Default direction: ascending for rank and name, descending for everything else
+      const defaultAsc = newSort === 'rank' || newSort === 'displayName';
+      setOrder(defaultAsc ? 'asc' : 'desc');
     }
     setPlayerPage(1);
   };
@@ -275,13 +277,13 @@ export default function PlayersPage() {
                       <Table.Thead>
                         <Table.Tr>
                           <SortHeader label="Rank" sortKey="rank" currentSort={sort} currentOrder={order} onSort={handleSortChange} />
-                          <Table.Th>Player</Table.Th>
+                          <SortHeader label="Player" sortKey="displayName" currentSort={sort} currentOrder={order} onSort={handleSortChange} />
                           <Table.Th>Race / Class</Table.Th>
                           <SortHeader label="Lv" sortKey="level" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="center" />
                           <SortHeader label="Pop" sortKey="population" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
                           <SortHeader label="Gold" sortKey="gold" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
                           <SortHeader label="Fort" sortKey="fortLevel" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="center" />
-                          <Table.Th ta="center">Attacks</Table.Th>
+                          <SortHeader label="Attacks" sortKey="attacksToday" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="center" />
                           <Table.Th ta="right">Actions</Table.Th>
                         </Table.Tr>
                       </Table.Thead>

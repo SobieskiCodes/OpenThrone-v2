@@ -257,7 +257,7 @@ export const battlePlayersQuerySchema = z.object({
   search: z.string().max(50).optional(),
   race: z.nativeEnum(PlayerRace).optional(),
   class: z.nativeEnum(PlayerClass).optional(),
-  sort: z.enum(['rank', 'gold', 'level', 'population', 'fortLevel']).default('rank'),
+  sort: z.enum(['rank', 'gold', 'level', 'population', 'fortLevel', 'displayName', 'attacksToday']).default('rank'),
   order: z.enum(['asc', 'desc']).default('asc'),
   inRange: z.coerce.boolean().optional(),
 });

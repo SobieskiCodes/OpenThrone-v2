@@ -78,24 +78,25 @@ export class BattleService {
       where.stats = { experience: { gte: minXP, lt: maxXP } };
     }
 
-    const orderBy: any[] = [];
-    const effectiveOrder = sort === 'rank' && order === 'asc' ? 'asc'
-      : sort === 'rank' ? order
-      : order;
+    // Sorts that can be done at DB level (paginate in DB)
+    const dbSortable = ['rank', 'level', 'fortLevel', 'displayName'];
+    const needsInMemorySort = !dbSortable.includes(sort);
 
+    const orderBy: any[] = [];
     if (sort === 'rank') {
-      orderBy.push({ stats: { rank: effectiveOrder } });
-    } else if (sort === 'gold') {
-      orderBy.push({ economy: { gold: effectiveOrder } });
+      orderBy.push({ stats: { rank: order } });
     } else if (sort === 'level') {
-      orderBy.push({ stats: { experience: effectiveOrder } });
-    } else if (sort === 'population') {
-      // Population sort done post-query since it's derived from units
-      orderBy.push({ stats: { rank: 'asc' as const } });
+      orderBy.push({ stats: { experience: order } });
     } else if (sort === 'fortLevel') {
-      orderBy.push({ fortification: { fort_level: effectiveOrder } });
+      orderBy.push({ fortification: { fort_level: order } });
+    } else if (sort === 'displayName') {
+      orderBy.push({ display_name: order });
+    } else {
+      // For in-memory sorts, fetch in rank order as baseline
+      orderBy.push({ stats: { rank: 'asc' as const } });
     }
 
+    // For DB-sortable fields, paginate at DB level; otherwise fetch all for in-memory sort
     const [players, total] = await Promise.all([
       this.prisma.player.findMany({
         where,
@@ -106,8 +107,7 @@ export class BattleService {
           units: true,
         },
         orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
+        ...(needsInMemorySort ? {} : { skip: (page - 1) * limit, take: limit }),
       }),
       this.prisma.player.count({ where }),
     ]);
@@ -204,6 +204,30 @@ export class BattleService {
       };
     });
 
+    // In-memory sort for derived fields
+    let sortedData = data;
+    if (needsInMemorySort) {
+      const dir = order === 'asc' ? 1 : -1;
+      if (sort === 'population') {
+        sortedData = [...data].sort((a, b) => (a.population - b.population) * dir);
+      } else if (sort === 'gold') {
+        // Only sort by visible gold; hidden-gold players go to the end
+        sortedData = [...data].sort((a, b) => {
+          if (a.gold === null && b.gold === null) return 0;
+          if (a.gold === null) return 1;
+          if (b.gold === null) return -1;
+          return (Number(a.gold) - Number(b.gold)) * dir;
+        });
+      } else if (sort === 'attacksToday') {
+        sortedData = [...data].sort((a, b) => (a.attacksToday - b.attacksToday) * dir);
+      }
+    }
+
+    // Paginate in-memory sorted results (DB-sorted results are already paginated)
+    const paginatedData = needsInMemorySort
+      ? sortedData.slice((page - 1) * limit, page * limit)
+      : sortedData;
+
     // Also include attacker's available attack turns
     const attackerEconomy = await this.prisma.playerEconomy.findUnique({
       where: { player_id: currentPlayerId },
@@ -211,7 +235,7 @@ export class BattleService {
     });
 
     return {
-      data,
+      data: paginatedData,
       attackTurns: attackerEconomy?.attack_turns ?? 0,
       pagination: {
         page,
