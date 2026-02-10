@@ -276,9 +276,9 @@ body {
 .ot-card-header {
   background: var(--ot-bg-surface-2);
   border-bottom: 1px solid var(--ot-border);
-  margin: calc(-1 * var(--mantine-spacing-lg));
-  margin-bottom: var(--mantine-spacing-md);
-  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
+  margin: calc(-1 * var(--ot-card-p, var(--mantine-spacing-lg)));
+  margin-bottom: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-xs) var(--ot-card-p, var(--mantine-spacing-lg));
   border-radius: var(--mantine-radius-lg) var(--mantine-radius-lg) 0 0;
 }
 
@@ -291,10 +291,32 @@ body {
 }
 
 /* ── Status Strip (dashboard top bar) ──────────────────────────── */
+/* ── Dashboard Grid ────────────────────────────────────────────── */
+.ot-dashboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto 1fr 1fr auto;
+  grid-template-areas:
+    "status   status   status"
+    "econ     mil      rec"
+    "activity activity rank"
+    "fort     quick    prof";
+  gap: 10px;
+  padding: 10px;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: var(--ot-bg-body);
+}
+
+.ot-dashboard > * {
+  min-height: 0;
+  min-width: 0;
+}
+
 .ot-status-strip {
-  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
   border-bottom: 1px solid var(--ot-border-subtle);
-  margin-bottom: var(--mantine-spacing-xs);
 }
 
 /* ── Tooltip Hint (dotted underline) ────────────────────────────── */

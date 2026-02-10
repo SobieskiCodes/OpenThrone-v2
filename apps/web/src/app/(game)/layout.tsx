@@ -9,12 +9,13 @@ import {
   Text,
   Button,
   ScrollArea,
-  ActionIcon,
   Badge,
-  useMantineColorScheme,
-  useComputedColorScheme,
   Burger,
   Box,
+  Tooltip,
+  Menu,
+  ActionIcon,
+  Indicator,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useSession, signOut } from 'next-auth/react';
@@ -22,7 +23,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useApi } from '@/hooks/use-api';
-import { RaceThemeProvider, useRaceTheme } from '@/context/race-theme';
+import { RaceThemeProvider } from '@/context/race-theme';
 import { useCountdowns } from '@/hooks/use-countdowns';
 import { toLocale } from '@openthrone/game-logic';
 import {
@@ -31,12 +32,20 @@ import {
   IconClockHour4,
   IconCalendar,
   IconUsers,
+  IconHome,
+  IconShield,
+  IconSwords,
+  IconBuildingCastle,
+  IconWorld,
+  IconSettings,
+  IconLogout,
 } from '@tabler/icons-react';
 
 const navItems = [
-  { label: 'Home', href: '/home' },
+  { label: 'Home', href: '/home', icon: IconHome },
   {
     label: 'Army',
+    icon: IconShield,
     children: [
       { label: 'Training', href: '/battle/training' },
       { label: 'Armory', href: '/structures/armory' },
@@ -46,6 +55,7 @@ const navItems = [
   },
   {
     label: 'Battle',
+    icon: IconSwords,
     children: [
       { label: 'Attack', href: '/battle/players' },
       { label: 'War History', href: '/battle/history' },
@@ -53,6 +63,7 @@ const navItems = [
   },
   {
     label: 'Kingdom',
+    icon: IconBuildingCastle,
     children: [
       { label: 'Bank', href: '/structures/bank' },
       { label: 'Buildings', href: '/structures/upgrades' },
@@ -61,6 +72,7 @@ const navItems = [
   },
   {
     label: 'World',
+    icon: IconWorld,
     children: [
       { label: 'Rankings', href: '/world/rankings' },
       { label: 'Activity', href: '/world/activity' },
@@ -74,6 +86,7 @@ const navItems = [
 const adminNavItems = [
   {
     label: 'Admin',
+    icon: IconSettings,
     children: [
       { label: 'Dashboard', href: '/admin' },
       { label: 'Players', href: '/admin/players' },
@@ -104,9 +117,6 @@ function GameShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { api, isReady } = useApi();
-  const { setColorScheme } = useMantineColorScheme();
-  const computedColorScheme = useComputedColorScheme('dark');
-  const { race, colorName } = useRaceTheme();
   const countdowns = useCountdowns();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
 
@@ -141,10 +151,6 @@ function GameShell({ children }: { children: React.ReactNode }) {
   if (availablePoints > 0) badgeCounts['/battle/proficiencies'] = availablePoints;
   if (availableUpgrades > 0) badgeCounts['/structures/upgrades'] = availableUpgrades;
 
-  const toggleColorScheme = () => {
-    setColorScheme(computedColorScheme === 'dark' ? 'light' : 'dark');
-  };
-
   const handleLogout = async () => {
     await signOut({ redirect: false });
     router.push('/login');
@@ -152,12 +158,12 @@ function GameShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AppShell
-      header={{ height: 60 }}
-      navbar={{ width: 260, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
-      padding="md"
+      navbar={{ width: { base: 260, sm: 60 }, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
+      padding={0}
+      styles={{ navbar: { top: 60, height: 'calc(100dvh - 60px)' } }}
     >
-      {/* ── Header ──────────────────────────────────────── */}
-      <AppShell.Header className="ot-header" style={{ position: 'relative' }}>
+      {/* ── Header (our own fixed bar, not AppShell.Header) ── */}
+      <header className="ot-header" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 200 }}>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
             <Burger
@@ -180,9 +186,9 @@ function GameShell({ children }: { children: React.ReactNode }) {
             </Title>
           </Group>
 
-          {/* Quick stats + timers — desktop only */}
+          {/* Quick stats + timers */}
           {meData && (
-            <Group gap="md" visibleFrom="sm">
+            <Group gap="xs">
               {gold != null && (
                 <Group gap={4} className="ot-status-item">
                   <IconCoins size={14} style={{ color: 'var(--ot-accent)' }} />
@@ -196,7 +202,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
                 </Group>
               )}
               {citizens > 0 && (
-                <Group gap={4} className="ot-status-item">
+                <Group gap={4} className="ot-status-item" visibleFrom="sm">
                   <IconUsers size={14} style={{ color: 'var(--ot-warning)' }} />
                   <span className="ot-status-item-value" style={{ color: 'var(--ot-warning)' }}>
                     {toLocale(citizens)}
@@ -206,55 +212,23 @@ function GameShell({ children }: { children: React.ReactNode }) {
               )}
               <Group gap={4} className="ot-status-item">
                 <IconClockHour4 size={14} style={{ color: 'var(--ot-text-dim)' }} />
-                <span>Next:</span>
+                <Box component="span" visibleFrom="sm">Next:</Box>
                 <span className="ot-status-item-value">{countdowns.nextTurn}</span>
               </Group>
               <Group gap={4} className="ot-status-item">
                 <IconCalendar size={14} style={{ color: 'var(--ot-text-dim)' }} />
-                <span>Reset:</span>
+                <Box component="span" visibleFrom="sm">Reset:</Box>
                 <span className="ot-status-item-value">{countdowns.dailyReset}</span>
               </Group>
             </Group>
           )}
-
-          <Group gap="sm">
-            {session?.user?.name && (
-              <Text
-                component={Link}
-                href={`/profile/${(session as any).user.id}`}
-                size="sm"
-                className="ot-text-dim"
-                style={{ textDecoration: 'none' }}
-                visibleFrom="xs"
-              >
-                {session.user.name}
-              </Text>
-            )}
-            <Badge
-              size="sm"
-              variant="light"
-              color={colorName}
-              style={{ textTransform: 'capitalize' }}
-            >
-              {race}
-            </Badge>
-            <ActionIcon
-              variant="subtle"
-              size="lg"
-              onClick={toggleColorScheme}
-              aria-label="Toggle color scheme"
-              className="ot-text-dim"
-            >
-              {computedColorScheme === 'dark' ? '\u2600' : '\u263E'}
-            </ActionIcon>
-          </Group>
         </Group>
-      </AppShell.Header>
+      </header>
 
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <AppShell.Navbar className="ot-navbar" p="xs">
-        {/* Player info section */}
-        <AppShell.Section>
+      <AppShell.Navbar className="ot-navbar" p={{ base: 'xs', sm: 4 }}>
+        {/* ── Mobile: Full sidebar (burger toggle) ── */}
+        <Stack hiddenFrom="sm" gap={0} h="100%">
           {session?.user?.name && (
             <Stack gap={4} p="xs" mb={0}>
               <Text
@@ -272,117 +246,167 @@ function GameShell({ children }: { children: React.ReactNode }) {
               </Text>
             </Stack>
           )}
-
           <Box className="ot-divider" mb="xs" />
-        </AppShell.Section>
-
-        {/* Navigation */}
-        <AppShell.Section grow component={ScrollArea} scrollbarSize={6}>
-          <Stack gap={2}>
-            {allNavItems.map((item) => {
-              if (!item.children) {
+          <ScrollArea style={{ flex: 1 }} scrollbarSize={6}>
+            <Stack gap={2}>
+              {allNavItems.map((item) => {
+                if (!item.children) {
+                  return (
+                    <NavLink
+                      key={item.href}
+                      label={item.label}
+                      leftSection={<item.icon size={18} />}
+                      component={Link}
+                      href={item.href}
+                      active={pathname === item.href}
+                      className="ot-nav-link"
+                      onClick={() => toggleMobile()}
+                    />
+                  );
+                }
+                const parentTotal = item.children.reduce(
+                  (sum, child) => sum + (badgeCounts[child.href] ?? 0),
+                  0,
+                );
                 return (
                   <NavLink
-                    key={item.href}
-                    label={item.label}
-                    component={Link}
-                    href={item.href}
-                    active={pathname === item.href}
-                    className="ot-nav-link"
-                    onClick={() => toggleMobile()}
-                  />
+                    key={item.label}
+                    leftSection={<item.icon size={18} />}
+                    label={
+                      parentTotal > 0 ? (
+                        <Group gap="xs">
+                          <span>{item.label}</span>
+                          <Badge size="xs" circle color="red" variant="filled" className="ot-badge-pulse">
+                            {parentTotal > 99 ? '99+' : parentTotal}
+                          </Badge>
+                        </Group>
+                      ) : (
+                        item.label
+                      )
+                    }
+                    defaultOpened={item.children.some((child) => pathname === child.href)}
+                    childrenOffset={28}
+                    className="ot-nav-parent"
+                    styles={{ children: { padding: 0 } }}
+                  >
+                    {item.children.map((child) => {
+                      const count = badgeCounts[child.href] ?? 0;
+                      return (
+                        <NavLink
+                          key={child.href}
+                          label={
+                            count > 0 ? (
+                              <Group gap="xs">
+                                <span>{child.label}</span>
+                                <Badge size="xs" circle color="red" variant="filled" className="ot-badge-pulse">
+                                  {count > 99 ? '99+' : count}
+                                </Badge>
+                              </Group>
+                            ) : (
+                              child.label
+                            )
+                          }
+                          component={Link}
+                          href={child.href}
+                          active={pathname === child.href}
+                          className="ot-nav-link"
+                          onClick={() => toggleMobile()}
+                        />
+                      );
+                    })}
+                  </NavLink>
+                );
+              })}
+            </Stack>
+          </ScrollArea>
+          <Box className="ot-divider" mt="xs" mb="xs" />
+          <Button variant="subtle" fullWidth color="red" onClick={handleLogout}>
+            Logout
+          </Button>
+        </Stack>
+
+        {/* ── Desktop: Icon rail with hover flyouts ── */}
+        <Stack visibleFrom="sm" gap={8} align="center" h="100%" py="xs">
+          <Stack gap={8} align="center" style={{ flex: 1 }}>
+            {allNavItems.map((item) => {
+              const Icon = item.icon;
+
+              if (!item.children) {
+                return (
+                  <Tooltip key={item.href} label={item.label} position="right" withArrow>
+                    <ActionIcon
+                      component={Link}
+                      href={item.href!}
+                      variant={pathname === item.href ? 'light' : 'subtle'}
+                      color={pathname === item.href ? 'ot' : undefined}
+                      size="xl"
+                      className="ot-text-dim"
+                    >
+                      <Icon size={22} />
+                    </ActionIcon>
+                  </Tooltip>
                 );
               }
 
-              // Sum child badges for the parent group
-              const parentTotal = item.children.reduce(
+              const isActive = item.children.some((c) => pathname === c.href);
+              const totalBadge = item.children.reduce(
                 (sum, child) => sum + (badgeCounts[child.href] ?? 0),
                 0,
               );
 
               return (
-                <NavLink
-                  key={item.label}
-                  label={
-                    parentTotal > 0 ? (
-                      <Group gap="xs">
-                        <span>{item.label}</span>
-                        <Badge
-                          size="xs"
-                          circle
-                          color="red"
-                          variant="filled"
-                          className="ot-badge-pulse"
-                        >
-                          {parentTotal > 99 ? '99+' : parentTotal}
-                        </Badge>
-                      </Group>
-                    ) : (
-                      item.label
-                    )
-                  }
-                  defaultOpened={item.children.some((child) => pathname === child.href)}
-                  childrenOffset={16}
-                  className="ot-nav-parent"
-                  styles={{
-                    children: { padding: 0 },
-                  }}
-                >
-                  {item.children.map((child) => {
-                    const count = badgeCounts[child.href] ?? 0;
-
-                    return (
-                      <NavLink
-                        key={child.href}
-                        label={
-                          count > 0 ? (
-                            <Group gap="xs">
-                              <span>{child.label}</span>
-                              <Badge
-                                size="xs"
-                                circle
-                                color="red"
-                                variant="filled"
-                                className="ot-badge-pulse"
-                              >
+                <Menu key={item.label} trigger="hover" position="right-start" offset={8} withArrow>
+                  <Menu.Target>
+                    <Indicator disabled={totalBadge === 0} color="red" size={8} offset={4}>
+                      <ActionIcon
+                        variant={isActive ? 'light' : 'subtle'}
+                        color={isActive ? 'ot' : undefined}
+                        size="xl"
+                        className="ot-text-dim"
+                      >
+                        <Icon size={22} />
+                      </ActionIcon>
+                    </Indicator>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Label>{item.label}</Menu.Label>
+                    {item.children.map((child) => {
+                      const count = badgeCounts[child.href] ?? 0;
+                      return (
+                        <Menu.Item
+                          key={child.href}
+                          component={Link}
+                          href={child.href}
+                          fw={pathname === child.href ? 600 : undefined}
+                          color={pathname === child.href ? 'var(--ot-accent)' : undefined}
+                          rightSection={
+                            count > 0 ? (
+                              <Badge size="xs" circle color="red" variant="filled">
                                 {count > 99 ? '99+' : count}
                               </Badge>
-                            </Group>
-                          ) : (
-                            child.label
-                          )
-                        }
-                        component={Link}
-                        href={child.href}
-                        active={pathname === child.href}
-                        className="ot-nav-link"
-                        onClick={() => toggleMobile()}
-                      />
-                    );
-                  })}
-                </NavLink>
+                            ) : undefined
+                          }
+                        >
+                          {child.label}
+                        </Menu.Item>
+                      );
+                    })}
+                  </Menu.Dropdown>
+                </Menu>
               );
             })}
           </Stack>
-        </AppShell.Section>
-
-        {/* Logout */}
-        <AppShell.Section>
-          <Box className="ot-divider" mt="xs" mb="xs" />
-          <Button
-            variant="subtle"
-            fullWidth
-            color="red"
-            onClick={handleLogout}
-          >
-            Logout
-          </Button>
-        </AppShell.Section>
+          <Tooltip label="Logout" position="right" withArrow>
+            <ActionIcon variant="subtle" color="red" size="xl" onClick={handleLogout}>
+              <IconLogout size={22} />
+            </ActionIcon>
+          </Tooltip>
+        </Stack>
       </AppShell.Navbar>
 
-      {/* ── Main Content ────────────────────────────────── */}
+      {/* ── Display Area ─────────────────────────────────── */}
       <AppShell.Main>
-        <div className="ot-page-content" style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div className="ot-display" style={{ marginTop: 60, height: 'calc(100dvh - 60px)', overflow: 'auto' }}>
           {children}
         </div>
       </AppShell.Main>

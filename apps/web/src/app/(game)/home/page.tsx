@@ -392,432 +392,164 @@ export default function DashboardPage() {
   const RecommendedIcon = recommended.icon;
 
   return (
-    <Container size="xl">
-      <Stack gap="md" className="ot-stagger">
-        {/* ── Status Strip (not a card) ────────────────────────── */}
-        <div className="ot-status-strip">
+    <div className="ot-dashboard" style={{ gap: 10, padding: 10 }}>
+        {/* ── Status Strip ──────────────────────────────────── */}
+        <div className="ot-status-strip" style={{ gridArea: 'status' }}>
           <Group justify="space-between" align="center" wrap="wrap">
             <Group gap="sm" align="center">
-              <Title order={3}>{player.displayName}&apos;s Kingdom</Title>
-              <Badge variant="light" color={colorName} size="sm">
-                {player.race}
-              </Badge>
-              <Badge variant="light" color="ot" size="sm">
-                {player.class}
-              </Badge>
+              <Title order={4}>{player.displayName}&apos;s Kingdom</Title>
+              <Badge variant="light" color={colorName} size="xs">{player.race}</Badge>
+              <Badge variant="light" color="ot" size="xs">{player.class}</Badge>
             </Group>
-            <Group gap="md" align="center">
-              <Text size="sm" fw={600}>Level {level}</Text>
-              {rank > 0 && (
-                <Badge variant="light" color="ot" size="sm">
-                  Rank #{rank}
-                </Badge>
-              )}
-              {untrainedCitizens > 0 && (
-                <Badge
-                  variant="light"
-                  color="yellow"
-                  size="sm"
-                  component={Link}
-                  href="/battle/training"
-                  style={{ cursor: 'pointer' }}
-                  leftSection={<IconUsers size={12} />}
-                >
-                  {toLocale(untrainedCitizens)} idle citizens
-                </Badge>
-              )}
+            <Group gap="xs" align="center">
+              <Text size="xs" fw={600}>Lv {level}</Text>
+              {rank > 0 && <Badge variant="light" color="ot" size="xs">#{rank}</Badge>}
+              <Progress value={xpProgress} size={4} color={colorName} radius="sm" style={{ width: 80 }} />
+              <Text size="xs" className="ot-text-dim">{Math.round(xpProgress)}%</Text>
             </Group>
           </Group>
-          <div style={{ marginTop: 8 }}>
-            <Group justify="space-between" mb={4}>
-              <Text size="xs" className="ot-text-dim">
-                XP Progress
-              </Text>
-              <Text size="xs" className="ot-text-dim">
-                {toLocale(experience)} / {toLocale(nextLevelXP || experience)}
-              </Text>
-            </Group>
-            <Progress value={xpProgress} size="sm" color={colorName} radius="sm" />
-            <Text size="xs" className="ot-text-dim" mt={4}>
-              {xpToNext > 0 ? `${toLocale(xpToNext)} XP to next level (${Math.round(xpProgress)}%)` : 'Max level reached!'}
-            </Text>
-          </div>
         </div>
 
-        {/* ── Main Grid: Left Column (8) + Side Rail (4) ──────── */}
-        <Grid gutter="md">
-          {/* Left Column */}
-          <Grid.Col span={{ base: 12, md: 8 }}>
-            <Stack gap="md">
-              {/* Economy + Military side-by-side */}
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                {/* Economy */}
-                <OTCard accent header={
-                  <Group gap="xs" align="center">
-                    <IconCoins size={18} style={{ color: 'var(--ot-accent)' }} />
-                    <Title order={4}>Economy</Title>
-                  </Group>
-                }>
-                  <Stack gap="sm">
-                    <StatRow label="Gold" value={toLocale(gold)} />
-                    <StatRow label="Gold in Bank" value={toLocale(goldInBank)} />
-                    <TooltipStat
-                      label="Gold Per Turn"
-                      value={`+${toLocale(goldPerTurn)}`}
-                      valueColor="var(--ot-success)"
-                      tooltip={breakdown?.goldPerTurn ? <GoldTooltipContent bd={breakdown.goldPerTurn} /> : 'Loading...'}
-                      tooltipWidth={220}
-                    />
-                    <TooltipStat
-                      label="Citizens Per Day"
-                      value={`+${toLocale(citizensPerDay)}`}
-                      valueColor="var(--ot-race-primary)"
-                      tooltip={breakdown?.citizensPerDay ? <CitizensTooltipContent bd={breakdown.citizensPerDay} /> : 'Loading...'}
-                      tooltipWidth={220}
-                    />
-                    <TooltipStat
-                      label="Net Worth"
-                      value={toLocale(gold + goldInBank + armoryValue)}
-                      tooltip={
-                        <Stack gap={2}>
-                          <Text size="xs" fw={700}>Net Worth Breakdown</Text>
-                          <Text size="xs">Gold on Hand: {toLocale(gold)}</Text>
-                          <Text size="xs">Gold in Bank: {toLocale(goldInBank)}</Text>
-                          {armoryValue > 0 && (
-                            <Text size="xs">Armory Value: {toLocale(armoryValue)}</Text>
-                          )}
-                          <Text size="xs" fw={600}>Total: {toLocale(gold + goldInBank + armoryValue)}</Text>
-                        </Stack>
-                      }
-                      tooltipWidth={220}
-                    />
-                  </Stack>
-                </OTCard>
+        {/* ── Economy ───────────────────────────────────────── */}
+        <OTCard accent p="sm" style={{ gridArea: 'econ', overflow: 'hidden' }} header={
+          <Group gap="xs" align="center"><IconCoins size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Economy</Text></Group>
+        }>
+          <Stack gap={4}>
+            <StatRow label="Gold" value={toLocale(gold)} />
+            <StatRow label="Bank" value={toLocale(goldInBank)} />
+            <TooltipStat label="Per Turn" value={`+${toLocale(goldPerTurn)}`} valueColor="var(--ot-success)" tooltip={breakdown?.goldPerTurn ? <GoldTooltipContent bd={breakdown.goldPerTurn} /> : 'Loading...'} tooltipWidth={220} />
+            <TooltipStat label="Citizens/Day" value={`+${toLocale(citizensPerDay)}`} valueColor="var(--ot-race-primary)" tooltip={breakdown?.citizensPerDay ? <CitizensTooltipContent bd={breakdown.citizensPerDay} /> : 'Loading...'} tooltipWidth={220} />
+            <TooltipStat label="Net Worth" value={toLocale(gold + goldInBank + armoryValue)} tooltip={<Stack gap={2}><Text size="xs" fw={700}>Net Worth</Text><Text size="xs">Gold: {toLocale(gold)}</Text><Text size="xs">Bank: {toLocale(goldInBank)}</Text>{armoryValue > 0 && <Text size="xs">Armory: {toLocale(armoryValue)}</Text>}<Text size="xs" fw={600}>Total: {toLocale(gold + goldInBank + armoryValue)}</Text></Stack>} tooltipWidth={200} />
+          </Stack>
+        </OTCard>
 
-                {/* Military Summary */}
-                <OTCard header={
-                  <Group gap="xs" align="center">
-                    <IconSwords size={18} style={{ color: 'var(--ot-text-dim)' }} />
-                    <Title order={4}>Military</Title>
-                  </Group>
-                }>
-                  <Stack gap="sm">
-                    <StatRow label="Total Units" value={toLocale(totalUnits)} />
-                    {(['offense', 'defense', 'spy', 'sentry'] as const).map((stat) => {
-                      const value = { offense, defense, spy, sentry }[stat];
-                      const bd = breakdown?.[stat];
-                      const det = breakdown?.detailed?.[stat];
-                      const label = stat.charAt(0).toUpperCase() + stat.slice(1);
-                      return (
-                        <TooltipStat
-                          key={stat}
-                          label={label}
-                          value={toLocale(value)}
-                          tooltip={bd ? <StatTooltipContent label={label} bd={bd} detailed={det} /> : 'Loading...'}
-                        />
-                      );
-                    })}
-                  </Stack>
-                </OTCard>
-              </SimpleGrid>
+        {/* ── Military ──────────────────────────────────────── */}
+        <OTCard p="sm" style={{ gridArea: 'mil', overflow: 'hidden' }} header={
+          <Group gap="xs" align="center"><IconSwords size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Military</Text></Group>
+        }>
+          <Stack gap={4}>
+            <StatRow label="Units" value={toLocale(totalUnits)} />
+            {(['offense', 'defense', 'spy', 'sentry'] as const).map((stat) => {
+              const value = { offense, defense, spy, sentry }[stat];
+              const bd = breakdown?.[stat];
+              const det = breakdown?.detailed?.[stat];
+              const label = stat.charAt(0).toUpperCase() + stat.slice(1);
+              return <TooltipStat key={stat} label={label} value={toLocale(value)} tooltip={bd ? <StatTooltipContent label={label} bd={bd} detailed={det} /> : 'Loading...'} />;
+            })}
+          </Stack>
+        </OTCard>
 
-              {/* Recent Activity (Activity Feed + Messages) */}
-              <OTCard header={
-                <Group justify="space-between" align="center">
-                  <Group gap="xs" align="center">
-                    <IconHistory size={18} style={{ color: 'var(--ot-text-dim)' }} />
-                    <Title order={4}>Recent Activity</Title>
-                  </Group>
-                  <Group gap="md">
-                    <Anchor component={Link} href="/world/activity" size="xs">
-                      Activity
-                    </Anchor>
-                    <Anchor component={Link} href="/messaging" size="xs">
-                      Messages {unreadCount > 0 && (
-                        <Badge size="xs" color="red" variant="filled" circle ml={4}>
-                          {unreadCount}
-                        </Badge>
-                      )}
-                    </Anchor>
-                  </Group>
-                </Group>
-              }>
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                  {/* Activity column */}
-                  <Stack gap="xs">
-                    <Group gap={6}>
-                      {(['my', 'alliance', 'server'] as const).map((scope) => (
-                        <Badge
-                          key={scope}
-                          variant={activityScope === scope ? 'filled' : 'light'}
-                          color={activityScope === scope ? 'blue' : 'gray'}
-                          size="xs"
-                          style={{ cursor: scope === 'alliance' && !firstAllianceId ? 'default' : 'pointer', opacity: scope === 'alliance' && !firstAllianceId ? 0.4 : 1 }}
-                          onClick={() => {
-                            if (scope === 'alliance' && !firstAllianceId) return;
-                            setActivityScope(scope);
-                          }}
-                        >
-                          {scope === 'my' ? 'My' : scope === 'alliance' ? 'Alliance' : 'Server'}
-                        </Badge>
-                      ))}
-                    </Group>
-                    {activeFeed && activeFeed.data.length > 0 ? (
-                      activeFeed.data.map((item) => (
-                        <ActivityFeedItem key={item.id} item={item} showPlayerName={activityScope !== 'my'} />
-                      ))
-                    ) : (
-                      <Text size="xs" className="ot-text-dim">
-                        {activityScope === 'alliance' && !firstAllianceId
-                          ? 'Join an alliance to see activity.'
-                          : 'No activity yet.'}
-                      </Text>
-                    )}
-                  </Stack>
+        {/* ── Recommended ───────────────────────────────────── */}
+        <OTCard featured p="sm" style={{ gridArea: 'rec', overflow: 'hidden' }} header={
+          <Group gap="xs" align="center"><IconBulb size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Recommended</Text></Group>
+        }>
+          <Stack gap="xs" align="center" ta="center">
+            <ThemeIcon size={32} radius="xl" variant="light" color={recommended.color}><RecommendedIcon size={18} /></ThemeIcon>
+            <Text fw={600} size="xs">{recommended.title}</Text>
+            <Text size="xs" className="ot-text-dim" lineClamp={2}>{recommended.description}</Text>
+            <Button component={Link} href={recommended.href} variant="light" color={recommended.color} size="xs" fullWidth>Go</Button>
+          </Stack>
+        </OTCard>
 
-                  {/* Messages column */}
-                  <Stack gap="xs">
-                    <Text size="xs" fw={600} className="ot-text-dim" tt="uppercase">Messages</Text>
-                    {mail && mail.items.length > 0 ? (
-                      mail.items.slice(0, 5).map((item) => (
-                        <Group key={item.id} justify="space-between" gap="xs">
-                          <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
-                            {!item.isRead && (
-                              <ThemeIcon size={8} radius="xl" color="blue" style={{ flexShrink: 0 }}>
-                                <span />
-                              </ThemeIcon>
-                            )}
-                            <Text
-                              size="xs"
-                              truncate
-                              fw={item.isRead ? 400 : 600}
-                              className={item.isRead ? 'ot-text-dim' : undefined}
-                            >
-                              {item.subject}
-                            </Text>
-                          </Group>
-                          <Text size="xs" className="ot-text-dim" style={{ flexShrink: 0 }}>
-                            {item.sender?.displayName ?? 'System'}
-                          </Text>
-                        </Group>
-                      ))
-                    ) : (
-                      <Text size="xs" className="ot-text-dim">
-                        No messages yet.
-                      </Text>
-                    )}
-                  </Stack>
-                </SimpleGrid>
-              </OTCard>
-            </Stack>
-          </Grid.Col>
-
-          {/* Side Rail */}
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Stack gap="md">
-              {/* Recommended Action */}
-              <OTCard featured header={
-                <Group gap="xs" align="center">
-                  <IconBulb size={18} style={{ color: 'var(--ot-accent)' }} />
-                  <Title order={4}>Recommended</Title>
-                </Group>
-              }>
-                <Stack gap="sm" align="center" ta="center">
-                  <ThemeIcon size={48} radius="xl" variant="light" color={recommended.color}>
-                    <RecommendedIcon size={24} />
-                  </ThemeIcon>
-                  <Text fw={600} size="sm">{recommended.title}</Text>
-                  <Text size="xs" className="ot-text-dim">{recommended.description}</Text>
-                  <Button
-                    component={Link}
-                    href={recommended.href}
-                    variant="light"
-                    color={recommended.color}
-                    size="sm"
-                    fullWidth
-                  >
-                    Go
-                  </Button>
-                </Stack>
-              </OTCard>
-
-              {/* Rankings */}
-              <OTCard header={
-                <Group justify="space-between" align="center">
-                  <Group gap="xs" align="center">
-                    <IconTrophy size={18} style={{ color: 'var(--ot-accent)' }} />
-                    <Tooltip
-                      label={
-                        <Stack gap={2}>
-                          <Text size="xs" fw={700}>Overall Rank Formula</Text>
-                          <Text size="xs">Offense: 1.0x weight</Text>
-                          <Text size="xs">Defense: 1.0x weight</Text>
-                          <Text size="xs">Spy: 1.25x weight</Text>
-                          <Text size="xs">Sentry: 1.25x weight</Text>
-                          <Text size="xs">Fort Level: exponential bonus</Text>
-                          <Text size="xs">XP: small bonus</Text>
-                          <Text size="xs">Net Worth: log scale bonus</Text>
-                        </Stack>
-                      }
-                      multiline
-                      w={220}
-                    >
-                      <Title order={4} className="ot-tooltip-hint">
-                        Rankings
-                      </Title>
-                    </Tooltip>
-                  </Group>
-                  <Anchor component={Link} href="/world/rankings" size="xs">
-                    Leaderboard
-                  </Anchor>
-                </Group>
-              }>
-                <Stack gap="xs">
-                  {([
-                    { label: 'Overall', value: breakdown?.ranks?.overall ?? rank },
-                    { label: 'Offense', value: breakdown?.ranks?.offense },
-                    { label: 'Defense', value: breakdown?.ranks?.defense },
-                    { label: 'Spy', value: breakdown?.ranks?.spy },
-                    { label: 'Sentry', value: breakdown?.ranks?.sentry },
-                    { label: 'Net Worth', value: breakdown?.ranks?.netWorth },
-                  ] as const).map((item) => (
-                    <StatRow
-                      key={item.label}
-                      label={item.label}
-                      value={item.value ? `#${item.value}` : '--'}
-                    />
-                  ))}
-                </Stack>
-              </OTCard>
-
-              {/* Proficiencies */}
-              <OTCard header={
-                <Group justify="space-between" align="center">
-                  <Group gap="xs" align="center">
-                    <IconStar size={18} style={{ color: 'var(--ot-accent)' }} />
-                    <Title order={4}>Proficiencies</Title>
-                  </Group>
-                  {availablePoints > 0 && (
-                    <Badge size="sm" color="green" variant="light">
-                      {availablePoints} to spend
+        {/* ── Recent Activity ───────────────────────────────── */}
+        <OTCard p="sm" style={{ gridArea: 'activity', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} header={
+          <Group justify="space-between" align="center">
+            <Group gap="xs" align="center"><IconHistory size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Activity</Text></Group>
+            <Group gap="xs">
+              <Anchor component={Link} href="/world/activity" size="xs">Feed</Anchor>
+              <Anchor component={Link} href="/messaging" size="xs">Mail{unreadCount > 0 && <Badge size="xs" color="red" variant="filled" circle ml={2}>{unreadCount}</Badge>}</Anchor>
+            </Group>
+          </Group>
+        }>
+          <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+              <Stack gap={4}>
+                <Group gap={4}>
+                  {(['my', 'alliance', 'server'] as const).map((scope) => (
+                    <Badge key={scope} variant={activityScope === scope ? 'filled' : 'light'} color={activityScope === scope ? 'blue' : 'gray'} size="xs" style={{ cursor: scope === 'alliance' && !firstAllianceId ? 'default' : 'pointer', opacity: scope === 'alliance' && !firstAllianceId ? 0.4 : 1 }} onClick={() => { if (scope === 'alliance' && !firstAllianceId) return; setActivityScope(scope); }}>
+                      {scope === 'my' ? 'My' : scope === 'alliance' ? 'Alliance' : 'Server'}
                     </Badge>
-                  )}
+                  ))}
                 </Group>
-              }>
-                <Stack gap="xs">
-                  {breakdown?.bonusPoints && breakdown.bonusPoints.length > 0 ? (
-                    breakdown.bonusPoints
-                      .filter((bp) => bp.level > 0)
-                      .map((bp) => (
-                        <StatRow
-                          key={bp.bonusType}
-                          label={bp.bonusType.charAt(0) + bp.bonusType.slice(1).toLowerCase()}
-                          value={`Lv ${bp.level}`}
-                        />
-                      ))
-                  ) : (
-                    <Text size="sm" className="ot-text-dim">
-                      No points allocated yet.
-                    </Text>
-                  )}
-                  {availablePoints > 0 && (
-                    <Anchor component={Link} href="/battle/proficiencies" size="sm">
-                      Allocate points
-                    </Anchor>
-                  )}
-                </Stack>
-              </OTCard>
-            </Stack>
-          </Grid.Col>
-        </Grid>
+                {activeFeed && activeFeed.data.length > 0 ? activeFeed.data.slice(0, 3).map((item) => (
+                  <ActivityFeedItem key={item.id} item={item} showPlayerName={activityScope !== 'my'} />
+                )) : (
+                  <Text size="xs" className="ot-text-dim">{activityScope === 'alliance' && !firstAllianceId ? 'Join an alliance.' : 'No activity yet.'}</Text>
+                )}
+              </Stack>
+              <Stack gap={4}>
+                <Text size="xs" fw={600} className="ot-text-dim" tt="uppercase">Messages</Text>
+                {mail && mail.items.length > 0 ? mail.items.slice(0, 3).map((item) => (
+                  <Group key={item.id} justify="space-between" gap="xs">
+                    <Text size="xs" truncate fw={item.isRead ? 400 : 600} className={item.isRead ? 'ot-text-dim' : undefined} style={{ flex: 1, minWidth: 0 }}>{item.subject}</Text>
+                    <Text size="xs" className="ot-text-dim" style={{ flexShrink: 0 }}>{item.sender?.displayName ?? 'System'}</Text>
+                  </Group>
+                )) : <Text size="xs" className="ot-text-dim">No messages yet.</Text>}
+              </Stack>
+            </SimpleGrid>
+          </div>
+        </OTCard>
 
-        {/* ── Bottom Row: Fort + Quick Actions ────────────────── */}
-        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-          {/* Fortification */}
-          <OTCard header={
-            <Group gap="xs" align="center">
-              <IconWall size={18} style={{ color: 'var(--ot-text-dim)' }} />
-              <Title order={4}>Fortification</Title>
-            </Group>
-          }>
-            <Stack gap="sm">
-              <StatRow label="Fort" value={`${fortName} (Level ${fortLevel})`} />
-              <div>
-                <Group justify="space-between" mb={4}>
-                  <Text size="xs" className="ot-text-dim">
-                    Hitpoints
-                  </Text>
-                  <Text size="xs" className="ot-text-dim">
-                    {toLocale(fortHitpoints)} / {toLocale(fortMaxHp)}
-                  </Text>
-                </Group>
-                <Progress
-                  value={fortHpPercent}
-                  size="sm"
-                  color={fortHpPercent > 50 ? 'green' : fortHpPercent > 25 ? 'yellow' : 'red'}
-                />
-              </div>
-            </Stack>
-          </OTCard>
+        {/* ── Rankings ──────────────────────────────────────── */}
+        <OTCard p="sm" style={{ gridArea: 'rank', overflow: 'hidden' }} header={
+          <Group justify="space-between" align="center">
+            <Group gap="xs" align="center"><IconTrophy size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Rankings</Text></Group>
+            <Anchor component={Link} href="/world/rankings" size="xs">View</Anchor>
+          </Group>
+        }>
+          <Stack gap={4}>
+            {([
+              { label: 'Overall', value: breakdown?.ranks?.overall ?? rank },
+              { label: 'Offense', value: breakdown?.ranks?.offense },
+              { label: 'Defense', value: breakdown?.ranks?.defense },
+              { label: 'Spy', value: breakdown?.ranks?.spy },
+              { label: 'Sentry', value: breakdown?.ranks?.sentry },
+              { label: 'Net Worth', value: breakdown?.ranks?.netWorth },
+            ] as const).map((item) => (
+              <StatRow key={item.label} label={item.label} value={item.value ? `#${item.value}` : '--'} />
+            ))}
+          </Stack>
+        </OTCard>
 
-          {/* Quick Actions */}
-          <OTCard header={
-            <Group gap="xs" align="center">
-              <IconRocket size={18} style={{ color: 'var(--ot-text-dim)' }} />
-              <Title order={4}>Quick Actions</Title>
-            </Group>
-          }>
-            <Stack gap="sm">
-              <SimpleGrid cols={2} spacing="xs">
-                <Button
-                  component={Link}
-                  href="/battle/players"
-                  variant="light"
-                  color="red"
-                  leftSection={<IconSwords size={16} />}
-                  size="sm"
-                  fullWidth
-                >
-                  Attack
-                </Button>
-                <Button
-                  component={Link}
-                  href="/battle/training"
-                  variant="light"
-                  color="blue"
-                  leftSection={<IconUsers size={16} />}
-                  size="sm"
-                  fullWidth
-                >
-                  Train
-                </Button>
-                <Button
-                  component={Link}
-                  href="/structures/bank"
-                  variant="light"
-                  color="green"
-                  leftSection={<IconBuildingBank size={16} />}
-                  size="sm"
-                  fullWidth
-                >
-                  Bank
-                </Button>
-                <Button
-                  component={Link}
-                  href="/structures/armory"
-                  variant="light"
-                  color="grape"
-                  leftSection={<IconTarget size={16} />}
-                  size="sm"
-                  fullWidth
-                >
-                  Armory
-                </Button>
-              </SimpleGrid>
-            </Stack>
-          </OTCard>
-        </SimpleGrid>
-      </Stack>
-    </Container>
+        {/* ── Fortification ─────────────────────────────────── */}
+        <OTCard p="sm" style={{ gridArea: 'fort', overflow: 'hidden' }} header={
+          <Group gap="xs" align="center"><IconWall size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Fort</Text></Group>
+        }>
+          <Stack gap={4}>
+            <StatRow label={fortName} value={`Lv ${fortLevel}`} />
+            <Group justify="space-between"><Text size="xs" className="ot-text-dim">HP</Text><Text size="xs" className="ot-text-dim">{toLocale(fortHitpoints)}/{toLocale(fortMaxHp)}</Text></Group>
+            <Progress value={fortHpPercent} size="sm" color={fortHpPercent > 50 ? 'green' : fortHpPercent > 25 ? 'yellow' : 'red'} />
+          </Stack>
+        </OTCard>
+
+        {/* ── Quick Actions ─────────────────────────────────── */}
+        <OTCard p="sm" style={{ gridArea: 'quick', overflow: 'hidden' }} header={
+          <Group gap="xs" align="center"><IconRocket size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Actions</Text></Group>
+        }>
+          <SimpleGrid cols={2} spacing={4}>
+            <Button component={Link} href="/battle/players" variant="light" color="red" leftSection={<IconSwords size={14} />} size="xs" fullWidth>Attack</Button>
+            <Button component={Link} href="/battle/training" variant="light" color="blue" leftSection={<IconUsers size={14} />} size="xs" fullWidth>Train</Button>
+            <Button component={Link} href="/structures/bank" variant="light" color="green" leftSection={<IconBuildingBank size={14} />} size="xs" fullWidth>Bank</Button>
+            <Button component={Link} href="/structures/armory" variant="light" color="grape" leftSection={<IconTarget size={14} />} size="xs" fullWidth>Armory</Button>
+          </SimpleGrid>
+        </OTCard>
+
+        {/* ── Proficiencies ─────────────────────────────────── */}
+        <OTCard p="sm" style={{ gridArea: 'prof', overflow: 'hidden' }} header={
+          <Group justify="space-between" align="center">
+            <Group gap="xs" align="center"><IconStar size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Proficiencies</Text></Group>
+            {availablePoints > 0 && <Badge size="xs" color="green" variant="light">{availablePoints} pts</Badge>}
+          </Group>
+        }>
+          <Stack gap={4}>
+            {breakdown?.bonusPoints && breakdown.bonusPoints.length > 0 ? (
+              breakdown.bonusPoints.filter((bp) => bp.level > 0).map((bp) => (
+                <StatRow key={bp.bonusType} label={bp.bonusType.charAt(0) + bp.bonusType.slice(1).toLowerCase()} value={`Lv ${bp.level}`} />
+              ))
+            ) : <Text size="xs" className="ot-text-dim">None allocated.</Text>}
+            {availablePoints > 0 && <Anchor component={Link} href="/battle/proficiencies" size="xs">Allocate</Anchor>}
+          </Stack>
+        </OTCard>
+    </div>
   );
 }

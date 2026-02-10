@@ -1,6 +1,6 @@
 'use client';
 
-import { Paper, type PaperProps } from '@mantine/core';
+import { Paper, type PaperProps, type MantineSpacing } from '@mantine/core';
 
 interface OTCardProps extends PaperProps {
   children: React.ReactNode;
@@ -10,6 +10,12 @@ interface OTCardProps extends PaperProps {
   featured?: boolean;
 }
 
+function resolvePaddingVar(p: MantineSpacing | undefined): string {
+  if (typeof p === 'string') return `var(--mantine-spacing-${p})`;
+  if (typeof p === 'number') return `${p}px`;
+  return 'var(--mantine-spacing-lg)';
+}
+
 export function OTCard({
   children,
   hoverable = false,
@@ -17,6 +23,8 @@ export function OTCard({
   accent = false,
   featured = false,
   className,
+  p,
+  style,
   ...props
 }: OTCardProps) {
   const classes = [
@@ -31,17 +39,18 @@ export function OTCard({
     <Paper
       shadow="sm"
       radius="lg"
-      p="lg"
+      p={p ?? 'lg'}
       withBorder
       className={classes}
       style={{
+        '--ot-card-p': resolvePaddingVar(p),
         ...(hoverable
           ? {
               cursor: 'pointer',
               transition: 'border-color 180ms ease, box-shadow 180ms ease',
             }
           : {}),
-        ...((props.style as Record<string, unknown>) ?? {}),
+        ...((style as Record<string, unknown>) ?? {}),
       }}
       {...props}
     >
