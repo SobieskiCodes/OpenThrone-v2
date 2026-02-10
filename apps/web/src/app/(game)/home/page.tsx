@@ -326,15 +326,8 @@ export default function DashboardPage() {
   const rank = player.stats?.rank ?? 0;
 
   const level = getLevelForXP(experience);
-  const levelThreshold = getXPForLevel(level);
-
-  // New players (XP below level 1 threshold): show progress toward level 1
-  // Everyone else: show progress from current level threshold toward next
-  const currentLevelXP = experience < levelThreshold ? 0 : levelThreshold;
-  const nextLevelXP =
-    experience < levelThreshold
-      ? levelThreshold
-      : getXPForLevel(level + 1) || levelThreshold;
+  const currentLevelXP = getXPForLevel(level);
+  const nextLevelXP = getXPForLevel(level + 1) || currentLevelXP;
   const xpToNext = Math.max(0, nextLevelXP - experience);
   const xpProgress =
     nextLevelXP > currentLevelXP
@@ -493,7 +486,26 @@ export default function DashboardPage() {
           <OTCard>
             <Stack gap="sm">
               <Group justify="space-between" align="center">
-                <Title order={4}>Rankings</Title>
+                <Tooltip
+                  label={
+                    <Stack gap={2}>
+                      <Text size="xs" fw={700}>Overall Rank Formula</Text>
+                      <Text size="xs">Offense: 1.0x weight</Text>
+                      <Text size="xs">Defense: 1.0x weight</Text>
+                      <Text size="xs">Spy: 1.25x weight</Text>
+                      <Text size="xs">Sentry: 1.25x weight</Text>
+                      <Text size="xs">Fort Level: exponential bonus</Text>
+                      <Text size="xs">XP: small bonus</Text>
+                      <Text size="xs">Net Worth: log scale bonus</Text>
+                    </Stack>
+                  }
+                  multiline
+                  w={220}
+                >
+                  <Title order={4} style={{ cursor: 'help', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
+                    Rankings
+                  </Title>
+                </Tooltip>
                 <Anchor component={Link} href="/world/rankings" size="xs">
                   Leaderboard
                 </Anchor>
