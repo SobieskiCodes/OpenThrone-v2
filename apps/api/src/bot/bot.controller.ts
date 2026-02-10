@@ -15,10 +15,10 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
   PermissionType,
-  createBotSchema,
   updateBotSchema,
-  CreateBotDto,
+  generateBotsSchema,
   UpdateBotDto,
+  GenerateBotsDto,
 } from '@openthrone/shared';
 import { BotService } from './bot.service';
 import { BotSchedulerService } from './bot-scheduler.service';
@@ -45,6 +45,13 @@ export class BotController {
     };
   }
 
+  @Post('generate')
+  async generateBots(
+    @Body(new ZodValidationPipe(generateBotsSchema)) dto: GenerateBotsDto,
+  ) {
+    return this.botService.generateBots(dto);
+  }
+
   @Post('run-all')
   async runAllBots() {
     return this.botScheduler.runAllBots();
@@ -65,13 +72,6 @@ export class BotController {
       strategy || undefined,
       active !== undefined ? active === 'true' : undefined,
     );
-  }
-
-  @Post()
-  async createBot(
-    @Body(new ZodValidationPipe(createBotSchema)) dto: CreateBotDto,
-  ) {
-    return this.botService.createBot(dto);
   }
 
   // ── Parameterized routes ──────────────────────────────────────────

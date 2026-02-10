@@ -13,13 +13,15 @@ import {
   Button,
   Select,
   Switch,
+  NumberInput,
+  Paper,
+  Collapse,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 interface BotEntry {
   id: number;
@@ -81,6 +83,10 @@ export default function BotsPage() {
   const [page, setPage] = useState(1);
   const [strategyFilter, setStrategyFilter] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [genCount, setGenCount] = useState<number>(10);
+  const [genMinLevel, setGenMinLevel] = useState<number>(5);
+  const [genMaxLevel, setGenMaxLevel] = useState<number>(60);
 
   const buildQuery = () => {
     const params = new URLSearchParams();
@@ -119,6 +125,27 @@ export default function BotsPage() {
     },
   });
 
+  const generateMutation = useMutation({
+    mutationFn: () =>
+      api.post('/admin/bots/generate', {
+        count: genCount,
+        minLevel: genMinLevel,
+        maxLevel: genMaxLevel,
+      }),
+    onSuccess: (result: any) => {
+      notifications.show({
+        title: 'Bots Generated',
+        message: `Created ${result.created} bots (levels ${genMinLevel}-${genMaxLevel})`,
+        color: 'green',
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'bots'] });
+      setShowGenerate(false);
+    },
+    onError: (err: Error) => {
+      notifications.show({ title: 'Error', message: err.message, color: 'red' });
+    },
+  });
+
   return (
     <Container size="lg">
       <Stack gap="md">
@@ -134,10 +161,11 @@ export default function BotsPage() {
               Run All Bots
             </Button>
             <Button
-              component={Link}
-              href="/admin/bots/create"
+              variant="light"
+              color="teal"
+              onClick={() => setShowGenerate((v) => !v)}
             >
-              Create Bot
+              Generate Bots
             </Button>
           </Group>
         </Group>
@@ -165,6 +193,52 @@ export default function BotsPage() {
             </Group>
           </Group>
         )}
+
+        <Collapse in={showGenerate}>
+          <Paper p="md" withBorder>
+            <Stack gap="sm">
+              <Text fw={600}>Generate Multiple Bots</Text>
+              <Text size="sm" c="dimmed">
+                Creates bots with random names, races, classes, strategies, and level-scaled
+                progression (units, items, structures, fortifications).
+              </Text>
+              <Group gap="md">
+                <NumberInput
+                  label="Count"
+                  value={genCount}
+                  onChange={(val) => setGenCount(Number(val) || 10)}
+                  min={1}
+                  max={50}
+                  w={100}
+                />
+                <NumberInput
+                  label="Min Level"
+                  value={genMinLevel}
+                  onChange={(val) => setGenMinLevel(Number(val) || 1)}
+                  min={1}
+                  max={100}
+                  w={120}
+                />
+                <NumberInput
+                  label="Max Level"
+                  value={genMaxLevel}
+                  onChange={(val) => setGenMaxLevel(Number(val) || 60)}
+                  min={1}
+                  max={100}
+                  w={120}
+                />
+                <Button
+                  color="teal"
+                  onClick={() => generateMutation.mutate()}
+                  loading={generateMutation.isPending}
+                  mt={24}
+                >
+                  Generate {genCount} Bots
+                </Button>
+              </Group>
+            </Stack>
+          </Paper>
+        </Collapse>
 
         <Group gap="sm">
           <Select

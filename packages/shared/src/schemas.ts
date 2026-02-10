@@ -336,24 +336,17 @@ export const shareIntelSchema = z.object({
 
 // ─── Bot Schemas ────────────────────────────────────────────────────
 
-export const createBotSchema = z.object({
-  displayName: z
-    .string()
-    .min(3)
-    .max(20)
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, numbers, underscores, and hyphens'),
-  race: z.nativeEnum(PlayerRace),
-  class: z.nativeEnum(PlayerClass),
-  strategy: z.nativeEnum(BotStrategy),
-  sessionsPerDay: z.number().int().min(1).max(5).default(3),
-  notes: z.string().max(500).optional(),
-});
-
 export const updateBotSchema = z.object({
   strategy: z.nativeEnum(BotStrategy).optional(),
   isActive: z.boolean().optional(),
   sessionsPerDay: z.number().int().min(1).max(5).optional(),
   notes: z.string().max(500).optional(),
+});
+
+export const generateBotsSchema = z.object({
+  count: z.number().int().min(1).max(50).default(10),
+  minLevel: z.number().int().min(1).max(100).default(5),
+  maxLevel: z.number().int().min(1).max(100).default(60),
 });
 
 export const botActionLogsQuerySchema = z.object({
@@ -418,7 +411,7 @@ export type SpyMissionDto = z.infer<typeof spyMissionSchema>;
 export type CombatSimulateDto = z.infer<typeof combatSimulateSchema>;
 export type CombatSimProfileDto = z.infer<typeof combatSimProfileSchema>;
 export type ShareIntelDto = z.infer<typeof shareIntelSchema>;
-export type CreateBotDto = z.infer<typeof createBotSchema>;
 export type UpdateBotDto = z.infer<typeof updateBotSchema>;
+export type GenerateBotsDto = z.infer<typeof generateBotsSchema>;
 export type BotActionLogsQueryDto = z.infer<typeof botActionLogsQuerySchema>;
 export type ActivityFeedQueryDto = z.infer<typeof activityFeedQuerySchema>;

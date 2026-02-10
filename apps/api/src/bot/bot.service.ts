@@ -1,12 +1,11 @@
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateBotDto, UpdateBotDto } from '@openthrone/shared';
+import type { UpdateBotDto, GenerateBotsDto } from '@openthrone/shared';
 import {
   getLevelForXP,
   getFortificationByLevel,
@@ -17,89 +16,256 @@ import type { BotGameState } from '@openthrone/game-logic';
 export class BotService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createBot(dto: CreateBotDto) {
-    // Check name uniqueness (case-insensitive)
-    const existingName = await this.prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM players WHERE LOWER(display_name) = LOWER(${dto.displayName}) LIMIT 1`;
-    if (existingName.length > 0) {
-      throw new ConflictException('Display name already in use');
-    }
-
-    const uuid = crypto.randomUUID();
-    const email = `bot-${uuid}@bot.openthrone.local`;
+  async generateBots(dto: GenerateBotsDto) {
+    const { count, minLevel, maxLevel } = dto;
+    const results: Array<{ displayName: string; level: number; strategy: string }> = [];
     const passwordHash = await argon2.hash(crypto.randomUUID());
-    const personalitySeed = Math.floor(Math.random() * 2147483647);
 
-    const player = await this.prisma.$transaction(async (tx) => {
-      const newPlayer = await tx.player.create({
-        data: {
-          email,
-          display_name: dto.displayName,
-          password_hash: passwordHash,
-          race: dto.race,
-          player_class: dto.class,
-          is_bot: true,
-          last_active: new Date(),
-        },
-      });
+    const RACES = ['HUMAN', 'ELF', 'GOBLIN', 'UNDEAD'];
+    const CLASSES = ['FIGHTER', 'CLERIC', 'ASSASSIN', 'THIEF'];
+    const STRATEGIES = ['WARRIOR', 'TURTLE', 'ECONOMIST', 'SPYMASTER', 'BALANCED'];
+    const PREFIXES = [
+      'Auto', 'Mech', 'Iron', 'Steel', 'Cyber', 'Proto', 'Sentinel',
+      'Dread', 'Warden', 'Phantom', 'Wraith', 'Ghost', 'Shadow', 'Storm',
+      'Titan', 'Colossus', 'Vanguard', 'Reaper', 'Forge', 'Bastion',
+      'Crimson', 'Azure', 'Obsidian', 'Ember', 'Frost', 'Thunder', 'Void',
+      'Apex', 'Prime', 'Nova', 'Nexus', 'Rune', 'Glyph', 'Sigil',
+    ];
+    const SUFFIXES = [
+      'Knight', 'Guard', 'Hunter', 'Striker', 'Watcher', 'Keeper',
+      'Blade', 'Shield', 'Fang', 'Claw', 'Horn', 'Wing',
+      'Core', 'Node', 'Link', 'Spark', 'Pulse', 'Wave',
+      'Lord', 'King', 'Duke', 'Baron', 'Marshal', 'Captain',
+      'Bane', 'Doom', 'Fury', 'Rage', 'Storm', 'Bolt',
+    ];
 
-      await tx.playerEconomy.create({
-        data: {
-          player_id: newPlayer.id,
-          gold: 25000,
-          gold_in_bank: 0,
-          attack_turns: 50,
-          house_level: 0,
-          economy_level: 0,
-        },
-      });
+    const rand = (lo: number, hi: number) => Math.floor(Math.random() * (hi - lo + 1)) + lo;
+    const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
 
-      await tx.playerUnit.create({
-        data: {
-          player_id: newPlayer.id,
-          unit_type: 'CITIZEN',
-          level: 1,
-          quantity: 50,
-        },
-      });
+    const LEVEL_XP: Record<number, number> = {
+      1: 4000, 2: 8000, 3: 13000, 4: 19000, 5: 26000, 6: 34000, 7: 43000,
+      8: 53000, 9: 64000, 10: 76000, 11: 89000, 12: 103000, 13: 118000,
+      14: 134000, 15: 151000, 16: 169000, 17: 188000, 18: 208000, 19: 229000,
+      20: 251000, 25: 376000, 30: 526000, 35: 701000, 40: 901000, 45: 1126000,
+      50: 1376000, 55: 1651000, 60: 1951000, 65: 2276000, 70: 2626000,
+      75: 3001000, 80: 3401000, 85: 3826000, 90: 4276000, 95: 4751000, 100: 5251000,
+    };
+    const FORT_REQS: Record<number, number> = {
+      1: 0, 2: 5, 3: 10, 4: 15, 5: 20, 6: 25, 7: 30, 8: 35, 9: 40, 10: 45,
+      11: 50, 12: 55, 13: 60, 14: 65, 15: 70, 16: 75, 17: 80, 18: 85, 19: 90,
+      20: 95, 21: 100, 22: 105, 23: 110, 24: 115,
+    };
+    const FORT_HP: Record<number, number> = {
+      1: 50, 2: 100, 3: 200, 4: 300, 5: 500, 6: 750, 7: 1000, 8: 1500, 9: 2000,
+      10: 2500, 11: 3000, 12: 3500, 13: 4000, 14: 4500, 15: 5000, 16: 5500,
+      17: 6000, 18: 6500, 19: 7000, 20: 7500, 21: 8000, 22: 8500, 23: 9000, 24: 9500,
+    };
+    const ARMORY_FORT_REQS = [0, 5, 10, 13, 17, 21];
+    const HOUSE_FORT_REQS = [0, 2, 6, 10, 14, 18, 22];
+    const ECONOMY_FORT_REQS = [0, 3, 7, 11, 15, 19, 23];
 
-      await tx.playerFortification.create({
-        data: {
-          player_id: newPlayer.id,
-          fort_level: 1,
-          hitpoints: 50,
-        },
-      });
+    const xpForLevel = (level: number): number => {
+      const levels = Object.keys(LEVEL_XP).map(Number).sort((a, b) => a - b);
+      for (let i = levels.length - 1; i >= 0; i--) {
+        if (levels[i]! <= level) return LEVEL_XP[levels[i]!]! + rand(0, 3000);
+      }
+      return rand(0, 3999);
+    };
+    const maxFortFor = (lvl: number): number => {
+      let m = 1;
+      for (const [f, r] of Object.entries(FORT_REQS)) if (lvl >= r) m = Math.max(m, Number(f));
+      return m;
+    };
+    const maxStructLevel = (fortLvl: number, reqs: number[]): number => {
+      let lvl = 1;
+      for (let i = 0; i < reqs.length; i++) if (fortLvl >= reqs[i]!) lvl = i + 1;
+      return lvl;
+    };
 
-      await tx.playerStats.create({
-        data: { player_id: newPlayer.id },
-      });
+    const usedNames = new Set<string>();
 
-      const bonusTypes = ['OFFENSE', 'DEFENSE', 'INTEL', 'PRICES', 'INCOME'] as const;
-      for (const bonusType of bonusTypes) {
-        await tx.playerBonusPoint.create({
-          data: {
-            player_id: newPlayer.id,
-            bonus_type: bonusType,
-            level: 0,
-          },
-        });
+    for (let i = 0; i < count; i++) {
+      const playerLevel = rand(minLevel, maxLevel);
+      const experience = xpForLevel(playerLevel);
+      const strategy = pick(STRATEGIES);
+      const maxFort = maxFortFor(playerLevel);
+      const fortLevel = Math.max(1, rand(Math.max(1, maxFort - 3), maxFort));
+
+      let displayName: string;
+      let attempts = 0;
+      do {
+        displayName = `${pick(PREFIXES)}${pick(SUFFIXES)}`;
+        if (attempts > 20) displayName += rand(1, 999);
+        attempts++;
+      } while (usedNames.has(displayName.toLowerCase()));
+      usedNames.add(displayName.toLowerCase());
+
+      const existing = await this.prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM players WHERE LOWER(display_name) = LOWER(${displayName}) LIMIT 1`;
+      if (existing.length > 0) {
+        displayName += rand(100, 999);
       }
 
-      await tx.botConfig.create({
-        data: {
-          player_id: newPlayer.id,
-          strategy: dto.strategy,
-          sessions_per_day: dto.sessionsPerDay ?? 3,
-          personality_seed: personalitySeed,
-          notes: dto.notes,
-        },
+      const race = pick(RACES);
+      const playerClass = pick(CLASSES);
+      const goldMultiplier = 1 + playerLevel * 0.5 + Math.pow(playerLevel, 1.5) * 0.1;
+      const baseGold = rand(5000, 100000) * goldMultiplier;
+      const houseLevel = rand(1, maxStructLevel(fortLevel, HOUSE_FORT_REQS));
+      const economyLevel = rand(1, maxStructLevel(fortLevel, ECONOMY_FORT_REQS));
+      const armoryLevel = rand(1, maxStructLevel(fortLevel, ARMORY_FORT_REQS));
+
+      const population = rand(50 + playerLevel * 10, 100 + playerLevel * 40 + Math.floor(Math.pow(playerLevel, 1.8)));
+      const citizens = Math.max(5, Math.floor(population * rand(5, 25) / 100));
+      const workers = Math.floor(population * rand(10, 30) / 100);
+      const combatBudget = population - citizens - workers;
+
+      let offPct = 25, defPct = 25, spyPct = 25, senPct = 25;
+      if (strategy === 'WARRIOR') { offPct = rand(50, 70); defPct = rand(10, 25); spyPct = rand(5, 15); senPct = 100 - offPct - defPct - spyPct; }
+      else if (strategy === 'TURTLE') { defPct = rand(50, 70); offPct = rand(10, 25); senPct = rand(5, 15); spyPct = 100 - offPct - defPct - senPct; }
+      else if (strategy === 'SPYMASTER') { spyPct = rand(40, 60); senPct = rand(15, 25); offPct = rand(5, 15); defPct = 100 - offPct - spyPct - senPct; }
+      else if (strategy === 'ECONOMIST') { offPct = rand(15, 25); defPct = rand(15, 25); spyPct = rand(10, 20); senPct = 100 - offPct - defPct - spyPct; }
+      else { offPct = rand(20, 30); defPct = rand(20, 30); spyPct = rand(15, 25); senPct = 100 - offPct - defPct - spyPct; }
+      senPct = Math.max(0, senPct); spyPct = Math.max(0, spyPct);
+
+      const offCount = Math.floor(combatBudget * offPct / 100);
+      const defCount = Math.floor(combatBudget * defPct / 100);
+      const spyCount = Math.floor(combatBudget * spyPct / 100);
+      const senCount = Math.max(0, combatBudget - offCount - defCount - spyCount);
+
+      const maxOffLvl = fortLevel >= 10 ? 4 : fortLevel >= 7 ? 3 : fortLevel >= 4 ? 2 : 1;
+      const maxDefLvl = fortLevel >= 10 ? 4 : fortLevel >= 7 ? 3 : fortLevel >= 4 ? 2 : 1;
+      const maxSpyLvl = fortLevel >= 12 ? 3 : fortLevel >= 8 ? 2 : 1;
+      const maxSenLvl = fortLevel >= 12 ? 3 : fortLevel >= 8 ? 2 : 1;
+      const maxWorkerLvl = fortLevel >= 7 ? 3 : fortLevel >= 3 ? 2 : 1;
+
+      type UnitRow = { unit_type: string; level: number; quantity: number };
+      const unitRows: UnitRow[] = [{ unit_type: 'CITIZEN', level: 1, quantity: citizens }];
+
+      if (workers > 0) {
+        const perLevel = Math.ceil(workers / maxWorkerLvl);
+        for (let l = 1; l <= maxWorkerLvl; l++) {
+          const qty = Math.min(perLevel, workers - (l - 1) * perLevel);
+          if (qty > 0) unitRows.push({ unit_type: 'WORKER', level: l, quantity: qty });
+        }
+      }
+
+      const addUnits = (type: string, total: number, maxLvl: number) => {
+        if (total <= 0) return;
+        if (maxLvl === 1) { unitRows.push({ unit_type: type, level: 1, quantity: total }); return; }
+        let rem = total;
+        for (let l = maxLvl; l >= 1; l--) {
+          const frac = l === 1 ? 1.0 : 1 / (l * 1.5);
+          const qty = l === 1 ? rem : Math.min(rem, Math.max(1, Math.floor(total * frac)));
+          if (qty > 0) { unitRows.push({ unit_type: type, level: l, quantity: qty }); rem -= qty; }
+        }
+      };
+      addUnits('OFFENSE', offCount, maxOffLvl);
+      addUnits('DEFENSE', defCount, maxDefLvl);
+      addUnits('SPY', spyCount, maxSpyLvl);
+      addUnits('SENTRY', senCount, maxSenLvl);
+
+      type ItemRow = { item_type: string; usage: string; level: number; quantity: number };
+      const itemRows: ItemRow[] = [];
+      const maxItemLvl = Math.min(10, armoryLevel * 2);
+      if (armoryLevel > 1 && playerLevel >= 3) {
+        for (const usage of ['OFFENSE', 'DEFENSE', 'SPY', 'SENTRY']) {
+          const unitCount = unitRows.filter((u) => u.unit_type === usage).reduce((s, u) => s + u.quantity, 0);
+          if (unitCount === 0) continue;
+          for (const itemType of ['WEAPON', 'ARMOR']) {
+            itemRows.push({ item_type: itemType, usage, level: rand(1, maxItemLvl), quantity: Math.max(1, Math.floor(unitCount * rand(30, 100) / 100)) });
+          }
+        }
+      }
+
+      type StructRow = { upgrade_type: string; level: number };
+      const structRows: StructRow[] = [];
+      const offUp = rand(1, Math.min(22, fortLevel));
+      const spyUp = rand(1, Math.min(22, fortLevel));
+      const senUp = rand(1, Math.min(22, fortLevel));
+      if (offUp > 1) structRows.push({ upgrade_type: 'OFFENSE', level: offUp });
+      if (spyUp > 1) structRows.push({ upgrade_type: 'SPY', level: spyUp });
+      if (senUp > 1) structRows.push({ upgrade_type: 'SENTRY', level: senUp });
+      if (armoryLevel > 1) structRows.push({ upgrade_type: 'ARMORY', level: armoryLevel });
+
+      const totalOff = unitRows.filter((u) => u.unit_type === 'OFFENSE').reduce((s, u) => s + u.quantity * u.level * 3, 0)
+        + itemRows.filter((it) => it.usage === 'OFFENSE').reduce((s, it) => s + it.quantity * it.level * 25, 0);
+      const totalDef = unitRows.filter((u) => u.unit_type === 'DEFENSE').reduce((s, u) => s + u.quantity * u.level * 3, 0)
+        + itemRows.filter((it) => it.usage === 'DEFENSE').reduce((s, it) => s + it.quantity * it.level * 25, 0);
+      const totalSpy = unitRows.filter((u) => u.unit_type === 'SPY').reduce((s, u) => s + u.quantity * u.level * 5, 0)
+        + itemRows.filter((it) => it.usage === 'SPY').reduce((s, it) => s + it.quantity * it.level * 12, 0);
+      const totalSen = unitRows.filter((u) => u.unit_type === 'SENTRY').reduce((s, u) => s + u.quantity * u.level * 5, 0)
+        + itemRows.filter((it) => it.usage === 'SENTRY').reduce((s, it) => s + it.quantity * it.level * 12, 0);
+
+      await this.prisma.$transaction(async (tx) => {
+        const player = await tx.player.create({
+          data: {
+            email: `bot-${crypto.randomUUID()}@bot.openthrone.local`,
+            display_name: displayName,
+            password_hash: passwordHash,
+            race, player_class: playerClass,
+            is_bot: true,
+            bio: `[BOT] ${strategy} — Level ${playerLevel}`,
+            last_active: new Date(),
+          },
+        });
+
+        await tx.botConfig.create({
+          data: {
+            player_id: player.id,
+            strategy,
+            is_active: true,
+            sessions_per_day: rand(2, 5),
+            personality_seed: rand(0, 1000000),
+            notes: `Generated: Lv${playerLevel} ${strategy}`,
+          },
+        });
+
+        await tx.playerEconomy.create({
+          data: {
+            player_id: player.id,
+            gold: BigInt(Math.floor(baseGold)),
+            gold_in_bank: BigInt(Math.floor(rand(0, 5) * baseGold)),
+            attack_turns: rand(10, 200),
+            house_level: houseLevel,
+            economy_level: economyLevel,
+          },
+        });
+
+        await tx.playerFortification.create({
+          data: {
+            player_id: player.id,
+            fort_level: fortLevel,
+            hitpoints: rand(Math.floor((FORT_HP[fortLevel] ?? 50) * 0.3), FORT_HP[fortLevel] ?? 50),
+          },
+        });
+
+        await tx.playerStats.create({
+          data: {
+            player_id: player.id,
+            experience, rank: 0,
+            offense: totalOff, defense: totalDef, spy: totalSpy, sentry: totalSen,
+            killing_str: 1, defense_str: 1, spying_str: 1, sentry_str: 1,
+          },
+        });
+
+        for (const u of unitRows) {
+          await tx.playerUnit.create({ data: { player_id: player.id, ...u } });
+        }
+        for (const it of itemRows) {
+          await tx.playerItem.create({ data: { player_id: player.id, ...it } });
+        }
+        for (const su of structRows) {
+          await tx.playerStructureUpgrade.create({ data: { player_id: player.id, ...su } });
+        }
+        for (const bt of ['OFFENSE', 'DEFENSE', 'INTEL', 'PRICES', 'INCOME']) {
+          await tx.playerBonusPoint.create({ data: { player_id: player.id, bonus_type: bt, level: 0 } });
+        }
       });
 
-      return newPlayer;
-    });
+      results.push({ displayName, level: playerLevel, strategy });
+    }
 
-    return { id: player.id, displayName: player.display_name, strategy: dto.strategy };
+    return { created: results.length, bots: results };
   }
 
   async listBots(
