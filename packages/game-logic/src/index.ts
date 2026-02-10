@@ -103,6 +103,19 @@ export type {
 } from './combat';
 
 export {
+  prioritizeActions,
+  calculateTrainingAllocation,
+  calculateBankAmount,
+  scoreTarget,
+  addHumanNoise,
+} from './bot-strategies';
+export type {
+  BotGameState,
+  BotTarget,
+  PrioritizedAction,
+} from './bot-strategies';
+
+export {
   EconomyUpgrades,
   OffensiveUpgrades,
   SpyUpgrades,

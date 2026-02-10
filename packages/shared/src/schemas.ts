@@ -13,6 +13,8 @@ import {
   AccountStatus,
   PermissionType,
   SpyMissionType,
+  BotStrategy,
+  BotActionType,
 } from './enums';
 
 // ─── Auth Schemas ────────────────────────────────────────────────────
@@ -260,6 +262,7 @@ export const battlePlayersQuerySchema = z.object({
   sort: z.enum(['rank', 'gold', 'level', 'population', 'fortLevel', 'displayName', 'attacksToday']).default('rank'),
   order: z.enum(['asc', 'desc']).default('asc'),
   inRange: z.coerce.boolean().optional(),
+  botFilter: z.enum(['all', 'bots', 'humans']).optional(),
 });
 
 export const battleRankingsQuerySchema = z.object({
@@ -330,6 +333,35 @@ export const shareIntelSchema = z.object({
   attackLogId: z.number().int(),
 });
 
+// ─── Bot Schemas ────────────────────────────────────────────────────
+
+export const createBotSchema = z.object({
+  displayName: z
+    .string()
+    .min(3)
+    .max(20)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, numbers, underscores, and hyphens'),
+  race: z.nativeEnum(PlayerRace),
+  class: z.nativeEnum(PlayerClass),
+  strategy: z.nativeEnum(BotStrategy),
+  sessionsPerDay: z.number().int().min(1).max(5).default(3),
+  notes: z.string().max(500).optional(),
+});
+
+export const updateBotSchema = z.object({
+  strategy: z.nativeEnum(BotStrategy).optional(),
+  isActive: z.boolean().optional(),
+  sessionsPerDay: z.number().int().min(1).max(5).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export const botActionLogsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  actionType: z.nativeEnum(BotActionType).optional(),
+  sessionId: z.string().optional(),
+});
+
 // ─── Inferred Types ──────────────────────────────────────────────────
 
 export type RegisterDto = z.infer<typeof registerSchema>;
@@ -376,3 +408,6 @@ export type SpyMissionDto = z.infer<typeof spyMissionSchema>;
 export type CombatSimulateDto = z.infer<typeof combatSimulateSchema>;
 export type CombatSimProfileDto = z.infer<typeof combatSimProfileSchema>;
 export type ShareIntelDto = z.infer<typeof shareIntelSchema>;
+export type CreateBotDto = z.infer<typeof createBotSchema>;
+export type UpdateBotDto = z.infer<typeof updateBotSchema>;
+export type BotActionLogsQueryDto = z.infer<typeof botActionLogsQuerySchema>;

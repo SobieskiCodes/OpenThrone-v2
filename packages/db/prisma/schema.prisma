@@ -76,6 +76,9 @@ model Player {
   intel_targets  AllianceIntel[] @relation("intel_target")
   intel_gathered AllianceIntel[] @relation("intel_spy")
 
+  is_bot     Boolean @default(false)
+  bot_config BotConfig?
+
   @@index([created_at])
   @@map("players")
 }
@@ -587,6 +590,45 @@ model MercenaryDailyPurchase {
 
   @@unique([player_id, unit_type])
   @@map("mercenary_daily_purchases")
+}
+
+model BotConfig {
+  id               Int       @id @default(autoincrement())
+  player_id        String    @unique
+  strategy         String    // BotStrategy: WARRIOR, TURTLE, ECONOMIST, SPYMASTER, BALANCED
+  is_active        Boolean   @default(true)
+  sessions_per_day Int       @default(3)
+  last_session_at  DateTime?
+  sessions_today   Int       @default(0)
+  personality_seed Int       @default(0)
+  notes            String?
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  player      Player         @relation(fields: [player_id], references: [id])
+  action_logs BotActionLog[]
+
+  @@index([is_active])
+  @@map("bot_configs")
+}
+
+model BotActionLog {
+  id            Int      @id @default(autoincrement())
+  bot_config_id Int
+  session_id    String
+  action_type   String   // BotActionType enum
+  action_data   String   // JSON params
+  result_data   String?  // JSON result
+  reasoning     String
+  success       Boolean  @default(true)
+  error_message String?
+  created_at    DateTime @default(now())
+
+  bot_config BotConfig @relation(fields: [bot_config_id], references: [id])
+
+  @@index([bot_config_id, created_at])
+  @@index([session_id])
+  @@map("bot_action_logs")
 }
 
 model AllianceIntel {
