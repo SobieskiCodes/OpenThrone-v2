@@ -1,0 +1,67 @@
+name: Deploy to Digital Ocean
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Droplet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            set -euo pipefail
+
+            APP_DIR=~/OpenThrone-v2
+
+            echo "==> Pulling latest code"
+            cd "$APP_DIR"
+            git fetch origin master
+            git reset --hard origin/master
+            git clean -fd
+
+            echo "==> Writing production .env"
+            cat > .env << 'ENVEOF'
+            ${{ secrets.PRODUCTION_ENV }}
+            ENVEOF
+            # Trim leading whitespace that GitHub Actions indentation adds
+            sed -i 's/^[[:space:]]*//' .env
+
+            # Symlink .env into subdirectories that need it
+            ln -sf "$APP_DIR/.env" "$APP_DIR/packages/db/.env"
+            ln -sf "$APP_DIR/.env" "$APP_DIR/apps/web/.env"
+            ln -sf "$APP_DIR/.env" "$APP_DIR/apps/api/.env"
+
+            echo "==> Swapping Prisma provider to postgresql"
+            sed -i 's/provider = "sqlite"/provider = "postgresql"/' packages/db/prisma/schema.prisma
+
+            echo "==> Installing dependencies"
+            pnpm install --frozen-lockfile
+
+            echo "==> Generating Prisma client & pushing schema"
+            pnpm db:generate
+            pnpm db:push
+
+            echo "==> Building all packages (--force skips Turborepo cache)"
+            NODE_OPTIONS="--max-old-space-size=1536" pnpm build --force
+
+            echo "==> Restoring Prisma schema (keep sqlite for git)"
+            git checkout packages/db/prisma/schema.prisma
+
+            echo "==> Restarting PM2 processes"
+            pm2 delete all 2>/dev/null || true
+            pm2 start ecosystem.config.cjs
+            pm2 save
+
+            echo "==> Health check"
+            sleep 10
+            curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/api | grep -qE '^[2-4]' && echo "API is healthy" || echo "WARNING: API health check failed"
+            curl -s -o /dev/null -w '%{http_code}' http://localhost:3000 | grep -q '^2' && echo "Web is healthy" || echo "WARNING: Web health check failed"
+
+            echo "==> Deploy complete"

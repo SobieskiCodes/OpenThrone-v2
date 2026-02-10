@@ -1,6 +1,6 @@
 # OpenThrone v2 - Architecture & Development Guide
 
-> See also: [DESIGN.md](./DESIGN.md) (game philosophy), [CONTRIBUTING.md](./CONTRIBUTING.md) (dev guide), [BACKLOG.md](./BACKLOG.md) (feature ideas)
+> See also: [DESIGN.md](./DESIGN.md) (game philosophy), [CONTRIBUTING.md](./CONTRIBUTING.md) (dev guide), [DEPLOY.md](./DEPLOY.md) (production deployment), [BACKLOG.md](./BACKLOG.md) (feature ideas)
 
 ## Quick Start
 
@@ -185,6 +185,18 @@ See `.env.example` for the full list. Key ones:
 | `NEXT_PUBLIC_TURNSTILE_SITE_ID` | `apps/web` | Cloudflare Turnstile CAPTCHA |
 | `TURNSTILE_SECRET` | `apps/api` | Turnstile server-side validation |
 | `ENABLE_*` | `apps/api` | Feature toggles |
+
+## Deployment
+
+Full details in [DEPLOY.md](./DEPLOY.md). Key points:
+
+- **Stack**: PM2 (fork mode) + Nginx reverse proxy + PostgreSQL in Docker on a Digital Ocean droplet
+- **Deploy**: `gh workflow run deploy.yml` (manual trigger via GitHub Actions)
+- **SQLite → PostgreSQL**: Deploy script swaps Prisma provider via `sed`, builds, then restores. Never build on the server without doing this swap first.
+- **`pnpm build --force`**: Always use `--force` in production — Turborepo cache doesn't hash `.env` files, so `NEXT_PUBLIC_*` vars can go stale.
+- **`NEXT_PUBLIC_API_URL`**: Must NOT include `/api` (api-client.ts adds it). Baked at build time.
+- **`AUTH_TRUST_HOST=true`**: Required for NextAuth v5 behind Nginx.
+- **PM2 fork mode only**: Next.js crashes in cluster mode.
 
 ## Never Do This
 

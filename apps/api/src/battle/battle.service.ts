@@ -71,7 +71,9 @@ export class BattleService {
       const attackerLevel = getLevelForXP(attackerStats?.experience ?? 0);
       const minLevel = Math.max(1, attackerLevel - 10);
       const maxLevel = attackerLevel + 10;
-      const minXP = getXPForLevel(minLevel);
+      // Level 1 includes players with 0 XP (getLevelForXP defaults to 1),
+      // so minXP must be 0 when minLevel is 1 to avoid excluding them
+      const minXP = minLevel <= 1 ? 0 : getXPForLevel(minLevel);
       // For maxLevel, use the XP threshold of maxLevel+1 as exclusive upper bound
       // If maxLevel+1 is beyond max, use a very large number
       const maxXP = getXPForLevel(maxLevel + 1) || Number.MAX_SAFE_INTEGER;
