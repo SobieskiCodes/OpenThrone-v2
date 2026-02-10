@@ -24,10 +24,8 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 - [ ] Battle report should link back to attack list easily
 
 ## Navigation / Notifications
-
-- [ ] Proficiency/upgrade badges should bubble up to parent nav group too (not just the child item)
-- [ ] Level-up should send in-game mail: congratulations + what's newly unlocked (buildings, units, etc.)
-- [ ] Attack/defense events should generate notifications
+- [ ] Level-up should send in-game mail: congratulations + what's newly unlocked (buildings, units, etc.) (user needs to be able to mark as read/delete)
+- [ ] Attack/defense events should generate notifications/mail
 
 ## Dashboard
 
@@ -60,11 +58,4 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 
 
-## ADD to todo
-get a loggout / unathorized bug quite frequently when in the background/idle - can't reconnect gotta log out and in (even refreshing)
-
-
-ip is 143.192.226.184 to see the test data
-
-
-open questions to discuss later - why did we go with a stateless design.
+## ADD to tod
