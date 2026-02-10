@@ -144,8 +144,10 @@ function GameShell({ children }: { children: React.ReactNode }) {
           <Group gap="sm">
             {session?.user?.name && (
               <Text
+                component={Link}
+                href={`/profile/${(session as any).user.id}`}
                 size="sm"
-                style={{ color: 'var(--ot-text-dim)' }}
+                style={{ color: 'var(--ot-text-dim)', textDecoration: 'none' }}
                 visibleFrom="xs"
               >
                 {session.user.name}
@@ -174,11 +176,17 @@ function GameShell({ children }: { children: React.ReactNode }) {
 
       {/* ── Sidebar ─────────────────────────────────────── */}
       <AppShell.Navbar className="ot-navbar" p="xs">
-        {/* Player info section (mobile) */}
+        {/* Player info section */}
         <AppShell.Section>
           {session?.user?.name && (
             <Stack gap={4} p="xs" mb={4}>
-              <Text fw={600} size="sm" style={{ color: 'var(--ot-gold)' }}>
+              <Text
+                component={Link}
+                href={`/profile/${(session as any).user.id}`}
+                fw={600}
+                size="sm"
+                style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
+              >
                 {session.user.name}
               </Text>
               <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
