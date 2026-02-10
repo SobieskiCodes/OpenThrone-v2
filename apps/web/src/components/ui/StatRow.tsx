@@ -15,16 +15,14 @@ export function StatRow({ label, value, valueColor, size = 'md' }: StatRowProps)
 
   return (
     <Group justify="space-between" wrap="nowrap">
-      <Text size={labelSize} c="dimmed">
+      <Text size={labelSize} className="ot-text-dim">
         {label}
       </Text>
       <Text
         size={valueSize}
         fw={600}
-        style={{
-          fontVariantNumeric: 'tabular-nums',
-          ...(valueColor ? { color: valueColor } : { color: 'var(--ot-accent)' }),
-        }}
+        className={valueColor ? undefined : 'ot-stat-value'}
+        style={valueColor ? { color: valueColor, fontVariantNumeric: 'tabular-nums' } : undefined}
       >
         {value}
       </Text>

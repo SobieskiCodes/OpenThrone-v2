@@ -8,7 +8,6 @@ import {
   Stack,
   Text,
   Button,
-  Divider,
   ScrollArea,
   ActionIcon,
   Badge,
@@ -24,6 +23,15 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useApi } from '@/hooks/use-api';
 import { RaceThemeProvider, useRaceTheme } from '@/context/race-theme';
+import { useCountdowns } from '@/hooks/use-countdowns';
+import { toLocale } from '@openthrone/game-logic';
+import {
+  IconCoins,
+  IconBolt,
+  IconClockHour4,
+  IconCalendar,
+  IconUsers,
+} from '@tabler/icons-react';
 
 const navItems = [
   { label: 'Home', href: '/home' },
@@ -75,6 +83,21 @@ const adminNavItems = [
   },
 ];
 
+interface MeData {
+  availablePoints?: number;
+  availableUpgrades?: number;
+  economy?: {
+    gold: string;
+    attackTurns: number;
+  };
+  stats?: {
+    rank: number;
+    experience: number;
+  };
+  units?: { unitType: string; level: number; quantity: number }[];
+  level?: number;
+}
+
 function GameShell({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
@@ -83,6 +106,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme('dark');
   const { race, colorName } = useRaceTheme();
+  const countdowns = useCountdowns();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
 
   const { data: unreadData } = useQuery<{ count: number }>({
@@ -93,7 +117,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
   });
   const unreadCount = unreadData?.count ?? 0;
 
-  const { data: meData } = useQuery<{ availablePoints?: number; availableUpgrades?: number }>({
+  const { data: meData } = useQuery<MeData>({
     queryKey: ['player', 'me'],
     queryFn: () => api.get('/player/me'),
     enabled: isReady,
@@ -101,6 +125,11 @@ function GameShell({ children }: { children: React.ReactNode }) {
   });
   const availablePoints = meData?.availablePoints ?? 0;
   const availableUpgrades = meData?.availableUpgrades ?? 0;
+  const gold = meData?.economy?.gold;
+  const attackTurns = meData?.economy?.attackTurns;
+  const citizens = meData?.units?.find((u) => u.unitType === 'CITIZEN' && u.level === 1)?.quantity ?? 0;
+  const rank = meData?.stats?.rank;
+  const level = meData?.level;
   const permissions: string[] = (session as any)?.permissions ?? [];
   const isAdmin = permissions.includes('ADMINISTRATOR');
   const allNavItems = isAdmin ? [...navItems, ...adminNavItems] : navItems;
@@ -139,8 +168,8 @@ function GameShell({ children }: { children: React.ReactNode }) {
             />
             <Title
               order={3}
+              className="ot-text-accent"
               style={{
-                color: 'var(--ot-gold)',
                 letterSpacing: '0.02em',
                 cursor: 'pointer',
               }}
@@ -149,13 +178,52 @@ function GameShell({ children }: { children: React.ReactNode }) {
               OpenThrone
             </Title>
           </Group>
+
+          {/* Quick stats + timers — desktop only */}
+          {meData && (
+            <Group gap="md" visibleFrom="sm">
+              {gold != null && (
+                <Group gap={4} className="ot-status-item">
+                  <IconCoins size={14} style={{ color: 'var(--ot-accent)' }} />
+                  <span className="ot-status-item-value">{toLocale(Number(gold))}</span>
+                </Group>
+              )}
+              {attackTurns != null && (
+                <Group gap={4} className="ot-status-item">
+                  <IconBolt size={14} style={{ color: 'var(--ot-accent)' }} />
+                  <span className="ot-status-item-value">{attackTurns}</span>
+                </Group>
+              )}
+              {citizens > 0 && (
+                <Group gap={4} className="ot-status-item">
+                  <IconUsers size={14} style={{ color: 'var(--ot-warning)' }} />
+                  <span className="ot-status-item-value" style={{ color: 'var(--ot-warning)' }}>
+                    {toLocale(citizens)}
+                  </span>
+                  <span style={{ color: 'var(--ot-warning)' }}>idle</span>
+                </Group>
+              )}
+              <Group gap={4} className="ot-status-item">
+                <IconClockHour4 size={14} style={{ color: 'var(--ot-text-dim)' }} />
+                <span>Next:</span>
+                <span className="ot-status-item-value">{countdowns.nextTurn}</span>
+              </Group>
+              <Group gap={4} className="ot-status-item">
+                <IconCalendar size={14} style={{ color: 'var(--ot-text-dim)' }} />
+                <span>Reset:</span>
+                <span className="ot-status-item-value">{countdowns.dailyReset}</span>
+              </Group>
+            </Group>
+          )}
+
           <Group gap="sm">
             {session?.user?.name && (
               <Text
                 component={Link}
                 href={`/profile/${(session as any).user.id}`}
                 size="sm"
-                style={{ color: 'var(--ot-text-dim)', textDecoration: 'none' }}
+                className="ot-text-dim"
+                style={{ textDecoration: 'none' }}
                 visibleFrom="xs"
               >
                 {session.user.name}
@@ -174,7 +242,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
               size="lg"
               onClick={toggleColorScheme}
               aria-label="Toggle color scheme"
-              style={{ color: 'var(--ot-text-dim)' }}
+              className="ot-text-dim"
             >
               {computedColorScheme === 'dark' ? '\u2600' : '\u263E'}
             </ActionIcon>
@@ -187,21 +255,23 @@ function GameShell({ children }: { children: React.ReactNode }) {
         {/* Player info section */}
         <AppShell.Section>
           {session?.user?.name && (
-            <Stack gap={4} p="xs" mb={4}>
+            <Stack gap={4} p="xs" mb={0}>
               <Text
                 component={Link}
                 href={`/profile/${(session as any).user.id}`}
                 fw={600}
                 size="sm"
-                style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
+                className="ot-text-accent"
+                style={{ textDecoration: 'none' }}
               >
                 {session.user.name}
               </Text>
-              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+              <Text size="xs" className="ot-text-dim">
                 {session.user.email}
               </Text>
             </Stack>
           )}
+
           <Box className="ot-divider" mb="xs" />
         </AppShell.Section>
 

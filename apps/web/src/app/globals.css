@@ -254,6 +254,102 @@ body {
   animation: ot-badge-pulse 2s ease-in-out infinite;
 }
 
+/* ── Stagger Animation ──────────────────────────────────────────── */
+.ot-stagger > * {
+  opacity: 0;
+  animation: ot-fadeInUp 0.35s ease both;
+}
+.ot-stagger > *:nth-child(1)  { animation-delay: 0s; }
+.ot-stagger > *:nth-child(2)  { animation-delay: 0.04s; }
+.ot-stagger > *:nth-child(3)  { animation-delay: 0.08s; }
+.ot-stagger > *:nth-child(4)  { animation-delay: 0.12s; }
+.ot-stagger > *:nth-child(5)  { animation-delay: 0.16s; }
+.ot-stagger > *:nth-child(6)  { animation-delay: 0.20s; }
+.ot-stagger > *:nth-child(7)  { animation-delay: 0.24s; }
+.ot-stagger > *:nth-child(8)  { animation-delay: 0.28s; }
+.ot-stagger > *:nth-child(9)  { animation-delay: 0.32s; }
+.ot-stagger > *:nth-child(10) { animation-delay: 0.36s; }
+.ot-stagger > *:nth-child(11) { animation-delay: 0.40s; }
+.ot-stagger > *:nth-child(12) { animation-delay: 0.44s; }
+
+/* ── Card Header Strip ──────────────────────────────────────────── */
+.ot-card-header {
+  background: var(--ot-bg-surface-2);
+  border-bottom: 1px solid var(--ot-border);
+  margin: calc(-1 * var(--mantine-spacing-lg));
+  margin-bottom: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
+  border-radius: var(--mantine-radius-lg) var(--mantine-radius-lg) 0 0;
+}
+
+/* ── Featured Card ──────────────────────────────────────────────── */
+.ot-card-featured {
+  border-color: var(--ot-border-highlight) !important;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 0 0 1px var(--ot-border-subtle);
+}
+
+/* ── Status Strip (dashboard top bar) ──────────────────────────── */
+.ot-status-strip {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-bottom: 1px solid var(--ot-border-subtle);
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+/* ── Tooltip Hint (dotted underline) ────────────────────────────── */
+.ot-tooltip-hint {
+  cursor: help;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+/* ── Text Utilities ─────────────────────────────────────────────── */
+.ot-text-dim     { color: var(--ot-text-dim); }
+.ot-text-accent  { color: var(--ot-accent); }
+.ot-text-success { color: var(--ot-success); }
+.ot-text-danger  { color: var(--ot-danger); }
+
+/* ── Countdown / Timer Values ───────────────────────────────────── */
+.ot-countdown {
+  color: var(--ot-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Sidebar Quick Stats ────────────────────────────────────────── */
+.ot-sidebar-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.ot-sidebar-stats dt {
+  color: var(--ot-text-dim);
+  font-weight: 400;
+}
+.ot-sidebar-stats dd {
+  color: var(--ot-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  margin: 0;
+}
+
+/* ── Header Status Items ────────────────────────────────────────── */
+.ot-status-item {
+  font-size: 12px;
+  color: var(--ot-text-dim);
+}
+.ot-status-item-value {
+  color: var(--ot-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── AppShell Overrides ──────────────────────────────────────────── */
 
 .ot-navbar {
