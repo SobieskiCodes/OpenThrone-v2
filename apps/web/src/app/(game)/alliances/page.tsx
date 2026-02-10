@@ -18,7 +18,8 @@ import {
   Switch,
   Accordion,
 } from '@mantine/core';
-import { OTCard } from '@/components/ui';
+import { OTCard, ActivityFeedItem } from '@/components/ui';
+import type { ActivityItem } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
@@ -64,6 +65,28 @@ interface AllianceDetail {
   createdAt: string;
   members: AllianceMember[];
   roles: { id: number; name: string; permissions: Record<string, boolean> }[];
+}
+
+function AllianceActivityFeed({ allianceId }: { allianceId: number }) {
+  const { api, isReady } = useApi();
+  const { data } = useQuery<{ data: ActivityItem[] }>({
+    queryKey: ['activity', 'alliance', allianceId],
+    queryFn: () => api.get(`/activity/alliance/${allianceId}?limit=10`),
+    enabled: isReady,
+  });
+
+  if (!data || data.data.length === 0) return null;
+
+  return (
+    <Paper withBorder p="md">
+      <Text fw={500} mb="sm">Alliance Activity</Text>
+      <Stack gap="xs">
+        {data.data.map((item) => (
+          <ActivityFeedItem key={item.id} item={item} showPlayerName />
+        ))}
+      </Stack>
+    </Paper>
+  );
 }
 
 export default function AlliancesPage() {
@@ -294,6 +317,9 @@ export default function AlliancesPage() {
             </Table.Tbody>
           </Table>
         </Paper>
+
+        {/* Alliance Activity */}
+        <AllianceActivityFeed allianceId={alliance.id} />
 
         {/* Leave */}
         <Button

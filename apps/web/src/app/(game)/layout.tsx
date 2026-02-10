@@ -63,6 +63,7 @@ const navItems = [
     label: 'World',
     children: [
       { label: 'Rankings', href: '/world/rankings' },
+      { label: 'Activity', href: '/world/activity' },
       { label: 'Alliances', href: '/alliances' },
       { label: 'Messaging', href: '/messaging' },
       { label: 'Recruit', href: '/recruit' },

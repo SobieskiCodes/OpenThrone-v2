@@ -30,9 +30,7 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 ## Dashboard
 
-- [ ] Activity feed of recent attacks/events (not just your own battles — server-wide or alliance-wide)
-- [ ] The dashboard needs to display citizen count - perhaps unit count? TBD
-- [ ] Gold per turn should show daily total/prediction at current rate
+- [ ] Activity feed of recent attacks/events (not just your own battles — server-wide or alliance-wide needs both tabs) this aligns with the event system needed for profiles (see todo above)
 
 ## Leaderboard
 
@@ -63,4 +61,5 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 
 
-## ADD to tod
+## ADD to todo
+i might consider something like a retail bonus later it would only show up in the alliance feed for ~10m with a "retaliate" button which has some type of bonus to it - either reward or damage

@@ -15,6 +15,7 @@ import {
   SpyMissionType,
   BotStrategy,
   BotActionType,
+  ActivityType,
 } from './enums';
 
 // ─── Auth Schemas ────────────────────────────────────────────────────
@@ -362,6 +363,15 @@ export const botActionLogsQuerySchema = z.object({
   sessionId: z.string().optional(),
 });
 
+// ─── Activity Feed Schemas ──────────────────────────────────────────
+
+export const activityFeedQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  type: z.nativeEnum(ActivityType).optional(),
+  direction: z.enum(['all', 'outgoing', 'incoming']).default('all'),
+});
+
 // ─── Inferred Types ──────────────────────────────────────────────────
 
 export type RegisterDto = z.infer<typeof registerSchema>;
@@ -411,3 +421,4 @@ export type ShareIntelDto = z.infer<typeof shareIntelSchema>;
 export type CreateBotDto = z.infer<typeof createBotSchema>;
 export type UpdateBotDto = z.infer<typeof updateBotSchema>;
 export type BotActionLogsQueryDto = z.infer<typeof botActionLogsQuerySchema>;
+export type ActivityFeedQueryDto = z.infer<typeof activityFeedQuerySchema>;

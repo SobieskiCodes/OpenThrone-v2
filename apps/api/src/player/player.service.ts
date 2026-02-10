@@ -64,6 +64,12 @@ export class PlayerService {
         bonus_points: true,
         stats: true,
         permission_grants: { select: { type: true } },
+        alliance_membership: {
+          select: {
+            alliance: { select: { id: true, name: true } },
+            role: { select: { name: true } },
+          },
+        },
       },
     });
 
@@ -142,6 +148,11 @@ export class PlayerService {
           }
         : null,
       permissions: player.permission_grants.map((p) => p.type),
+      alliances: player.alliance_membership.map((m) => ({
+        id: m.alliance.id,
+        name: m.alliance.name,
+        role: m.role.name,
+      })),
       availablePoints: level - player.bonus_points.reduce((sum, bp) => sum + bp.level, 0),
       availableUpgrades: this.countAvailableUpgrades(player, level),
     };
@@ -225,6 +236,12 @@ export class PlayerService {
         units: {
           select: {
             quantity: true,
+          },
+        },
+        alliance_membership: {
+          select: {
+            alliance: { select: { id: true, name: true } },
+            role: { select: { name: true } },
           },
         },
       },
@@ -395,6 +412,11 @@ export class PlayerService {
         defense: defenseRank + 1,
         netWorth: netWorthCount + 1,
       },
+      alliances: player.alliance_membership.map((m) => ({
+        id: m.alliance.id,
+        name: m.alliance.name,
+        role: m.role.name,
+      })),
       allianceIntel,
       personalLastSpy,
     };

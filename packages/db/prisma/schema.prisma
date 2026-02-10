@@ -76,6 +76,9 @@ model Player {
   intel_targets  AllianceIntel[] @relation("intel_target")
   intel_gathered AllianceIntel[] @relation("intel_spy")
 
+  activities_performed ActivityLog[] @relation("activity_actor")
+  activities_targeted  ActivityLog[] @relation("activity_target")
+
   is_bot     Boolean @default(false)
   bot_config BotConfig?
 
@@ -649,4 +652,22 @@ model AllianceIntel {
   @@index([alliance_id, target_id])
   @@index([attack_log_id])
   @@map("alliance_intel")
+}
+
+model ActivityLog {
+  id            Int       @id @default(autoincrement())
+  player_id     String
+  activity_type String    // ActivityType enum
+  target_id     String?
+  reference_id  Int?      // link to attack_log.id etc.
+  metadata      String?   // JSON text (SQLite compat)
+  is_public     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+
+  player  Player  @relation("activity_actor", fields: [player_id], references: [id])
+  target  Player? @relation("activity_target", fields: [target_id], references: [id])
+
+  @@index([player_id, created_at])
+  @@index([created_at])
+  @@map("activity_log")
 }

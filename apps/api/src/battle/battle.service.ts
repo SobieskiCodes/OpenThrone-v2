@@ -32,6 +32,7 @@ import {
   AttackExecutedEvent,
   SpyMissionExecutedEvent,
   FortDamagedEvent,
+  LeveledUpEvent,
 } from '@openthrone/events';
 
 @Injectable()
@@ -686,6 +687,24 @@ export class BattleService {
       this.eventEmitter.emit(
         'combat.fort_damaged',
         new FortDamagedEvent(defenderId, scaledFortDamage, newHP),
+      );
+    }
+
+    // Check for level-ups from XP gained
+    const attackerOldLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
+    const attackerNewLevel = getLevelForXP((attackerPlayer.stats?.experience ?? 0) + scaledAttackerXP);
+    if (attackerNewLevel > attackerOldLevel) {
+      this.eventEmitter.emit(
+        'account.leveled_up',
+        new LeveledUpEvent(attackerId, attackerOldLevel, attackerNewLevel),
+      );
+    }
+    const defenderOldLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
+    const defenderNewLevel = getLevelForXP((defenderPlayer.stats?.experience ?? 0) + scaledDefenderXP);
+    if (defenderNewLevel > defenderOldLevel) {
+      this.eventEmitter.emit(
+        'account.leveled_up',
+        new LeveledUpEvent(defenderId, defenderOldLevel, defenderNewLevel),
       );
     }
 

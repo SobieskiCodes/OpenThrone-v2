@@ -21,6 +21,7 @@ import { BattleModule } from './battle/battle.module';
 import { AdminModule } from './admin/admin.module';
 import { BotModule } from './bot/bot.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { ActivityModule } from './activity/activity.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     AdminModule,
     BotModule,
     SchedulerModule,
+    ActivityModule,
   ],
   providers: [
     {

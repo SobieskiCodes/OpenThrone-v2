@@ -16,7 +16,9 @@ import {
   Button,
   ThemeIcon,
 } from '@mantine/core';
-import { OTCard, StatRow, TooltipStat } from '@/components/ui';
+import { OTCard, StatRow, TooltipStat, ActivityFeedItem } from '@/components/ui';
+import type { ActivityItem } from '@/components/ui';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRaceTheme } from '@/context/race-theme';
@@ -46,6 +48,8 @@ import {
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
+type ActivityScope = 'my' | 'alliance' | 'server';
+
 interface PlayerUnit {
   unitType: string;
   level: number;
@@ -59,11 +63,18 @@ interface PlayerItem {
   quantity: number;
 }
 
+interface PlayerAlliance {
+  id: number;
+  name: string;
+  role: string;
+}
+
 interface PlayerData {
   id: string;
   displayName: string;
   race: string;
   class: string;
+  alliances?: PlayerAlliance[];
   economy: {
     gold: string;
     goldInBank: string;
@@ -172,22 +183,6 @@ interface BreakdownData {
   ranks?: RankPositions;
 }
 
-interface BattleLogEntry {
-  id: number;
-  attacker: { id: string; displayName: string; race: string };
-  defender: { id: string; displayName: string; race: string };
-  winner: string;
-  type: string;
-  goldStolen: string;
-  timestamp: string;
-  isAttacker: boolean;
-}
-
-interface BattleHistoryResponse {
-  data: BattleLogEntry[];
-  pagination: { page: number; limit: number; total: number; totalPages: number };
-}
-
 interface MailItem {
   id: number;
   subject: string;
@@ -268,6 +263,7 @@ export default function DashboardPage() {
   const { api, isReady } = useApi();
   const { colorName } = useRaceTheme();
   const countdowns = useCountdowns();
+  const [activityScope, setActivityScope] = useState<ActivityScope>('my');
 
   const { data: player, isLoading } = useQuery<PlayerData>({
     queryKey: ['player', 'me'],
@@ -281,11 +277,30 @@ export default function DashboardPage() {
     enabled: isReady,
   });
 
-  const { data: battles } = useQuery<BattleHistoryResponse>({
-    queryKey: ['battle', 'history', 'dashboard'],
-    queryFn: () => api.get('/battle/history?limit=5'),
-    enabled: isReady,
+  const firstAllianceId = player?.alliances?.[0]?.id;
+
+  const { data: myFeed } = useQuery<{ data: ActivityItem[] }>({
+    queryKey: ['activity', 'me', 'dashboard'],
+    queryFn: () => api.get('/activity/me?limit=5'),
+    enabled: isReady && activityScope === 'my',
   });
+
+  const { data: allianceFeed } = useQuery<{ data: ActivityItem[] }>({
+    queryKey: ['activity', 'alliance', firstAllianceId, 'dashboard'],
+    queryFn: () => api.get(`/activity/alliance/${firstAllianceId}?limit=5`),
+    enabled: isReady && activityScope === 'alliance' && !!firstAllianceId,
+  });
+
+  const { data: serverFeed } = useQuery<{ data: ActivityItem[] }>({
+    queryKey: ['activity', 'server', 'dashboard'],
+    queryFn: () => api.get('/activity/server?limit=5'),
+    enabled: isReady && activityScope === 'server',
+  });
+
+  const activeFeed =
+    activityScope === 'alliance' ? allianceFeed
+    : activityScope === 'server' ? serverFeed
+    : myFeed;
 
   const { data: mail } = useQuery<MailResponse>({
     queryKey: ['mail', 'dashboard'],
@@ -506,7 +521,7 @@ export default function DashboardPage() {
                 </OTCard>
               </SimpleGrid>
 
-              {/* Recent Activity (Battles + Messages) */}
+              {/* Recent Activity (Activity Feed + Messages) */}
               <OTCard header={
                 <Group justify="space-between" align="center">
                   <Group gap="xs" align="center">
@@ -514,8 +529,8 @@ export default function DashboardPage() {
                     <Title order={4}>Recent Activity</Title>
                   </Group>
                   <Group gap="md">
-                    <Anchor component={Link} href="/battle/history" size="xs">
-                      Battles
+                    <Anchor component={Link} href="/world/activity" size="xs">
+                      Activity
                     </Anchor>
                     <Anchor component={Link} href="/messaging" size="xs">
                       Messages {unreadCount > 0 && (
@@ -528,53 +543,34 @@ export default function DashboardPage() {
                 </Group>
               }>
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                  {/* Battles column */}
+                  {/* Activity column */}
                   <Stack gap="xs">
-                    <Text size="xs" fw={600} className="ot-text-dim" tt="uppercase">Battles</Text>
-                    {battles && battles.data.length > 0 ? (
-                      battles.data.slice(0, 5).map((battle) => {
-                        const won = battle.isAttacker
-                          ? battle.winner === battle.attacker.id
-                          : battle.winner === battle.defender.id;
-                        const opponent = battle.isAttacker ? battle.defender : battle.attacker;
-                        const action = battle.isAttacker ? 'Attacked' : 'Defended vs';
-                        return (
-                          <Anchor
-                            key={battle.id}
-                            component={Link}
-                            href={`/battle/report/${battle.id}`}
-                            underline="never"
-                            style={{ display: 'block' }}
-                          >
-                            <Group justify="space-between" gap="xs">
-                              <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
-                                <Badge
-                                  size="xs"
-                                  variant="light"
-                                  color={won ? 'green' : 'red'}
-                                  style={{ flexShrink: 0 }}
-                                >
-                                  {won ? 'W' : 'L'}
-                                </Badge>
-                                <Text size="xs" truncate className="ot-text-dim">
-                                  {action}{' '}
-                                  <Text span fw={600} className="ot-text-accent">
-                                    {opponent.displayName}
-                                  </Text>
-                                </Text>
-                              </Group>
-                              {battle.isAttacker && Number(battle.goldStolen) > 0 && (
-                                <Text size="xs" className="ot-text-success" style={{ flexShrink: 0 }}>
-                                  +{toLocale(Number(battle.goldStolen))}g
-                                </Text>
-                              )}
-                            </Group>
-                          </Anchor>
-                        );
-                      })
+                    <Group gap={6}>
+                      {(['my', 'alliance', 'server'] as const).map((scope) => (
+                        <Badge
+                          key={scope}
+                          variant={activityScope === scope ? 'filled' : 'light'}
+                          color={activityScope === scope ? 'blue' : 'gray'}
+                          size="xs"
+                          style={{ cursor: scope === 'alliance' && !firstAllianceId ? 'default' : 'pointer', opacity: scope === 'alliance' && !firstAllianceId ? 0.4 : 1 }}
+                          onClick={() => {
+                            if (scope === 'alliance' && !firstAllianceId) return;
+                            setActivityScope(scope);
+                          }}
+                        >
+                          {scope === 'my' ? 'My' : scope === 'alliance' ? 'Alliance' : 'Server'}
+                        </Badge>
+                      ))}
+                    </Group>
+                    {activeFeed && activeFeed.data.length > 0 ? (
+                      activeFeed.data.map((item) => (
+                        <ActivityFeedItem key={item.id} item={item} showPlayerName={activityScope !== 'my'} />
+                      ))
                     ) : (
                       <Text size="xs" className="ot-text-dim">
-                        No battles yet.
+                        {activityScope === 'alliance' && !firstAllianceId
+                          ? 'Join an alliance to see activity.'
+                          : 'No activity yet.'}
                       </Text>
                     )}
                   </Stack>

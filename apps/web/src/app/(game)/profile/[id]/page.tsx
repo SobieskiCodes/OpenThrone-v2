@@ -17,7 +17,8 @@ import {
   Tooltip,
   Slider,
 } from '@mantine/core';
-import { OTCard, StatRow } from '@/components/ui';
+import { OTCard, StatRow, ActivityFeedItem } from '@/components/ui';
+import type { ActivityItem } from '@/components/ui';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
@@ -25,6 +26,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useApi } from '@/hooks/use-api';
+import Link from 'next/link';
+import { IconHistory } from '@tabler/icons-react';
+
+type ActivityDirection = 'all' | 'outgoing' | 'incoming';
 import { getFortificationByLevel, getLevelForXP, toLocale } from '@openthrone/game-logic';
 
 interface AllianceIntelData {
@@ -70,6 +75,7 @@ interface PlayerProfile {
     defense: number;
     netWorth: number;
   };
+  alliances?: { id: number; name: string; role: string }[];
   allianceIntel?: AllianceIntelData | null;
   personalLastSpy?: PersonalLastSpy | null;
 }
@@ -88,6 +94,7 @@ export default function PlayerProfilePage() {
   const queryClient = useQueryClient();
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
   const [attackTurns, setAttackTurns] = useState(1);
+  const [activityDirection, setActivityDirection] = useState<ActivityDirection>('all');
 
   const { data: player, isLoading } = useQuery<PlayerProfile>({
     queryKey: ['player', params.id],
@@ -99,6 +106,12 @@ export default function PlayerProfilePage() {
     queryKey: ['player', 'me'],
     queryFn: () => api.get('/player/me'),
     enabled: isReady,
+  });
+
+  const { data: activityData } = useQuery<{ data: ActivityItem[] }>({
+    queryKey: ['activity', 'player', params.id, activityDirection],
+    queryFn: () => api.get(`/activity/player/${params.id}?limit=10&direction=${activityDirection}`),
+    enabled: !!params.id && isReady,
   });
 
   const myAttackTurns = meData?.economy?.attackTurns ?? 0;
@@ -215,6 +228,18 @@ export default function PlayerProfilePage() {
                 <Badge variant="filled" color="orange" leftSection={'\u2B50'}>
                   Alpha Tester
                 </Badge>
+                {player.alliances && player.alliances.map((a) => (
+                  <Badge
+                    key={a.id}
+                    variant="light"
+                    color="indigo"
+                    component={Link}
+                    href="/alliances"
+                    style={{ cursor: 'pointer', textDecoration: 'none' }}
+                  >
+                    {a.name} ({a.role})
+                  </Badge>
+                ))}
               </Group>
               <Group gap="lg">
                 <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
@@ -378,6 +403,42 @@ export default function PlayerProfilePage() {
               </Stack>
             </OTCard>
           )}
+
+          {/* Recent Activity */}
+          <OTCard header={
+            <Group justify="space-between" align="center">
+              <Group gap="xs" align="center">
+                <IconHistory size={18} style={{ color: 'var(--ot-text-dim)' }} />
+                <Title order={4}>Recent Activity</Title>
+              </Group>
+              <Group gap={6}>
+                {(['all', 'outgoing', 'incoming'] as const).map((dir) => (
+                  <Badge
+                    key={dir}
+                    variant={activityDirection === dir ? 'filled' : 'light'}
+                    color={activityDirection === dir ? 'blue' : 'gray'}
+                    size="xs"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setActivityDirection(dir)}
+                  >
+                    {dir === 'all' ? 'All' : dir === 'outgoing' ? 'Outgoing' : 'Incoming'}
+                  </Badge>
+                ))}
+              </Group>
+            </Group>
+          }>
+            <Stack gap="xs">
+              {activityData && activityData.data.length > 0 ? (
+                activityData.data.map((item) => (
+                  <ActivityFeedItem key={item.id} item={item} showPlayerName />
+                ))
+              ) : (
+                <Text size="xs" className="ot-text-dim">
+                  No activity yet.
+                </Text>
+              )}
+            </Stack>
+          </OTCard>
 
           {/* Combat Stats */}
           <OTCard>
