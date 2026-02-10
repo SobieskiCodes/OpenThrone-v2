@@ -58,3 +58,14 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 ## Future Ideas
 - [ ] Specialization trees (warlord / economist / spymaster)
 - [ ] "Business mode"
+
+
+
+## ADD to todo
+get a loggout / unathorized bug quite frequently when in the background/idle - can't reconnect gotta log out and in (even refreshing)
+
+
+ip is 143.192.226.184 to see the test data
+
+
+open questions to discuss later - why did we go with a stateless design.

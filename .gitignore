@@ -25,3 +25,5 @@ coverage/
 
 # Docker
 docker/data/
+.claude/settings.local.json
+packages/db/dev.db
