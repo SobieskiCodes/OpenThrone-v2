@@ -63,6 +63,12 @@ interface PlayerProfile {
   fortification: {
     fortLevel: number;
   } | null;
+  ranks?: {
+    overall: number;
+    offense: number;
+    defense: number;
+    netWorth: number;
+  };
   allianceIntel?: AllianceIntelData | null;
   personalLastSpy?: PersonalLastSpy | null;
 }
@@ -184,9 +190,9 @@ export default function PlayerProfilePage() {
             <Stack gap="xs" style={{ flex: 1 }}>
               <Group justify="space-between" align="center">
                 <Title order={2}>{player.displayName}</Title>
-                {rank > 0 && (
+                {player.ranks && player.ranks.overall > 0 && (
                   <Badge variant="filled" color="yellow" size="lg">
-                    Rank #{rank}
+                    Rank #{player.ranks.overall}
                   </Badge>
                 )}
               </Group>
@@ -312,6 +318,60 @@ export default function PlayerProfilePage() {
             </Paper>
           </SimpleGrid>
         </OTCard>
+
+          {/* Rankings */}
+          {player.ranks && (
+            <OTCard>
+              <Stack gap="sm">
+                <Tooltip
+                  label={
+                    <Stack gap={2}>
+                      <Text size="xs" fw={700}>Overall Rank Formula</Text>
+                      <Text size="xs">Offense: 1.0x weight</Text>
+                      <Text size="xs">Defense: 1.0x weight</Text>
+                      <Text size="xs">Spy: 1.25x weight</Text>
+                      <Text size="xs">Sentry: 1.25x weight</Text>
+                      <Text size="xs">Fort Level: exponential bonus</Text>
+                      <Text size="xs">XP: small bonus</Text>
+                      <Text size="xs">Net Worth: log scale bonus</Text>
+                    </Stack>
+                  }
+                  multiline
+                  w={220}
+                >
+                  <Title order={4} style={{ cursor: 'help', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
+                    Rankings
+                  </Title>
+                </Tooltip>
+                <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+                  <Paper p="xs" withBorder ta="center">
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Overall</Text>
+                    <Text fw={700} size="lg" style={{ color: 'var(--ot-gold)' }}>
+                      #{player.ranks.overall}
+                    </Text>
+                  </Paper>
+                  <Paper p="xs" withBorder ta="center">
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Offense</Text>
+                    <Text fw={700} size="lg" style={{ color: 'var(--ot-gold)' }}>
+                      #{player.ranks.offense}
+                    </Text>
+                  </Paper>
+                  <Paper p="xs" withBorder ta="center">
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Defense</Text>
+                    <Text fw={700} size="lg" style={{ color: 'var(--ot-gold)' }}>
+                      #{player.ranks.defense}
+                    </Text>
+                  </Paper>
+                  <Paper p="xs" withBorder ta="center">
+                    <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Net Worth</Text>
+                    <Text fw={700} size="lg" style={{ color: 'var(--ot-gold)' }}>
+                      #{player.ranks.netWorth}
+                    </Text>
+                  </Paper>
+                </SimpleGrid>
+              </Stack>
+            </OTCard>
+          )}
 
           {/* Combat Stats */}
           <OTCard>

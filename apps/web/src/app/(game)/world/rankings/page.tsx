@@ -13,6 +13,7 @@ import {
   Paper,
   SegmentedControl,
   UnstyledButton,
+  Tooltip,
 } from '@mantine/core';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -283,12 +284,36 @@ export default function RankingsPage() {
         </Group>
 
         {/* Rankings title */}
-        <Title order={3} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span>{subType.icon}</span>
-          <span style={{ textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-            {subType.label} Rankings
-          </span>
-        </Title>
+        <Group gap="sm" align="center">
+          <Title order={3} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{subType.icon}</span>
+            <span style={{ textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+              {subType.label} Rankings
+            </span>
+          </Title>
+          {subTypeValue === 'overall_power' && (
+            <Tooltip
+              label={
+                <Stack gap={2}>
+                  <Text size="xs" fw={700}>Overall Rank Formula</Text>
+                  <Text size="xs">Offense: 1.0x weight</Text>
+                  <Text size="xs">Defense: 1.0x weight</Text>
+                  <Text size="xs">Spy: 1.25x weight</Text>
+                  <Text size="xs">Sentry: 1.25x weight</Text>
+                  <Text size="xs">Fort Level: exponential bonus</Text>
+                  <Text size="xs">XP: small bonus</Text>
+                  <Text size="xs">Net Worth: log scale bonus</Text>
+                </Stack>
+              }
+              multiline
+              w={220}
+            >
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)', cursor: 'help', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
+                How is this calculated?
+              </Text>
+            </Tooltip>
+          )}
+        </Group>
 
         {/* Rankings table */}
         <Paper withBorder p="md">

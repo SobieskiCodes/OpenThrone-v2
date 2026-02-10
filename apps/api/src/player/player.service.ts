@@ -273,6 +273,33 @@ export class PlayerService {
       }
     }
 
+    // Compute per-stat rank positions for this player
+    const playerOffense = player.stats?.offense ?? 0;
+    const playerDefense = player.stats?.defense ?? 0;
+    const playerGold = Number(player.economy?.gold ?? 0);
+    const playerBank = Number(player.economy?.gold_in_bank ?? 0);
+    const playerNetWorth = playerGold + playerBank;
+
+    const [offenseRank, defenseRank, netWorthCount] = await Promise.all([
+      this.prisma.playerStats.count({
+        where: { offense: { gt: playerOffense }, player: { status: 'ACTIVE' } },
+      }),
+      this.prisma.playerStats.count({
+        where: { defense: { gt: playerDefense }, player: { status: 'ACTIVE' } },
+      }),
+      // Net worth rank: count players with higher gold + bank
+      this.prisma.player.count({
+        where: {
+          status: 'ACTIVE',
+          id: { not: playerId },
+          economy: {
+            // Rough net worth comparison (gold + bank only, armory excluded for perf)
+            gold: { gt: BigInt(Math.max(0, playerNetWorth)) },
+          },
+        },
+      }),
+    ]);
+
     return {
       id: player.id,
       displayName: player.display_name,
@@ -312,6 +339,12 @@ export class PlayerService {
             houseLevel: player.economy.house_level,
           }
         : null,
+      ranks: {
+        overall: player.stats?.rank ?? 0,
+        offense: offenseRank + 1,
+        defense: defenseRank + 1,
+        netWorth: netWorthCount + 1,
+      },
       allianceIntel,
       personalLastSpy,
     };
