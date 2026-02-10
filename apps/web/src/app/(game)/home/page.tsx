@@ -326,8 +326,15 @@ export default function DashboardPage() {
   const rank = player.stats?.rank ?? 0;
 
   const level = getLevelForXP(experience);
-  const currentLevelXP = level === 1 ? 0 : getXPForLevel(level);
-  const nextLevelXP = level === 1 ? getXPForLevel(1) : getXPForLevel(level + 1);
+  const levelThreshold = getXPForLevel(level);
+
+  // New players (XP below level 1 threshold): show progress toward level 1
+  // Everyone else: show progress from current level threshold toward next
+  const currentLevelXP = experience < levelThreshold ? 0 : levelThreshold;
+  const nextLevelXP =
+    experience < levelThreshold
+      ? levelThreshold
+      : getXPForLevel(level + 1) || levelThreshold;
   const xpToNext = Math.max(0, nextLevelXP - experience);
   const xpProgress =
     nextLevelXP > currentLevelXP
