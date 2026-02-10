@@ -41,10 +41,9 @@ export class AuthService {
     }
 
     // Check if display_name already exists (case-insensitive via LOWER() - works on both SQLite and PostgreSQL)
-    const existingName = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
-      `SELECT id FROM players WHERE LOWER(display_name) = LOWER(?) LIMIT 1`,
-      dto.displayName,
-    );
+    const existingName = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM players WHERE LOWER(display_name) = LOWER(${dto.displayName}) LIMIT 1`;
+
     if (existingName.length > 0) {
       throw new ConflictException('Display name already in use');
     }

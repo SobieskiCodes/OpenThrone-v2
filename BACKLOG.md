@@ -26,15 +26,20 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 ## Navigation / Notifications
 - [ ] Level-up should send in-game mail: congratulations + what's newly unlocked (buildings, units, etc.) (user needs to be able to mark as read/delete)
 - [ ] Attack/defense events should generate notifications/mail
+- [ ] the server/tick time should be in a menu / side bar visible on all screens imo.
 
 ## Dashboard
 
 - [ ] Activity feed of recent attacks/events (not just your own battles — server-wide or alliance-wide)
+- [ ] The dashboard needs to display citizen count - perhaps unit count? TBD
+- [ ] Gold per turn should show daily total/prediction at current rate
 
 ## Leaderboard
 
 - [ ] Show rank movement arrows (up/down since last daily reset)
 - [ ] Daily snapshots at reset time to support delta tracking
+- [ ] Jump to your rank/section
+- [ ] Leaderboard should show your rank in each item you select.
 
 ## Chat
 

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@openthrone/db';
 import { PrismaService } from '../prisma/prisma.service';
 import { getLevelForXP, computeArmoryValue, calculateRankScore } from '@openthrone/game-logic';
 
@@ -306,30 +307,28 @@ export class RankingsService {
     // largest_army = sum of OFFENSE+DEFENSE+SPY+SENTRY units
     // highest_population = sum of ALL units
     const unitFilter = subType === 'largest_army'
-      ? `AND pu.unit_type IN ('OFFENSE','DEFENSE','SPY','SENTRY')`
-      : '';
+      ? Prisma.raw(`AND pu.unit_type IN ('OFFENSE','DEFENSE','SPY','SENTRY')`)
+      : Prisma.raw('');
 
-    const countResult = await this.prisma.$queryRawUnsafe<{ cnt: number }[]>(
-      `SELECT COUNT(DISTINCT pu.player_id) as cnt
+    const countResult = await this.prisma.$queryRaw<{ cnt: number | bigint }[]>`
+      SELECT COUNT(DISTINCT pu.player_id) as cnt
        FROM player_units pu
        JOIN players p ON p.id = pu.player_id
-       WHERE p.status = 'ACTIVE' ${unitFilter}`,
-    );
+       WHERE p.status = 'ACTIVE' ${unitFilter}`;
     const total = Number(countResult[0]?.cnt ?? 0);
 
-    const rows = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT pu.player_id, SUM(pu.quantity) as total_units,
+    const offset = (page - 1) * limit;
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT pu.player_id, SUM(pu.quantity) as total_units,
               p.display_name, p.race, p."class",
               COALESCE(ps.experience, 0) as experience
        FROM player_units pu
        JOIN players p ON p.id = pu.player_id
        LEFT JOIN player_stats ps ON ps.player_id = pu.player_id
        WHERE p.status = 'ACTIVE' ${unitFilter}
-       GROUP BY pu.player_id
+       GROUP BY pu.player_id, p.display_name, p.race, p."class", ps.experience
        ORDER BY total_units DESC
-       LIMIT ? OFFSET ?`,
-      limit, (page - 1) * limit,
-    );
+       LIMIT ${limit} OFFSET ${offset}`;
 
     const data = rows.map((r, index) => ({
       rank: (page - 1) * limit + index + 1,
@@ -360,27 +359,25 @@ export class RankingsService {
   }
 
   private async getFriendsRanking(page: number, limit: number): Promise<RankingsResult> {
-    const countResult = await this.prisma.$queryRawUnsafe<{ cnt: number }[]>(
-      `SELECT COUNT(DISTINCT s.player_id) as cnt
+    const countResult = await this.prisma.$queryRaw<{ cnt: number | bigint }[]>`
+      SELECT COUNT(DISTINCT s.player_id) as cnt
        FROM social s
        JOIN players p ON p.id = s.player_id
-       WHERE p.status = 'ACTIVE' AND s.status = 'ACCEPTED'`,
-    );
+       WHERE p.status = 'ACTIVE' AND s.status = 'ACCEPTED'`;
     const total = Number(countResult[0]?.cnt ?? 0);
 
-    const rows = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT s.player_id, COUNT(*) as friend_count,
+    const offset = (page - 1) * limit;
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT s.player_id, COUNT(*) as friend_count,
               p.display_name, p.race, p."class",
               COALESCE(ps.experience, 0) as experience
        FROM social s
        JOIN players p ON p.id = s.player_id
        LEFT JOIN player_stats ps ON ps.player_id = s.player_id
        WHERE p.status = 'ACTIVE' AND s.status = 'ACCEPTED'
-       GROUP BY s.player_id
+       GROUP BY s.player_id, p.display_name, p.race, p."class", ps.experience
        ORDER BY friend_count DESC
-       LIMIT ? OFFSET ?`,
-      limit, (page - 1) * limit,
-    );
+       LIMIT ${limit} OFFSET ${offset}`;
 
     const data = rows.map((r, index) => ({
       rank: (page - 1) * limit + index + 1,
@@ -396,27 +393,25 @@ export class RankingsService {
   }
 
   private async getBuildingUpgradesRanking(page: number, limit: number): Promise<RankingsResult> {
-    const countResult = await this.prisma.$queryRawUnsafe<{ cnt: number }[]>(
-      `SELECT COUNT(DISTINCT player_id) as cnt
+    const countResult = await this.prisma.$queryRaw<{ cnt: number | bigint }[]>`
+      SELECT COUNT(DISTINCT su.player_id) as cnt
        FROM player_structure_upgrades su
        JOIN players p ON p.id = su.player_id
-       WHERE p.status = 'ACTIVE'`,
-    );
+       WHERE p.status = 'ACTIVE'`;
     const total = Number(countResult[0]?.cnt ?? 0);
 
-    const rows = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT su.player_id, SUM(su.level) as total_levels,
+    const offset = (page - 1) * limit;
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT su.player_id, SUM(su.level) as total_levels,
               p.display_name, p.race, p."class",
               COALESCE(ps.experience, 0) as experience
        FROM player_structure_upgrades su
        JOIN players p ON p.id = su.player_id
        LEFT JOIN player_stats ps ON ps.player_id = su.player_id
        WHERE p.status = 'ACTIVE'
-       GROUP BY su.player_id
+       GROUP BY su.player_id, p.display_name, p.race, p."class", ps.experience
        ORDER BY total_levels DESC
-       LIMIT ? OFFSET ?`,
-      limit, (page - 1) * limit,
-    );
+       LIMIT ${limit} OFFSET ${offset}`;
 
     const data = rows.map((r, index) => ({
       rank: (page - 1) * limit + index + 1,
@@ -434,26 +429,26 @@ export class RankingsService {
   // ─── GENERIC CUMULATIVE STATS RANKING ───────────────────────────────
 
   private async getCumulativeRanking(field: string, page: number, limit: number): Promise<RankingsResult> {
-    const countResult = await this.prisma.$queryRawUnsafe<{ cnt: number }[]>(
-      `SELECT COUNT(*) as cnt
+    const fieldSql = Prisma.raw(field);
+
+    const countResult = await this.prisma.$queryRaw<{ cnt: number | bigint }[]>`
+      SELECT COUNT(*) as cnt
        FROM player_cumulative_stats cs
        JOIN players p ON p.id = cs.player_id
-       WHERE p.status = 'ACTIVE' AND cs.${field} > 0`,
-    );
+       WHERE p.status = 'ACTIVE' AND cs.${fieldSql} > 0`;
     const total = Number(countResult[0]?.cnt ?? 0);
 
-    const rows = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT cs.player_id, cs.${field} as score,
+    const offset = (page - 1) * limit;
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT cs.player_id, cs.${fieldSql} as score,
               p.display_name, p.race, p."class",
               COALESCE(ps.experience, 0) as experience
        FROM player_cumulative_stats cs
        JOIN players p ON p.id = cs.player_id
        LEFT JOIN player_stats ps ON ps.player_id = cs.player_id
-       WHERE p.status = 'ACTIVE' AND cs.${field} > 0
-       ORDER BY cs.${field} DESC
-       LIMIT ? OFFSET ?`,
-      limit, (page - 1) * limit,
-    );
+       WHERE p.status = 'ACTIVE' AND cs.${fieldSql} > 0
+       ORDER BY cs.${fieldSql} DESC
+       LIMIT ${limit} OFFSET ${offset}`;
 
     const data = rows.map((r, index) => ({
       rank: (page - 1) * limit + index + 1,
