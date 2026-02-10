@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 import { TrainingModule } from '../training/training.module';
 import { EconomyModule } from '../economy/economy.module';
 import { ArmoryModule } from '../armory/armory.module';
@@ -14,7 +13,6 @@ import { BotSchedulerService } from './bot-scheduler.service';
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
     TrainingModule,
     EconomyModule,
     ArmoryModule,
