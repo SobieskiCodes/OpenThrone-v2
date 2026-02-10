@@ -84,18 +84,18 @@ export default function AdminJobsPage() {
         <Paper p="sm" withBorder>
           <Group gap="xl">
             {[
-              { label: 'Turn Tick', key: 'turn_tick' as const },
-              { label: 'Daily Tick', key: 'daily_tick' as const },
-              { label: 'Bot Scheduler', key: 'bot_scheduler' as const },
-            ].map(({ label, key }) => (
+              { label: 'Turn Tick', key: 'turn_tick' as const, jobName: 'turn_tick' },
+              { label: 'Daily Tick', key: 'daily_tick' as const, jobName: 'daily_tick' },
+              { label: 'Bot Scheduler', key: 'bot_scheduler' as const, jobName: 'bot_session' },
+            ].map(({ label, key, jobName }) => (
               <Group gap={6} key={key}>
                 <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>{label}:</Text>
                 <Badge size="sm" variant="light" color={status.enabled[key] ? 'green' : 'red'}>
                   {status.enabled[key] ? 'Enabled' : 'Disabled'}
                 </Badge>
-                {status.jobs[key] && (
+                {status.jobs[jobName] && (
                   <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
-                    Last: {new Date(status.jobs[key]!.started_at).toLocaleString()}
+                    Last: {new Date(status.jobs[jobName]!.started_at).toLocaleString()}
                   </Text>
                 )}
               </Group>

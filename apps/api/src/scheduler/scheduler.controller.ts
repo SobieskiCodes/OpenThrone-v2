@@ -63,7 +63,7 @@ export class SchedulerController {
   @Get('status')
   async getStatus() {
     // Get the last run time for each job type
-    const jobNames = ['turn_tick', 'daily_tick'];
+    const jobNames = ['turn_tick', 'daily_tick', 'bot_session'];
     const statuses: Record<string, any> = {};
 
     for (const jobName of jobNames) {
