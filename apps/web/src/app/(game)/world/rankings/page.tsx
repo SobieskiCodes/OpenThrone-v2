@@ -45,6 +45,7 @@ interface RankEntry {
   race: string;
   class: string;
   level: number;
+  isBot: boolean;
   score: number | null;
 }
 
@@ -359,15 +360,22 @@ export default function RankingsPage() {
                             )}
                           </Table.Td>
                           <Table.Td>
-                            <Text
-                              component={Link}
-                              href={`/profile/${entry.id}`}
-                              fw={600}
-                              size="sm"
-                              style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
-                            >
-                              {entry.displayName}
-                            </Text>
+                            <Group gap={4} wrap="nowrap">
+                              <Text
+                                component={Link}
+                                href={`/profile/${entry.id}`}
+                                fw={600}
+                                size="sm"
+                                style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
+                              >
+                                {entry.displayName}
+                              </Text>
+                              {entry.isBot && (
+                                <Badge size="xs" variant="light" color="violet">
+                                  BOT
+                                </Badge>
+                              )}
+                            </Group>
                           </Table.Td>
                           <Table.Td ta="center">
                             <Badge

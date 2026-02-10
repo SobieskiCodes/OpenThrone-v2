@@ -54,6 +54,7 @@ interface PlayerEntry {
   gold: string | null;
   lastActive: string | null;
   status: string;
+  isBot: boolean;
   attacksToday: number;
   maxAttacksPerDay: number;
   allianceIntel: AllianceIntelEntry | null;
@@ -91,6 +92,12 @@ const CLASS_OPTIONS = [
   { value: 'CLERIC', label: 'Cleric' },
   { value: 'ASSASSIN', label: 'Assassin' },
   { value: 'THIEF', label: 'Thief' },
+];
+
+const BOT_FILTER_OPTIONS = [
+  { value: 'all', label: 'All Players' },
+  { value: 'humans', label: 'Humans Only' },
+  { value: 'bots', label: 'Bots Only' },
 ];
 
 // Sortable column definitions for table header sorting
@@ -146,6 +153,7 @@ export default function PlayersPage() {
   const [search, setSearch] = useState('');
   const [raceFilter, setRaceFilter] = useState('');
   const [classFilter, setClassFilter] = useState('');
+  const [botFilter, setBotFilter] = useState('all');
   const [sort, setSort] = useState('rank');
   const [order, setOrder] = useState('asc');
   const [inRange, setInRange] = useState(true);
@@ -186,12 +194,13 @@ export default function PlayersPage() {
     if (search) params.set('search', search);
     if (raceFilter) params.set('race', raceFilter);
     if (classFilter) params.set('class', classFilter);
+    if (botFilter !== 'all') params.set('botFilter', botFilter);
     if (inRange) params.set('inRange', 'true');
     return params.toString();
   };
 
   const { data: playersData, isLoading: playersLoading } = useQuery<PaginatedResponse<PlayerEntry>>({
-    queryKey: ['battle', 'players', playerPage, search, raceFilter, classFilter, sort, order, inRange],
+    queryKey: ['battle', 'players', playerPage, search, raceFilter, classFilter, botFilter, sort, order, inRange],
     queryFn: () => api.get(`/battle/players?${buildPlayerQuery()}`),
     enabled: isReady,
   });
@@ -256,6 +265,15 @@ export default function PlayersPage() {
                       placeholder="Filter by class"
                       clearable
                     />
+                    <Select
+                      data={BOT_FILTER_OPTIONS}
+                      value={botFilter}
+                      onChange={(val) => {
+                        setBotFilter(val ?? 'all');
+                        setPlayerPage(1);
+                      }}
+                      placeholder="Player type"
+                    />
                   </Group>
                   <Switch
                     label="In Range Only (±10 levels)"
@@ -306,14 +324,21 @@ export default function PlayersPage() {
                                 <RankBadge rank={p.rank} />
                               </Table.Td>
                               <Table.Td>
-                                <Text
-                                  component={Link}
-                                  href={`/profile/${p.id}`}
-                                  fw={500}
-                                  style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
-                                >
-                                  {p.displayName}
-                                </Text>
+                                <Group gap={4} wrap="nowrap">
+                                  <Text
+                                    component={Link}
+                                    href={`/profile/${p.id}`}
+                                    fw={500}
+                                    style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
+                                  >
+                                    {p.displayName}
+                                  </Text>
+                                  {p.isBot && (
+                                    <Badge size="xs" variant="light" color="violet">
+                                      BOT
+                                    </Badge>
+                                  )}
+                                </Group>
                               </Table.Td>
                               <Table.Td>
                                 <Group gap={4} wrap="nowrap">

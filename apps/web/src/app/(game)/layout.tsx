@@ -68,6 +68,7 @@ const adminNavItems = [
     children: [
       { label: 'Dashboard', href: '/admin' },
       { label: 'Players', href: '/admin/players' },
+      { label: 'Bots', href: '/admin/bots' },
       { label: 'Jobs', href: '/admin/jobs' },
       { label: 'Combat Sim', href: '/admin/combat-sim' },
     ],

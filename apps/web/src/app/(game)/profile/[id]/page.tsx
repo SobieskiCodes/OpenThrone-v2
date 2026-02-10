@@ -46,6 +46,7 @@ interface PlayerProfile {
   race: string;
   class: string;
   bio: string | null;
+  isBot: boolean;
   createdAt: string;
   lastActive: string | null;
   status: string;
@@ -206,6 +207,11 @@ export default function PlayerProfilePage() {
                 <Badge variant="light" color="teal">
                   Level {level}
                 </Badge>
+                {player.isBot && (
+                  <Badge variant="light" color="violet">
+                    BOT
+                  </Badge>
+                )}
                 <Badge variant="filled" color="orange" leftSection={'\u2B50'}>
                   Alpha Tester
                 </Badge>

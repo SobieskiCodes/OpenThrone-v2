@@ -157,6 +157,129 @@ async function main() {
 
   console.log(`\nCreated ${players.length} players with economy, units, stats, and bonus points.`);
 
+  // ─── Bot Players ────────────────────────────────────────────────────────────
+
+  const BOT_CONFIGS = [
+    {
+      displayName: 'IronGuard',
+      race: 'HUMAN',
+      playerClass: 'FIGHTER',
+      strategy: 'WARRIOR',
+      gold: BigInt(25000),
+    },
+    {
+      displayName: 'StoneShield',
+      race: 'HUMAN',
+      playerClass: 'CLERIC',
+      strategy: 'TURTLE',
+      gold: BigInt(30000),
+    },
+    {
+      displayName: 'GoldWeaver',
+      race: 'ELF',
+      playerClass: 'THIEF',
+      strategy: 'ECONOMIST',
+      gold: BigInt(80000),
+    },
+    {
+      displayName: 'PhantomBlade',
+      race: 'UNDEAD',
+      playerClass: 'ASSASSIN',
+      strategy: 'SPYMASTER',
+      gold: BigInt(20000),
+    },
+    {
+      displayName: 'WarChief',
+      race: 'GOBLIN',
+      playerClass: 'FIGHTER',
+      strategy: 'BALANCED',
+      gold: BigInt(40000),
+    },
+  ];
+
+  for (const bot of BOT_CONFIGS) {
+    const botEmail = `bot-${bot.displayName.toLowerCase()}@bot.openthrone.local`;
+    const botPasswordHash = await argon2.hash('bot-no-login');
+
+    const botPlayer = await prisma.player.create({
+      data: {
+        email: botEmail,
+        display_name: bot.displayName,
+        password_hash: botPasswordHash,
+        race: bot.race,
+        player_class: bot.playerClass,
+        is_bot: true,
+        last_active: new Date(),
+      },
+    });
+
+    await prisma.playerEconomy.create({
+      data: {
+        player_id: botPlayer.id,
+        gold: bot.gold,
+        gold_in_bank: BigInt(0),
+        attack_turns: 50,
+      },
+    });
+
+    await prisma.playerUnit.create({
+      data: {
+        player_id: botPlayer.id,
+        unit_type: 'CITIZEN',
+        level: 1,
+        quantity: 50,
+      },
+    });
+
+    await prisma.playerFortification.create({
+      data: {
+        player_id: botPlayer.id,
+        fort_level: 1,
+        hitpoints: 50,
+      },
+    });
+
+    await prisma.playerStats.create({
+      data: {
+        player_id: botPlayer.id,
+        experience: 0,
+        rank: 0,
+        offense: 0,
+        defense: 0,
+        spy: 0,
+        sentry: 0,
+        killing_str: 1,
+        defense_str: 1,
+        spying_str: 1,
+        sentry_str: 1,
+      },
+    });
+
+    for (const bonusType of BONUS_TYPES) {
+      await prisma.playerBonusPoint.create({
+        data: {
+          player_id: botPlayer.id,
+          bonus_type: bonusType,
+          level: 0,
+        },
+      });
+    }
+
+    await prisma.botConfig.create({
+      data: {
+        player_id: botPlayer.id,
+        strategy: bot.strategy,
+        is_active: true,
+        sessions_per_day: 3,
+        personality_seed: Math.floor(Math.random() * 1000000),
+      },
+    });
+
+    console.log(`Created bot: ${bot.displayName} (${bot.strategy}) — ${botPlayer.id}`);
+  }
+
+  console.log(`Created ${BOT_CONFIGS.length} bots with configs.`);
+
   // ─── Blog Post ──────────────────────────────────────────────────────────────
 
   const blogPost = await prisma.blogPost.create({

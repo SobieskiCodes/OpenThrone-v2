@@ -39,6 +39,7 @@ const JOB_FILTER_OPTIONS = [
   { value: '', label: 'All Jobs' },
   { value: 'turn_tick', label: 'Turn Tick' },
   { value: 'daily_tick', label: 'Daily Tick' },
+  { value: 'bot_session', label: 'Bot Session' },
 ];
 
 export default function AdminJobsPage() {
