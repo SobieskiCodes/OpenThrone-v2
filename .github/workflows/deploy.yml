@@ -23,8 +23,14 @@ jobs:
 
             APP_DIR=~/OpenThrone-v2
 
-            echo "==> Pulling latest code"
+            echo "==> Stopping PM2 processes and killing orphan ports"
             cd "$APP_DIR"
+            pm2 delete all 2>/dev/null || true
+            fuser -k 3000/tcp 2>/dev/null || true
+            fuser -k 3001/tcp 2>/dev/null || true
+            sleep 1
+
+            echo "==> Pulling latest code"
             git fetch origin master
             git reset --hard origin/master
             git clean -fd
@@ -54,8 +60,7 @@ jobs:
             echo "==> Restoring Prisma schema (keep sqlite for git)"
             git checkout packages/db/prisma/schema.prisma
 
-            echo "==> Restarting PM2 processes"
-            pm2 delete all 2>/dev/null || true
+            echo "==> Starting PM2 processes"
             pm2 start ecosystem.config.cjs
             pm2 save
 
