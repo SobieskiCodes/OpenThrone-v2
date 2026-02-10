@@ -8,18 +8,17 @@ import {
   Skeleton,
   Stack,
   Pagination,
-  Badge,
   Group,
   Paper,
   SegmentedControl,
   UnstyledButton,
   Tooltip,
 } from '@mantine/core';
+import { PlayerHoverCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
-import Link from 'next/link';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -128,13 +127,6 @@ const CATEGORIES: Category[] = [
     ],
   },
 ];
-
-const RACE_COLORS: Record<string, string> = {
-  HUMAN: 'blue',
-  ELF: 'green',
-  GOBLIN: 'red',
-  UNDEAD: 'grape',
-};
 
 function getMedal(rank: number): string | null {
   if (rank === 1) return '\u{1F947}';
@@ -331,7 +323,6 @@ export default function RankingsPage() {
                   <Table.Tr>
                     <Table.Th ta="center" w={60}>Rank</Table.Th>
                     <Table.Th>Player</Table.Th>
-                    <Table.Th ta="center">Race</Table.Th>
                     <Table.Th ta="center">Level</Table.Th>
                     {showScore && <Table.Th ta="right">Score</Table.Th>}
                   </Table.Tr>
@@ -339,7 +330,7 @@ export default function RankingsPage() {
                 <Table.Tbody>
                   {data.data.length === 0 ? (
                     <Table.Tr>
-                      <Table.Td colSpan={showScore ? 5 : 4} ta="center">
+                      <Table.Td colSpan={showScore ? 4 : 3} ta="center">
                         <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} py="xl">
                           No data yet{period === 'today' ? ' for today' : ''}. Start playing to appear on the leaderboard!
                         </Text>
@@ -360,32 +351,15 @@ export default function RankingsPage() {
                             )}
                           </Table.Td>
                           <Table.Td>
-                            <Group gap={4} wrap="nowrap">
-                              <Text
-                                component={Link}
-                                href={`/profile/${entry.id}`}
-                                fw={600}
-                                size="sm"
-                                style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
-                              >
-                                {entry.displayName}
-                              </Text>
-                              {entry.isBot && (
-                                <Badge size="xs" variant="light" color="violet">
-                                  BOT
-                                </Badge>
-                              )}
-                            </Group>
-                          </Table.Td>
-                          <Table.Td ta="center">
-                            <Badge
-                              size="sm"
-                              variant="light"
-                              color={RACE_COLORS[entry.race] || 'gray'}
-                              style={{ textTransform: 'capitalize' }}
-                            >
-                              {entry.race.toLowerCase()}
-                            </Badge>
+                            <PlayerHoverCard
+                              id={entry.id}
+                              displayName={entry.displayName}
+                              race={entry.race}
+                              playerClass={entry.class}
+                              level={entry.level}
+                              rank={entry.rank}
+                              isBot={entry.isBot}
+                            />
                           </Table.Td>
                           <Table.Td ta="center">
                             <Text size="sm" fw={600}>{entry.level}</Text>

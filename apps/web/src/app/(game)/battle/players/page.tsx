@@ -23,14 +23,13 @@ import {
   Switch,
   UnstyledButton,
 } from '@mantine/core';
-import { OTCard } from '@/components/ui';
+import { OTCard, PlayerHoverCard } from '@/components/ui';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 interface AllianceIntelEntry {
   spiedByName: string;
@@ -70,13 +69,6 @@ interface PaginatedResponse<T> {
     totalPages: number;
   };
 }
-
-const RACE_COLORS: Record<string, string> = {
-  HUMAN: 'blue',
-  ELF: 'green',
-  GOBLIN: 'orange',
-  UNDEAD: 'grape',
-};
 
 const RACE_OPTIONS = [
   { value: '', label: 'All Races' },
@@ -296,7 +288,6 @@ export default function PlayersPage() {
                         <Table.Tr>
                           <SortHeader label="Rank" sortKey="rank" currentSort={sort} currentOrder={order} onSort={handleSortChange} />
                           <SortHeader label="Player" sortKey="displayName" currentSort={sort} currentOrder={order} onSort={handleSortChange} />
-                          <Table.Th>Race / Class</Table.Th>
                           <SortHeader label="Lv" sortKey="level" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="center" />
                           <SortHeader label="Pop" sortKey="population" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
                           <SortHeader label="Gold" sortKey="gold" currentSort={sort} currentOrder={order} onSort={handleSortChange} align="right" />
@@ -308,7 +299,7 @@ export default function PlayersPage() {
                       <Table.Tbody>
                         {playersData?.data.length === 0 && (
                           <Table.Tr>
-                            <Table.Td colSpan={9}>
+                            <Table.Td colSpan={8}>
                               <Text ta="center" style={{ color: 'var(--ot-text-dim)' }}>
                                 No players found.
                               </Text>
@@ -324,35 +315,15 @@ export default function PlayersPage() {
                                 <RankBadge rank={p.rank} />
                               </Table.Td>
                               <Table.Td>
-                                <Group gap={4} wrap="nowrap">
-                                  <Text
-                                    component={Link}
-                                    href={`/profile/${p.id}`}
-                                    fw={500}
-                                    style={{ color: 'var(--ot-gold)', textDecoration: 'none' }}
-                                  >
-                                    {p.displayName}
-                                  </Text>
-                                  {p.isBot && (
-                                    <Badge size="xs" variant="light" color="violet">
-                                      BOT
-                                    </Badge>
-                                  )}
-                                </Group>
-                              </Table.Td>
-                              <Table.Td>
-                                <Group gap={4} wrap="nowrap">
-                                  <Badge
-                                    variant="light"
-                                    size="xs"
-                                    color={RACE_COLORS[p.race] ?? 'gray'}
-                                  >
-                                    {p.race}
-                                  </Badge>
-                                  <Badge variant="light" color="gray" size="xs">
-                                    {p.class}
-                                  </Badge>
-                                </Group>
+                                <PlayerHoverCard
+                                  id={p.id}
+                                  displayName={p.displayName}
+                                  race={p.race}
+                                  playerClass={p.class}
+                                  level={p.level}
+                                  rank={p.rank}
+                                  isBot={p.isBot}
+                                />
                               </Table.Td>
                               <Table.Td ta="center">
                                 <Text className="ot-stat-value">{p.level}</Text>
