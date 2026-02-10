@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { TurnTickService } from './turn-tick.service';
 import { DailyTickService } from './daily-tick.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,6 +15,7 @@ export class SchedulerController {
     private readonly turnTickService: TurnTickService,
     private readonly dailyTickService: DailyTickService,
     private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
   ) {}
 
   @Post('turn-tick')
@@ -72,6 +74,13 @@ export class SchedulerController {
       statuses[jobName] = lastRun ?? null;
     }
 
-    return statuses;
+    return {
+      jobs: statuses,
+      enabled: {
+        turn_tick: !!this.config.get('ENABLE_TURN_TICK'),
+        daily_tick: !!this.config.get('ENABLE_DAILY_TICK'),
+        bot_scheduler: !!this.config.get('ENABLE_BOT_SCHEDULER'),
+      },
+    };
   }
 }

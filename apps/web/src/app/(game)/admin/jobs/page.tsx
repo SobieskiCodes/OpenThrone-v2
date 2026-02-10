@@ -11,6 +11,7 @@ import {
   Center,
   Text,
   Group,
+  Paper,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
@@ -35,6 +36,15 @@ interface JobLogsResponse {
   totalPages: number;
 }
 
+interface SchedulerStatus {
+  jobs: Record<string, JobLog | null>;
+  enabled: {
+    turn_tick: boolean;
+    daily_tick: boolean;
+    bot_scheduler: boolean;
+  };
+}
+
 const JOB_FILTER_OPTIONS = [
   { value: '', label: 'All Jobs' },
   { value: 'turn_tick', label: 'Turn Tick' },
@@ -46,6 +56,13 @@ export default function AdminJobsPage() {
   const { api, isReady } = useApi();
   const [page, setPage] = useState(1);
   const [jobNameFilter, setJobNameFilter] = useState('');
+
+  const { data: status } = useQuery<SchedulerStatus>({
+    queryKey: ['admin', 'scheduler', 'status'],
+    queryFn: () => api.get('/scheduler/status'),
+    enabled: isReady,
+    refetchInterval: 60_000,
+  });
 
   const { data, isLoading } = useQuery<JobLogsResponse>({
     queryKey: ['admin', 'jobs', page, jobNameFilter],
@@ -62,6 +79,30 @@ export default function AdminJobsPage() {
   return (
     <Stack gap="lg">
       <Title order={2}>Job History</Title>
+
+      {status && (
+        <Paper p="sm" withBorder>
+          <Group gap="xl">
+            {[
+              { label: 'Turn Tick', key: 'turn_tick' as const },
+              { label: 'Daily Tick', key: 'daily_tick' as const },
+              { label: 'Bot Scheduler', key: 'bot_scheduler' as const },
+            ].map(({ label, key }) => (
+              <Group gap={6} key={key}>
+                <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>{label}:</Text>
+                <Badge size="sm" variant="light" color={status.enabled[key] ? 'green' : 'red'}>
+                  {status.enabled[key] ? 'Enabled' : 'Disabled'}
+                </Badge>
+                {status.jobs[key] && (
+                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                    Last: {new Date(status.jobs[key]!.started_at).toLocaleString()}
+                  </Text>
+                )}
+              </Group>
+            ))}
+          </Group>
+        </Paper>
+      )}
 
       <Group>
         <Select
