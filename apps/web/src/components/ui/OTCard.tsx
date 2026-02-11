@@ -1,6 +1,6 @@
 'use client';
 
-import { Paper, type PaperProps, type MantineSpacing } from '@mantine/core';
+import { Paper, type PaperProps } from '@mantine/core';
 
 interface OTCardProps extends PaperProps {
   children: React.ReactNode;
@@ -10,7 +10,7 @@ interface OTCardProps extends PaperProps {
   featured?: boolean;
 }
 
-function resolvePaddingVar(p: MantineSpacing | undefined): string {
+function resolvePaddingVar(p: unknown): string {
   if (typeof p === 'string') return `var(--mantine-spacing-${p})`;
   if (typeof p === 'number') return `${p}px`;
   return 'var(--mantine-spacing-lg)';
