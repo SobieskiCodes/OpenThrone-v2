@@ -23,6 +23,20 @@ jobs:
 
             APP_DIR=~/OpenThrone-v2
 
+            echo "==> Checking for rogue PM2 daemons"
+            # If another user (e.g. root) is running PM2 on our ports, we can't kill it.
+            # Fail fast with a clear message so the operator can SSH in and fix it.
+            for PORT in 3000 3001; do
+              OWNER=$(fuser -v ${PORT}/tcp 2>&1 | awk 'NR==2{print $2}' || true)
+              if [ -n "$OWNER" ] && [ "$OWNER" != "$(whoami)" ]; then
+                echo "FATAL: Port $PORT is held by user '$OWNER' (not '$(whoami)')."
+                echo "This usually means someone ran 'pm2 start' as $OWNER."
+                echo "Fix: SSH as $OWNER and run 'pm2 delete all && pm2 kill'"
+                fuser -v ${PORT}/tcp 2>&1 || true
+                exit 1
+              fi
+            done
+
             echo "==> Stopping PM2 processes and killing orphan ports"
             cd "$APP_DIR"
             pm2 stop all 2>/dev/null || true
