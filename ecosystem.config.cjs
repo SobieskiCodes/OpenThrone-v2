@@ -12,6 +12,8 @@ module.exports = {
       instances: 1,
       autorestart: true,
       max_memory_restart: '512M',
+      kill_timeout: 5000,
+      listen_timeout: 10000,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     },
     {
@@ -27,6 +29,8 @@ module.exports = {
       instances: 1,
       autorestart: true,
       max_memory_restart: '512M',
+      kill_timeout: 5000,
+      listen_timeout: 10000,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     },
   ],
