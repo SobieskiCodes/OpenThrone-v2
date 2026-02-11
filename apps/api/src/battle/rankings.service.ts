@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@openthrone/db';
 import { PrismaService } from '../prisma/prisma.service';
 import { getLevelForXP, computeArmoryValue, calculateRankScore } from '@openthrone/game-logic';
 
@@ -314,19 +313,20 @@ export class RankingsService {
     // largest_army = sum of OFFENSE+DEFENSE+SPY+SENTRY units
     // highest_population = sum of ALL units
     const unitFilter = subType === 'largest_army'
-      ? Prisma.raw(`AND pu.unit_type IN ('OFFENSE','DEFENSE','SPY','SENTRY')`)
-      : Prisma.raw('');
+      ? `AND pu.unit_type IN ('OFFENSE','DEFENSE','SPY','SENTRY')`
+      : '';
 
-    const countResult = await this.prisma.$queryRaw<{ cnt: number | bigint }[]>`
-      SELECT COUNT(DISTINCT pu.player_id) as cnt
+    const countResult = await this.prisma.$queryRawUnsafe<{ cnt: number | bigint }[]>(
+      `SELECT COUNT(DISTINCT pu.player_id) as cnt
        FROM player_units pu
        JOIN players p ON p.id = pu.player_id
-       WHERE p.status = 'ACTIVE' ${unitFilter}`;
+       WHERE p.status = 'ACTIVE' ${unitFilter}`,
+    );
     const total = Number(countResult[0]?.cnt ?? 0);
 
     const offset = (page - 1) * limit;
-    const rows = await this.prisma.$queryRaw<any[]>`
-      SELECT pu.player_id, SUM(pu.quantity) as total_units,
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT pu.player_id, SUM(pu.quantity) as total_units,
               p.display_name, p.race, p."class", p.is_bot,
               COALESCE(ps.experience, 0) as experience
        FROM player_units pu
@@ -335,7 +335,10 @@ export class RankingsService {
        WHERE p.status = 'ACTIVE' ${unitFilter}
        GROUP BY pu.player_id, p.display_name, p.race, p."class", p.is_bot, ps.experience
        ORDER BY total_units DESC
-       LIMIT ${limit} OFFSET ${offset}`;
+       LIMIT $1 OFFSET $2`,
+      limit,
+      offset,
+    );
 
     const data = rows.map((r, index) => ({
       rank: (page - 1) * limit + index + 1,
@@ -438,27 +441,41 @@ export class RankingsService {
 
   // ─── GENERIC CUMULATIVE STATS RANKING ───────────────────────────────
 
-  private async getCumulativeRanking(field: string, page: number, limit: number): Promise<RankingsResult> {
-    const fieldSql = Prisma.raw(field);
+  private static readonly ALLOWED_CUMULATIVE_FIELDS = new Set([
+    'attack_wins', 'defense_wins', 'units_killed', 'gold_stolen', 'fort_damage_dealt',
+    'spy_wins', 'counter_spy_wins', 'total_spy_ops', 'spies_lost',
+    'gold_spent', 'units_trained', 'messages_sent', 'citizens_recruited',
+    'daily_attack_wins', 'daily_defense_wins', 'daily_gold_stolen', 'daily_spy_wins',
+    'daily_units_trained',
+  ]);
 
-    const countResult = await this.prisma.$queryRaw<{ cnt: number | bigint }[]>`
-      SELECT COUNT(*) as cnt
+  private async getCumulativeRanking(field: string, page: number, limit: number): Promise<RankingsResult> {
+    if (!RankingsService.ALLOWED_CUMULATIVE_FIELDS.has(field)) {
+      throw new Error(`Invalid ranking field: ${field}`);
+    }
+
+    const countResult = await this.prisma.$queryRawUnsafe<{ cnt: number | bigint }[]>(
+      `SELECT COUNT(*) as cnt
        FROM player_cumulative_stats cs
        JOIN players p ON p.id = cs.player_id
-       WHERE p.status = 'ACTIVE' AND cs.${fieldSql} > 0`;
+       WHERE p.status = 'ACTIVE' AND cs."${field}" > 0`,
+    );
     const total = Number(countResult[0]?.cnt ?? 0);
 
     const offset = (page - 1) * limit;
-    const rows = await this.prisma.$queryRaw<any[]>`
-      SELECT cs.player_id, cs.${fieldSql} as score,
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(
+      `SELECT cs.player_id, cs."${field}" as score,
               p.display_name, p.race, p."class", p.is_bot,
               COALESCE(ps.experience, 0) as experience
        FROM player_cumulative_stats cs
        JOIN players p ON p.id = cs.player_id
        LEFT JOIN player_stats ps ON ps.player_id = cs.player_id
-       WHERE p.status = 'ACTIVE' AND cs.${fieldSql} > 0
-       ORDER BY cs.${fieldSql} DESC
-       LIMIT ${limit} OFFSET ${offset}`;
+       WHERE p.status = 'ACTIVE' AND cs."${field}" > 0
+       ORDER BY cs."${field}" DESC
+       LIMIT $1 OFFSET $2`,
+      limit,
+      offset,
+    );
 
     const data = rows.map((r, index) => ({
       rank: (page - 1) * limit + index + 1,
