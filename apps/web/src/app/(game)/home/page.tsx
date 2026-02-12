@@ -470,31 +470,33 @@ export default function DashboardPage() {
             </Group>
           </Group>
         }>
-          <Stack gap="xs" style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-            <Stack gap={4}>
-              <Group gap={4}>
-                {(['my', 'alliance', 'server'] as const).map((scope) => (
-                  <Badge key={scope} variant={activityScope === scope ? 'filled' : 'light'} color={activityScope === scope ? 'blue' : 'gray'} size="xs" style={{ cursor: scope === 'alliance' && !firstAllianceId ? 'default' : 'pointer', opacity: scope === 'alliance' && !firstAllianceId ? 0.4 : 1 }} onClick={() => { if (scope === 'alliance' && !firstAllianceId) return; setActivityScope(scope); }}>
-                    {scope === 'my' ? 'My' : scope === 'alliance' ? 'Alliance' : 'Server'}
-                  </Badge>
-                ))}
-              </Group>
-              {activeFeed && activeFeed.data.length > 0 ? activeFeed.data.slice(0, 5).map((item) => (
-                <ActivityFeedItem key={item.id} item={item} showPlayerName={activityScope !== 'my'} />
-              )) : (
-                <Text size="xs" className="ot-text-dim">{activityScope === 'alliance' && !firstAllianceId ? 'Join an alliance.' : 'No activity yet.'}</Text>
-              )}
-            </Stack>
-            <Stack gap={4}>
-              <Text size="xs" fw={600} className="ot-text-dim" tt="uppercase">Messages</Text>
-              {mail && mail.items.length > 0 ? mail.items.slice(0, 5).map((item) => (
-                <Group key={item.id} justify="space-between" gap="xs">
-                  <Text size="xs" truncate fw={item.isRead ? 400 : 600} className={item.isRead ? 'ot-text-dim' : undefined} style={{ flex: 1, minWidth: 0 }}>{item.subject}</Text>
-                  <Text size="xs" className="ot-text-dim" style={{ flexShrink: 0 }}>{item.sender?.displayName ?? 'System'}</Text>
+          <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+              <Stack gap={4}>
+                <Group gap={4}>
+                  {(['my', 'alliance', 'server'] as const).map((scope) => (
+                    <Badge key={scope} variant={activityScope === scope ? 'filled' : 'light'} color={activityScope === scope ? 'blue' : 'gray'} size="xs" style={{ cursor: scope === 'alliance' && !firstAllianceId ? 'default' : 'pointer', opacity: scope === 'alliance' && !firstAllianceId ? 0.4 : 1 }} onClick={() => { if (scope === 'alliance' && !firstAllianceId) return; setActivityScope(scope); }}>
+                      {scope === 'my' ? 'My' : scope === 'alliance' ? 'Alliance' : 'Server'}
+                    </Badge>
+                  ))}
                 </Group>
-              )) : <Text size="xs" className="ot-text-dim">No messages yet.</Text>}
-            </Stack>
-          </Stack>
+                {activeFeed && activeFeed.data.length > 0 ? activeFeed.data.slice(0, 5).map((item) => (
+                  <ActivityFeedItem key={item.id} item={item} showPlayerName={activityScope !== 'my'} />
+                )) : (
+                  <Text size="xs" className="ot-text-dim">{activityScope === 'alliance' && !firstAllianceId ? 'Join an alliance.' : 'No activity yet.'}</Text>
+                )}
+              </Stack>
+              <Stack gap={4}>
+                <Text size="xs" fw={600} className="ot-text-dim" tt="uppercase">Messages</Text>
+                {mail && mail.items.length > 0 ? mail.items.slice(0, 5).map((item) => (
+                  <Group key={item.id} justify="space-between" gap="xs">
+                    <Text size="xs" truncate fw={item.isRead ? 400 : 600} className={item.isRead ? 'ot-text-dim' : undefined} style={{ flex: 1, minWidth: 0 }}>{item.subject}</Text>
+                    <Text size="xs" className="ot-text-dim" style={{ flexShrink: 0 }}>{item.sender?.displayName ?? 'System'}</Text>
+                  </Group>
+                )) : <Text size="xs" className="ot-text-dim">No messages yet.</Text>}
+              </Stack>
+            </SimpleGrid>
+          </div>
         </OTCard>
 
         {/* ── Rankings ──────────────────────────────────────── */}
