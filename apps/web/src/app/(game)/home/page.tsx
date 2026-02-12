@@ -512,7 +512,7 @@ export default function DashboardPage() {
           </Stack>
         </OTCard>
 
-        <OTCard p="sm" style={{ gridArea: 'activity', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} header={
+        <OTCard p="sm" style={{ gridArea: 'activity', overflow: 'hidden' }} header={
           <Group justify="space-between" align="center">
             <Group gap="xs" align="center"><IconHistory size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Activity & Messages</Text></Group>
             <Group gap="xs">
@@ -521,7 +521,7 @@ export default function DashboardPage() {
             </Group>
           </Group>
         }>
-          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" style={{ flex: 1, minHeight: 0 }}>
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
             <Stack gap={6} style={{ minWidth: 0 }}>
               <Group justify="space-between" align="center">
                 <Text size="xs" fw={700} tt="uppercase" className="ot-text-dim">Activity feed</Text>
