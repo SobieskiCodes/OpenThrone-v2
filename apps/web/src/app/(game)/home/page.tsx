@@ -392,7 +392,8 @@ export default function DashboardPage() {
   const RecommendedIcon = recommended.icon;
 
   return (
-    <div className="ot-dashboard" style={{ gap: 10, padding: 10 }}>
+    <Container fluid px={{ base: 'xs', sm: 'md' }} py="sm">
+      <div className="ot-dashboard">
         {/* ── Status Strip ──────────────────────────────────── */}
         <div className="ot-status-strip" style={{ gridArea: 'status' }}>
           <Group justify="space-between" align="center" wrap="wrap">
@@ -404,8 +405,16 @@ export default function DashboardPage() {
             <Group gap="xs" align="center">
               <Text size="xs" fw={600}>Lv {level}</Text>
               {rank > 0 && <Badge variant="light" color="ot" size="xs">#{rank}</Badge>}
-              <Progress value={xpProgress} size={4} color={colorName} radius="sm" style={{ width: 80 }} />
-              <Text size="xs" className="ot-text-dim">{Math.round(xpProgress)}%</Text>
+              <Tooltip
+                label={`${toLocale(experience - currentLevelXP)} / ${toLocale(nextLevelXP - currentLevelXP)} XP — ${toLocale(xpToNext)} to next level`}
+                withArrow
+                position="bottom"
+              >
+                <Group gap={4} align="center" style={{ cursor: 'default' }}>
+                  <Progress value={xpProgress} size={4} color={colorName} radius="sm" style={{ width: 80 }} />
+                  <Text size="xs" className="ot-text-dim">{Math.round(xpProgress)}%</Text>
+                </Group>
+              </Tooltip>
             </Group>
           </Group>
         </div>
@@ -471,7 +480,7 @@ export default function DashboardPage() {
                     </Badge>
                   ))}
                 </Group>
-                {activeFeed && activeFeed.data.length > 0 ? activeFeed.data.slice(0, 3).map((item) => (
+                {activeFeed && activeFeed.data.length > 0 ? activeFeed.data.slice(0, 5).map((item) => (
                   <ActivityFeedItem key={item.id} item={item} showPlayerName={activityScope !== 'my'} />
                 )) : (
                   <Text size="xs" className="ot-text-dim">{activityScope === 'alliance' && !firstAllianceId ? 'Join an alliance.' : 'No activity yet.'}</Text>
@@ -479,7 +488,7 @@ export default function DashboardPage() {
               </Stack>
               <Stack gap={4}>
                 <Text size="xs" fw={600} className="ot-text-dim" tt="uppercase">Messages</Text>
-                {mail && mail.items.length > 0 ? mail.items.slice(0, 3).map((item) => (
+                {mail && mail.items.length > 0 ? mail.items.slice(0, 5).map((item) => (
                   <Group key={item.id} justify="space-between" gap="xs">
                     <Text size="xs" truncate fw={item.isRead ? 400 : 600} className={item.isRead ? 'ot-text-dim' : undefined} style={{ flex: 1, minWidth: 0 }}>{item.subject}</Text>
                     <Text size="xs" className="ot-text-dim" style={{ flexShrink: 0 }}>{item.sender?.displayName ?? 'System'}</Text>
@@ -550,6 +559,7 @@ export default function DashboardPage() {
             {availablePoints > 0 && <Anchor component={Link} href="/battle/proficiencies" size="xs">Allocate</Anchor>}
           </Stack>
         </OTCard>
-    </div>
+      </div>
+    </Container>
   );
 }
