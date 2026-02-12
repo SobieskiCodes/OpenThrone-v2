@@ -436,7 +436,7 @@ export default function DashboardPage() {
           <Group justify="space-between" align="center" wrap="wrap" gap="sm">
             <Stack gap={4}>
               <Group gap="sm" align="center">
-                <Title order={3}>{player.displayName}&apos;s Kingdom</Title>
+                <Title order={3}><Anchor component={Link} href={`/profile/${player.id}`} underline="never" inherit>{player.displayName}</Anchor>&apos;s Kingdom</Title>
                 <Badge variant="light" color={colorName} size="sm">{player.race}</Badge>
                 <Badge variant="light" color="ot" size="sm">{player.class}</Badge>
               </Group>
