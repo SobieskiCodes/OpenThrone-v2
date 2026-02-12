@@ -15,6 +15,7 @@ import {
   Anchor,
   Button,
   ThemeIcon,
+  Divider,
 } from '@mantine/core';
 import { OTCard, StatRow, TooltipStat, ActivityFeedItem } from '@/components/ui';
 import type { ActivityItem } from '@/components/ui';
@@ -25,6 +26,7 @@ import { useRaceTheme } from '@/context/race-theme';
 import { useCountdowns } from '@/hooks/use-countdowns';
 import { getRecommendedAction } from '@/lib/recommended-action';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   computeArmoryValue,
   getFortificationByLevel,
@@ -36,7 +38,6 @@ import {
   IconCoins,
   IconSwords,
   IconHistory,
-  IconBulb,
   IconTrophy,
   IconStar,
   IconWall,
@@ -44,7 +45,16 @@ import {
   IconUsers,
   IconBuildingBank,
   IconTarget,
+  IconClockHour4,
+  IconCalendarTime,
+  IconShield,
+  IconEye,
+  IconGhost,
+  IconMail,
+  IconChartArcs,
+  IconSparkles,
 } from '@tabler/icons-react';
+import type { TablerIcon } from '@tabler/icons-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -257,6 +267,34 @@ function CitizensTooltipContent({ bd }: { bd: CitizensPerDayBreakdown }) {
   );
 }
 
+function DashboardStatLine({
+  label,
+  value,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: React.ReactNode;
+  icon: TablerIcon;
+  tone?: 'default' | 'success' | 'accent';
+}) {
+  return (
+    <Group justify="space-between" wrap="nowrap" className="ot-dashboard-stat-line">
+      <Group gap={8} wrap="nowrap">
+        <Icon size={13} className="ot-dashboard-stat-icon" />
+        <Text size="sm" className="ot-text-dim">{label}</Text>
+      </Group>
+      <Text
+        size="md"
+        fw={600}
+        className={tone ? `ot-dashboard-stat-value ot-dashboard-stat-value--${tone}` : 'ot-dashboard-stat-value'}
+      >
+        {value}
+      </Text>
+    </Group>
+  );
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -393,120 +431,142 @@ export default function DashboardPage() {
 
   return (
     <Container fluid px={{ base: 'xs', sm: 'md' }} py="sm">
-      <div className="ot-dashboard">
-        {/* ── Status Strip ──────────────────────────────────── */}
+      <div className="ot-dashboard ot-stagger">
         <div className="ot-status-strip" style={{ gridArea: 'status' }}>
-          <Group justify="space-between" align="center" wrap="wrap">
-            <Group gap="sm" align="center">
-              <Title order={4}>{player.displayName}&apos;s Kingdom</Title>
-              <Badge variant="light" color={colorName} size="xs">{player.race}</Badge>
-              <Badge variant="light" color="ot" size="xs">{player.class}</Badge>
-            </Group>
-            <Group gap="xs" align="center">
-              <Text size="xs" fw={600}>Lv {level}</Text>
-              {rank > 0 && <Badge variant="light" color="ot" size="xs">#{rank}</Badge>}
-              <Tooltip
-                label={`${toLocale(experience - currentLevelXP)} / ${toLocale(nextLevelXP - currentLevelXP)} XP — ${toLocale(xpToNext)} to next level`}
-                withArrow
-                position="bottom"
-              >
-                <Group gap={4} align="center" style={{ cursor: 'default' }}>
-                  <Progress value={xpProgress} size={4} color={colorName} radius="sm" style={{ width: 80 }} />
-                  <Text size="xs" className="ot-text-dim">{Math.round(xpProgress)}%</Text>
-                </Group>
-              </Tooltip>
+          <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+            <Stack gap={4}>
+              <Group gap="sm" align="center">
+                <Title order={3}>{player.displayName}&apos;s Kingdom</Title>
+                <Badge variant="light" color={colorName} size="sm">{player.race}</Badge>
+                <Badge variant="light" color="ot" size="sm">{player.class}</Badge>
+              </Group>
+              <Group gap="xs" align="center" className="ot-status-progress">
+                <Text size="xs" fw={600}>Level {level}</Text>
+                {rank > 0 && <Badge variant="light" color="ot" size="xs">#{rank}</Badge>}
+                <Tooltip
+                  label={`${toLocale(experience - currentLevelXP)} / ${toLocale(nextLevelXP - currentLevelXP)} XP — ${toLocale(xpToNext)} to next level`}
+                  withArrow
+                  position="bottom"
+                >
+                  <Group gap={6} align="center" style={{ cursor: 'default' }}>
+                    <Progress value={xpProgress} size={6} color={colorName} radius="sm" style={{ width: 120 }} />
+                    <Text size="xs" className="ot-text-dim">{Math.round(xpProgress)}%</Text>
+                  </Group>
+                </Tooltip>
+              </Group>
+            </Stack>
+
+            <Group gap="md" className="ot-dashboard-meta" wrap="wrap">
+              <Group gap={6}><IconCoins size={13} /><Text size="sm" fw={600}>{toLocale(gold)}</Text></Group>
+              <Group gap={6}><IconSwords size={13} /><Text size="sm" fw={600}>{attackTurns}</Text></Group>
+              <Group gap={6}><IconUsers size={13} /><Text size="sm" fw={600}>{toLocale(untrainedCitizens)} idle</Text></Group>
+              <Group gap={6}><IconClockHour4 size={13} /><Text size="sm" fw={600}>Next: {countdowns.nextTurn}</Text></Group>
+              <Group gap={6}><IconCalendarTime size={13} /><Text size="sm" fw={600}>Reset: {countdowns.dailyReset}</Text></Group>
             </Group>
           </Group>
         </div>
 
-        {/* ── Economy ───────────────────────────────────────── */}
         <OTCard accent p="sm" style={{ gridArea: 'econ', overflow: 'hidden' }} header={
           <Group gap="xs" align="center"><IconCoins size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Economy</Text></Group>
         }>
-          <Stack gap={4}>
-            <StatRow label="Gold" value={toLocale(gold)} />
-            <StatRow label="Bank" value={toLocale(goldInBank)} />
-            <TooltipStat label="Per Turn" value={`+${toLocale(goldPerTurn)}`} valueColor="var(--ot-success)" tooltip={breakdown?.goldPerTurn ? <GoldTooltipContent bd={breakdown.goldPerTurn} /> : 'Loading...'} tooltipWidth={220} />
-            <TooltipStat label="Citizens/Day" value={`+${toLocale(citizensPerDay)}`} valueColor="var(--ot-race-primary)" tooltip={breakdown?.citizensPerDay ? <CitizensTooltipContent bd={breakdown.citizensPerDay} /> : 'Loading...'} tooltipWidth={220} />
-            <TooltipStat label="Net Worth" value={toLocale(gold + goldInBank + armoryValue)} tooltip={<Stack gap={2}><Text size="xs" fw={700}>Net Worth</Text><Text size="xs">Gold: {toLocale(gold)}</Text><Text size="xs">Bank: {toLocale(goldInBank)}</Text>{armoryValue > 0 && <Text size="xs">Armory: {toLocale(armoryValue)}</Text>}<Text size="xs" fw={600}>Total: {toLocale(gold + goldInBank + armoryValue)}</Text></Stack>} tooltipWidth={200} />
+          <Stack gap={8}>
+            <DashboardStatLine label="Gold on hand" value={toLocale(gold)} icon={IconCoins} />
+            <DashboardStatLine label="Gold in bank" value={toLocale(goldInBank)} icon={IconBuildingBank} />
+            <TooltipStat label="Gold income / turn" icon={IconCoins} value={`+${toLocale(goldPerTurn)}`} valueColor="var(--ot-success)" tooltip={breakdown?.goldPerTurn ? <GoldTooltipContent bd={breakdown.goldPerTurn} /> : 'Loading...'} tooltipWidth={220} />
+            <TooltipStat label="Citizen growth / day" icon={IconUsers} value={`+${toLocale(citizensPerDay)}`} valueColor="var(--ot-race-primary)" tooltip={breakdown?.citizensPerDay ? <CitizensTooltipContent bd={breakdown.citizensPerDay} /> : 'Loading...'} tooltipWidth={220} />
+            <Divider color="var(--ot-border-subtle)" />
+            <TooltipStat label="Total net worth" icon={IconChartArcs} value={toLocale(gold + goldInBank + armoryValue)} tooltip={<Stack gap={2}><Text size="xs" fw={700}>Net Worth</Text><Text size="xs">Gold: {toLocale(gold)}</Text><Text size="xs">Bank: {toLocale(goldInBank)}</Text>{armoryValue > 0 && <Text size="xs">Armory: {toLocale(armoryValue)}</Text>}<Text size="xs" fw={600}>Total: {toLocale(gold + goldInBank + armoryValue)}</Text></Stack>} tooltipWidth={200} />
           </Stack>
         </OTCard>
 
-        {/* ── Military ──────────────────────────────────────── */}
         <OTCard p="sm" style={{ gridArea: 'mil', overflow: 'hidden' }} header={
           <Group gap="xs" align="center"><IconSwords size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Military</Text></Group>
         }>
-          <Stack gap={4}>
-            <StatRow label="Units" value={toLocale(totalUnits)} />
-            {(['offense', 'defense', 'spy', 'sentry'] as const).map((stat) => {
-              const value = { offense, defense, spy, sentry }[stat];
-              const bd = breakdown?.[stat];
-              const det = breakdown?.detailed?.[stat];
-              const label = stat.charAt(0).toUpperCase() + stat.slice(1);
-              return <TooltipStat key={stat} label={label} value={toLocale(value)} tooltip={bd ? <StatTooltipContent label={label} bd={bd} detailed={det} /> : 'Loading...'} />;
+          <Stack gap={8}>
+            <DashboardStatLine label="Units" value={toLocale(totalUnits)} icon={IconUsers} />
+            {([
+              { key: 'offense', icon: IconSwords },
+              { key: 'defense', icon: IconShield },
+              { key: 'spy', icon: IconEye },
+              { key: 'sentry', icon: IconGhost },
+            ] as const).map(({ key, icon }) => {
+              const value = { offense, defense, spy, sentry }[key];
+              const bd = breakdown?.[key];
+              const det = breakdown?.detailed?.[key];
+              const label = key.charAt(0).toUpperCase() + key.slice(1);
+              return <TooltipStat key={key} label={label} icon={icon} value={toLocale(value)} tooltip={bd ? <StatTooltipContent label={label} bd={bd} detailed={det} /> : 'Loading...'} />;
             })}
           </Stack>
         </OTCard>
 
-        {/* ── Recommended ───────────────────────────────────── */}
         <OTCard featured p="sm" style={{ gridArea: 'rec', overflow: 'hidden' }} header={
-          <Group gap="xs" align="center"><IconBulb size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Recommended</Text></Group>
+          <Group gap="xs" align="center"><IconSparkles size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Recommended</Text></Group>
         }>
-          <Stack gap="xs" align="center" ta="center">
-            <ThemeIcon size={32} radius="xl" variant="light" color={recommended.color}><RecommendedIcon size={18} /></ThemeIcon>
-            <Text fw={600} size="xs">{recommended.title}</Text>
-            <Text size="xs" className="ot-text-dim" lineClamp={2}>{recommended.description}</Text>
-            <Button component={Link} href={recommended.href} variant="light" color={recommended.color} size="xs" fullWidth>Go</Button>
+          <Stack gap="sm" align="center" ta="center" className="ot-recommended-panel">
+            <ThemeIcon size={40} radius="xl" variant="light" color={recommended.color}><RecommendedIcon size={22} /></ThemeIcon>
+            <Text fw={700}>{recommended.title}</Text>
+            <Text size="sm" className="ot-text-dim" lineClamp={2}>{recommended.description}</Text>
+            <Button component={Link} href={recommended.href} variant="gradient" gradient={{ from: 'var(--ot-accent)', to: '#8166f8', deg: 90 }} size="sm" fullWidth>
+              Take Action
+            </Button>
           </Stack>
         </OTCard>
 
-        {/* ── Recent Activity ───────────────────────────────── */}
         <OTCard p="sm" style={{ gridArea: 'activity', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} header={
           <Group justify="space-between" align="center">
-            <Group gap="xs" align="center"><IconHistory size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Activity</Text></Group>
+            <Group gap="xs" align="center"><IconHistory size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Activity & Messages</Text></Group>
             <Group gap="xs">
               <Anchor component={Link} href="/world/activity" size="xs">Feed</Anchor>
-              <Anchor component={Link} href="/messaging" size="xs">Mail{unreadCount > 0 && <Badge size="xs" color="red" variant="filled" circle ml={2}>{unreadCount}</Badge>}</Anchor>
+              <Anchor component={Link} href="/messaging" size="xs">Messages{unreadCount > 0 && <Badge size="xs" color="red" variant="filled" circle ml={2}>{unreadCount}</Badge>}</Anchor>
             </Group>
           </Group>
         }>
-          <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-              <Stack gap={4}>
-                <Group gap={4}>
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" style={{ flex: 1, minHeight: 0 }}>
+            <Stack gap={6} style={{ minWidth: 0 }}>
+              <Group justify="space-between" align="center">
+                <Text size="xs" fw={700} tt="uppercase" className="ot-text-dim">Activity feed</Text>
+                <Group gap={6}>
                   {(['my', 'alliance', 'server'] as const).map((scope) => (
-                    <Badge key={scope} variant={activityScope === scope ? 'filled' : 'light'} color={activityScope === scope ? 'blue' : 'gray'} size="xs" style={{ cursor: scope === 'alliance' && !firstAllianceId ? 'default' : 'pointer', opacity: scope === 'alliance' && !firstAllianceId ? 0.4 : 1 }} onClick={() => { if (scope === 'alliance' && !firstAllianceId) return; setActivityScope(scope); }}>
-                      {scope === 'my' ? 'My' : scope === 'alliance' ? 'Alliance' : 'Server'}
+                    <Badge key={scope} variant={activityScope === scope ? 'filled' : 'light'} color={activityScope === scope ? 'blue' : 'gray'} size="sm" style={{ cursor: scope === 'alliance' && !firstAllianceId ? 'default' : 'pointer', opacity: scope === 'alliance' && !firstAllianceId ? 0.4 : 1 }} onClick={() => { if (scope === 'alliance' && !firstAllianceId) return; setActivityScope(scope); }}>
+                      {scope === 'my' ? 'All' : scope === 'alliance' ? 'Ally' : 'Server'}
                     </Badge>
                   ))}
                 </Group>
-                {activeFeed && activeFeed.data.length > 0 ? activeFeed.data.slice(0, 5).map((item) => (
-                  <ActivityFeedItem key={item.id} item={item} showPlayerName={activityScope !== 'my'} />
-                )) : (
-                  <Text size="xs" className="ot-text-dim">{activityScope === 'alliance' && !firstAllianceId ? 'Join an alliance.' : 'No activity yet.'}</Text>
-                )}
-              </Stack>
-              <Stack gap={4}>
-                <Text size="xs" fw={600} className="ot-text-dim" tt="uppercase">Messages</Text>
-                {mail && mail.items.length > 0 ? mail.items.slice(0, 5).map((item) => (
-                  <Group key={item.id} justify="space-between" gap="xs">
-                    <Text size="xs" truncate fw={item.isRead ? 400 : 600} className={item.isRead ? 'ot-text-dim' : undefined} style={{ flex: 1, minWidth: 0 }}>{item.subject}</Text>
-                    <Text size="xs" className="ot-text-dim" style={{ flexShrink: 0 }}>{item.sender?.displayName ?? 'System'}</Text>
+              </Group>
+              {activeFeed && activeFeed.data.length > 0 ? activeFeed.data.slice(0, 5).map((item) => (
+                <ActivityFeedItem key={item.id} item={item} showPlayerName={activityScope !== 'my'} />
+              )) : (
+                <Text size="xs" className="ot-text-dim">{activityScope === 'alliance' && !firstAllianceId ? 'Join an alliance.' : 'No activity yet.'}</Text>
+              )}
+            </Stack>
+
+            <Stack gap={8} style={{ minWidth: 0 }} className="ot-activity-mail-panel">
+              <Group justify="space-between" align="center">
+                <Text size="xs" fw={700} tt="uppercase" className="ot-text-dim">Messages</Text>
+                <Anchor component={Link} href="/messaging" size="xs">Open mailbox</Anchor>
+              </Group>
+              {mail && mail.items.length > 0 ? mail.items.slice(0, 5).map((item) => (
+                <Group key={item.id} justify="space-between" gap="xs" className="ot-mail-row">
+                  <Group gap={8} style={{ flex: 1, minWidth: 0 }} wrap="nowrap">
+                    <IconMail size={13} className="ot-text-dim" />
+                    <Text size="sm" truncate fw={item.isRead ? 400 : 600} className={item.isRead ? 'ot-text-dim' : undefined}>
+                      {item.subject}
+                    </Text>
                   </Group>
-                )) : <Text size="xs" className="ot-text-dim">No messages yet.</Text>}
-              </Stack>
-            </SimpleGrid>
-          </div>
+                  <Text size="xs" className="ot-text-dim" style={{ flexShrink: 0 }}>{item.sender?.displayName ?? 'System'}</Text>
+                </Group>
+              )) : <Text size="xs" className="ot-text-dim">No messages yet.</Text>}
+            </Stack>
+          </SimpleGrid>
         </OTCard>
 
-        {/* ── Rankings ──────────────────────────────────────── */}
         <OTCard p="sm" style={{ gridArea: 'rank', overflow: 'hidden' }} header={
           <Group justify="space-between" align="center">
             <Group gap="xs" align="center"><IconTrophy size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Rankings</Text></Group>
             <Anchor component={Link} href="/world/rankings" size="xs">View</Anchor>
           </Group>
         }>
-          <Stack gap={4}>
+          <Stack gap={8}>
             {([
               { label: 'Overall', value: breakdown?.ranks?.overall ?? rank },
               { label: 'Offense', value: breakdown?.ranks?.offense },
@@ -515,48 +575,50 @@ export default function DashboardPage() {
               { label: 'Sentry', value: breakdown?.ranks?.sentry },
               { label: 'Net Worth', value: breakdown?.ranks?.netWorth },
             ] as const).map((item) => (
-              <StatRow key={item.label} label={item.label} value={item.value ? `#${item.value}` : '--'} />
+              <DashboardStatLine key={item.label} label={item.label} value={item.value ? `#${item.value}` : '--'} icon={IconChartArcs} />
             ))}
           </Stack>
         </OTCard>
 
-        {/* ── Fortification ─────────────────────────────────── */}
         <OTCard p="sm" style={{ gridArea: 'fort', overflow: 'hidden' }} header={
           <Group gap="xs" align="center"><IconWall size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Fort</Text></Group>
         }>
-          <Stack gap={4}>
-            <StatRow label={fortName} value={`Lv ${fortLevel}`} />
-            <Group justify="space-between"><Text size="xs" className="ot-text-dim">HP</Text><Text size="xs" className="ot-text-dim">{toLocale(fortHitpoints)}/{toLocale(fortMaxHp)}</Text></Group>
-            <Progress value={fortHpPercent} size="sm" color={fortHpPercent > 50 ? 'green' : fortHpPercent > 25 ? 'yellow' : 'red'} />
-          </Stack>
+          <Group gap="sm" wrap="nowrap" align="flex-start">
+            <div className="ot-fort-illustration">
+              <Image src="/fort-manor.svg" alt="Fort illustration" width={84} height={84} />
+            </div>
+            <Stack gap={8} style={{ flex: 1 }}>
+              <StatRow label={fortName} value={`Lv ${fortLevel}`} />
+              <Group justify="space-between"><Text size="xs" className="ot-text-dim">HP</Text><Text size="xs" className="ot-text-dim">{toLocale(fortHitpoints)}/{toLocale(fortMaxHp)}</Text></Group>
+              <Progress value={fortHpPercent} size="sm" color={fortHpPercent > 50 ? 'green' : fortHpPercent > 25 ? 'yellow' : 'red'} />
+            </Stack>
+          </Group>
         </OTCard>
 
-        {/* ── Quick Actions ─────────────────────────────────── */}
         <OTCard p="sm" style={{ gridArea: 'quick', overflow: 'hidden' }} header={
           <Group gap="xs" align="center"><IconRocket size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Actions</Text></Group>
         }>
-          <SimpleGrid cols={2} spacing={4}>
-            <Button component={Link} href="/battle/players" variant="light" color="red" leftSection={<IconSwords size={14} />} size="xs" fullWidth>Attack</Button>
-            <Button component={Link} href="/battle/training" variant="light" color="blue" leftSection={<IconUsers size={14} />} size="xs" fullWidth>Train</Button>
-            <Button component={Link} href="/structures/bank" variant="light" color="green" leftSection={<IconBuildingBank size={14} />} size="xs" fullWidth>Bank</Button>
-            <Button component={Link} href="/structures/armory" variant="light" color="grape" leftSection={<IconTarget size={14} />} size="xs" fullWidth>Armory</Button>
+          <SimpleGrid cols={2} spacing={6}>
+            <Button component={Link} href="/battle/players" variant="light" color="red" leftSection={<IconSwords size={14} />} size="sm" fullWidth>Attack</Button>
+            <Button component={Link} href="/battle/training" variant="light" color="blue" leftSection={<IconUsers size={14} />} size="sm" fullWidth>Train</Button>
+            <Button component={Link} href="/structures/bank" variant="light" color="green" leftSection={<IconBuildingBank size={14} />} size="sm" fullWidth>Bank</Button>
+            <Button component={Link} href="/structures/armory" variant="light" color="grape" leftSection={<IconTarget size={14} />} size="sm" fullWidth>Armory</Button>
           </SimpleGrid>
         </OTCard>
 
-        {/* ── Proficiencies ─────────────────────────────────── */}
         <OTCard p="sm" style={{ gridArea: 'prof', overflow: 'hidden' }} header={
           <Group justify="space-between" align="center">
             <Group gap="xs" align="center"><IconStar size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Proficiencies</Text></Group>
             {availablePoints > 0 && <Badge size="xs" color="green" variant="light">{availablePoints} pts</Badge>}
           </Group>
         }>
-          <Stack gap={4}>
+          <Stack gap={8}>
             {breakdown?.bonusPoints && breakdown.bonusPoints.length > 0 ? (
               breakdown.bonusPoints.filter((bp) => bp.level > 0).map((bp) => (
                 <StatRow key={bp.bonusType} label={bp.bonusType.charAt(0) + bp.bonusType.slice(1).toLowerCase()} value={`Lv ${bp.level}`} />
               ))
             ) : <Text size="xs" className="ot-text-dim">None allocated.</Text>}
-            {availablePoints > 0 && <Anchor component={Link} href="/battle/proficiencies" size="xs">Allocate</Anchor>}
+            {availablePoints > 0 && <Anchor component={Link} href="/battle/proficiencies" size="xs">Allocate points</Anchor>}
           </Stack>
         </OTCard>
       </div>

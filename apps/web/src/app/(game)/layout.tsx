@@ -3,7 +3,6 @@
 import {
   AppShell,
   Group,
-  Title,
   NavLink,
   Stack,
   Text,
@@ -24,14 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useApi } from '@/hooks/use-api';
 import { RaceThemeProvider } from '@/context/race-theme';
-import { useCountdowns } from '@/hooks/use-countdowns';
-import { toLocale } from '@openthrone/game-logic';
 import {
-  IconCoins,
-  IconBolt,
-  IconClockHour4,
-  IconCalendar,
-  IconUsers,
   IconHome,
   IconShield,
   IconSwords,
@@ -117,7 +109,6 @@ function GameShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { api, isReady } = useApi();
-  const countdowns = useCountdowns();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
 
   const { data: unreadData } = useQuery<{ count: number }>({
@@ -136,11 +127,6 @@ function GameShell({ children }: { children: React.ReactNode }) {
   });
   const availablePoints = meData?.availablePoints ?? 0;
   const availableUpgrades = meData?.availableUpgrades ?? 0;
-  const gold = meData?.economy?.gold;
-  const attackTurns = meData?.economy?.attackTurns;
-  const citizens = meData?.units?.find((u) => u.unitType === 'CITIZEN' && u.level === 1)?.quantity ?? 0;
-  const rank = meData?.stats?.rank;
-  const level = meData?.level;
   const permissions: string[] = (session as any)?.permissions ?? [];
   const isAdmin = permissions.includes('ADMINISTRATOR');
   const allNavItems = isAdmin ? [...navItems, ...adminNavItems] : navItems;
@@ -160,70 +146,17 @@ function GameShell({ children }: { children: React.ReactNode }) {
     <AppShell
       navbar={{ width: { base: 260, sm: 60 }, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
       padding={0}
-      styles={{ navbar: { top: 60, height: 'calc(100dvh - 60px)' } }}
+      styles={{ navbar: { top: 0, height: '100dvh' } }}
     >
-      {/* ── Header (our own fixed bar, not AppShell.Header) ── */}
-      <header className="ot-header" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 200 }}>
-        <Group h="100%" px="md" justify="space-between">
-          <Group gap="sm">
-            <Burger
-              opened={mobileOpened}
-              onClick={toggleMobile}
-              hiddenFrom="sm"
-              size="sm"
-              color="var(--ot-text-dim)"
-            />
-            <Title
-              order={3}
-              className="ot-text-accent"
-              style={{
-                letterSpacing: '0.02em',
-                cursor: 'pointer',
-              }}
-              onClick={() => router.push('/home')}
-            >
-              OpenThrone
-            </Title>
-          </Group>
-
-          {/* Quick stats + timers */}
-          {meData && (
-            <Group gap="xs">
-              {gold != null && (
-                <Group gap={4} className="ot-status-item">
-                  <IconCoins size={14} style={{ color: 'var(--ot-accent)' }} />
-                  <span className="ot-status-item-value">{toLocale(Number(gold))}</span>
-                </Group>
-              )}
-              {attackTurns != null && (
-                <Group gap={4} className="ot-status-item">
-                  <IconBolt size={14} style={{ color: 'var(--ot-accent)' }} />
-                  <span className="ot-status-item-value">{attackTurns}</span>
-                </Group>
-              )}
-              {citizens > 0 && (
-                <Group gap={4} className="ot-status-item" visibleFrom="sm">
-                  <IconUsers size={14} style={{ color: 'var(--ot-warning)' }} />
-                  <span className="ot-status-item-value" style={{ color: 'var(--ot-warning)' }}>
-                    {toLocale(citizens)}
-                  </span>
-                  <span style={{ color: 'var(--ot-warning)' }}>idle</span>
-                </Group>
-              )}
-              <Group gap={4} className="ot-status-item">
-                <IconClockHour4 size={14} style={{ color: 'var(--ot-text-dim)' }} />
-                <Box component="span" visibleFrom="sm">Next:</Box>
-                <span className="ot-status-item-value">{countdowns.nextTurn}</span>
-              </Group>
-              <Group gap={4} className="ot-status-item">
-                <IconCalendar size={14} style={{ color: 'var(--ot-text-dim)' }} />
-                <Box component="span" visibleFrom="sm">Reset:</Box>
-                <span className="ot-status-item-value">{countdowns.dailyReset}</span>
-              </Group>
-            </Group>
-          )}
-        </Group>
-      </header>
+      <Burger
+        opened={mobileOpened}
+        onClick={toggleMobile}
+        hiddenFrom="sm"
+        size="sm"
+        color="var(--ot-text-dim)"
+        style={{ position: 'fixed', top: 10, left: 10, zIndex: 250 }}
+        aria-label="Toggle navigation"
+      />
 
       {/* ── Sidebar ─────────────────────────────────────── */}
       <AppShell.Navbar className="ot-navbar" p={{ base: 'xs', sm: 4 }}>
@@ -406,7 +339,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
 
       {/* ── Display Area ─────────────────────────────────── */}
       <AppShell.Main>
-        <div className="ot-display" style={{ marginTop: 60, height: 'calc(100dvh - 60px)', overflow: 'auto' }}>
+        <div className="ot-display" style={{ marginTop: 0, height: '100dvh', overflow: 'auto' }}>
           {children}
         </div>
       </AppShell.Main>
