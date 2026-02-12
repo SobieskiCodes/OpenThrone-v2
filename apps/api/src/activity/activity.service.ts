@@ -36,12 +36,16 @@ export class ActivityService {
     const { page, limit, type, direction } = query;
     const isOwnFeed = requesterId === playerId;
 
+    // Default to player_id only — each participant already gets their own
+    // activity entry from the listener, so OR-ing with target_id would pull
+    // in the *other* player's entries (e.g. showing the defender's DEFEND_LOSS
+    // on the attacker's "my" feed).
     const directionFilter =
       direction === 'outgoing'
         ? { player_id: playerId }
         : direction === 'incoming'
           ? { target_id: playerId }
-          : { OR: [{ player_id: playerId }, { target_id: playerId }] };
+          : { player_id: playerId };
 
     const where: any = {
       ...directionFilter,
@@ -64,7 +68,9 @@ export class ActivityService {
     ]);
 
     return {
-      data: items.map((item) => this.formatItem(item)),
+      data: items.map((item) =>
+        this.formatItem(item, { anonymizeUncaughtSpy: !isOwnFeed }),
+      ),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -107,7 +113,9 @@ export class ActivityService {
     ]);
 
     return {
-      data: items.map((item) => this.formatItem(item)),
+      data: items.map((item) =>
+        this.formatItem(item, { anonymizeUncaughtSpy: false }),
+      ),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -115,9 +123,15 @@ export class ActivityService {
   async getServerFeed(query: ActivityFeedQueryDto) {
     const { page, limit, type } = query;
 
+    // Exclude defender-perspective types on the server feed to avoid
+    // duplicates (ATTACK_WIN already covers DEFEND_LOSS, etc.)
+    const DEFENDER_TYPES = ['DEFEND_WIN', 'DEFEND_LOSS', 'SPY_DETECTED'];
+
     const where: any = {
       is_public: true,
-      ...(type ? { activity_type: type } : {}),
+      ...(type
+        ? { activity_type: type }
+        : { activity_type: { notIn: DEFENDER_TYPES } }),
     };
 
     const [items, total] = await Promise.all([
@@ -135,12 +149,17 @@ export class ActivityService {
     ]);
 
     return {
-      data: items.map((item) => this.formatItem(item)),
+      data: items.map((item) =>
+        this.formatItem(item, { anonymizeUncaughtSpy: true }),
+      ),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
 
-  private formatItem(item: any) {
+  private formatItem(
+    item: any,
+    options?: { anonymizeUncaughtSpy?: boolean },
+  ) {
     let metadata: Record<string, any> | null = null;
     if (item.metadata) {
       try {
@@ -150,7 +169,7 @@ export class ActivityService {
       }
     }
 
-    return {
+    const result = {
       id: item.id,
       activityType: item.activity_type,
       player: {
@@ -168,5 +187,15 @@ export class ActivityService {
       isPublic: item.is_public,
       createdAt: item.created_at,
     };
+
+    // Hide spy identity for successful (uncaught) spy missions on public feeds
+    if (
+      options?.anonymizeUncaughtSpy &&
+      item.activity_type === 'SPY_SUCCESS'
+    ) {
+      result.player = { id: null as any, displayName: 'someone' };
+    }
+
+    return result;
   }
 }
