@@ -14,11 +14,12 @@ import {
   UnstyledButton,
   Tooltip,
 } from '@mantine/core';
-import { PlayerHoverCard } from '@/components/ui';
+import { OTCard, PlayerHoverCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
+
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -188,63 +189,65 @@ export default function RankingsPage() {
       <Stack gap="md">
         <Title order={2}>Rankings</Title>
 
-        {/* All-Time / Today toggle */}
-        <SegmentedControl
-          value={period}
-          onChange={(val) => {
-            setPeriod(val as Period);
-            setPage(1);
-          }}
-          data={[
-            { value: 'allTime', label: 'All-Time' },
-            { value: 'today', label: 'Today' },
-          ]}
-          size="sm"
-          style={{ alignSelf: 'flex-start' }}
-        />
+        <OTCard p="md">
+          {/* All-Time / Today toggle */}
+          <SegmentedControl
+            value={period}
+            onChange={(val) => {
+              setPeriod(val as Period);
+              setPage(1);
+            }}
+            data={[
+              { value: 'allTime', label: 'All-Time' },
+              { value: 'today', label: 'Today' },
+            ]}
+            size="sm"
+            style={{ alignSelf: 'flex-start' }}
+          />
 
-        {/* Category selector — icon boxes */}
-        <Paper withBorder p="xs">
-          <Group gap="xs" justify="center" wrap="wrap">
-            {CATEGORIES.map((cat) => {
-              const isActive = cat.value === categoryValue;
-              return (
-                <UnstyledButton
-                  key={cat.value}
-                  onClick={() => handleCategoryChange(cat.value)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '12px 18px',
-                    borderRadius: 8,
-                    border: isActive
-                      ? '2px solid var(--ot-gold)'
-                      : '2px solid transparent',
-                    background: isActive
-                      ? 'rgba(255, 215, 0, 0.08)'
-                      : 'transparent',
-                    transition: 'all 0.15s ease',
-                    minWidth: 80,
-                  }}
-                >
-                  <Text size="xl">{cat.icon}</Text>
-                  <Text
-                    size="xs"
-                    fw={isActive ? 700 : 500}
+          {/* Category selector — icon boxes */}
+          <Paper withBorder p="xs" mt="md">
+            <Group gap="xs" justify="center" wrap="wrap">
+              {CATEGORIES.map((cat) => {
+                const isActive = cat.value === categoryValue;
+                return (
+                  <UnstyledButton
+                    key={cat.value}
+                    onClick={() => handleCategoryChange(cat.value)}
                     style={{
-                      color: isActive ? 'var(--ot-gold)' : 'var(--ot-text-dim)',
-                      letterSpacing: '0.05em',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '12px 18px',
+                      borderRadius: 8,
+                      border: isActive
+                        ? '2px solid var(--ot-gold)'
+                        : '2px solid transparent',
+                      background: isActive
+                        ? 'rgba(255, 215, 0, 0.08)'
+                        : 'transparent',
+                      transition: 'all 0.15s ease',
+                      minWidth: 80,
                     }}
                   >
-                    {cat.label}
-                  </Text>
-                </UnstyledButton>
-              );
-            })}
-          </Group>
-        </Paper>
+                    <Text size="xl">{cat.icon}</Text>
+                    <Text
+                      size="xs"
+                      fw={isActive ? 700 : 500}
+                      style={{
+                        color: isActive ? 'var(--ot-gold)' : 'var(--ot-text-dim)',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      {cat.label}
+                    </Text>
+                  </UnstyledButton>
+                );
+              })}
+            </Group>
+          </Paper>
+        </OTCard>
 
         {/* Sub-type pills */}
         <Group gap="xs" wrap="wrap">

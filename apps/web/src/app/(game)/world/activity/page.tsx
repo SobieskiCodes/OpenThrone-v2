@@ -3,9 +3,9 @@
 import {
   Container,
   Stack,
-  Title,
   Group,
   Text,
+  Title,
   Pagination,
   Skeleton,
   Badge,
@@ -15,7 +15,7 @@ import type { ActivityItem } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
-import { IconHistory } from '@tabler/icons-react';
+
 import { ActivityType } from '@openthrone/shared';
 
 const ACTIVITY_TYPES = Object.values(ActivityType);
@@ -70,26 +70,25 @@ export default function ServerActivityPage() {
   return (
     <Container size="md">
       <Stack gap="md">
-        <Group gap="xs" align="center">
-          <IconHistory size={24} style={{ color: 'var(--ot-accent)' }} />
-          <Title order={2}>Server Activity</Title>
-        </Group>
+        <Title order={2}>Server Activity</Title>
 
-        {/* Type filter pills */}
-        <Group gap={6} wrap="wrap">
-          {ACTIVITY_TYPES.map((type) => (
-            <Badge
-              key={type}
-              variant={selectedType === type ? 'filled' : 'light'}
-              color={selectedType === type ? 'blue' : 'gray'}
-              size="sm"
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleTypeToggle(type)}
-            >
-              {TYPE_LABELS[type] ?? type}
-            </Badge>
-          ))}
-        </Group>
+        <OTCard p="md">
+          {/* Type filter pills */}
+          <Group gap={6} wrap="wrap">
+            {ACTIVITY_TYPES.map((type) => (
+              <Badge
+                key={type}
+                variant={selectedType === type ? 'filled' : 'light'}
+                color={selectedType === type ? 'blue' : 'gray'}
+                size="sm"
+                style={{ cursor: 'pointer' }}
+                onClick={() => handleTypeToggle(type)}
+              >
+                {TYPE_LABELS[type] ?? type}
+              </Badge>
+            ))}
+          </Group>
+        </OTCard>
 
         <OTCard>
           {isLoading ? (
