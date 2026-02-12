@@ -14,6 +14,7 @@ import {
 export interface RecommendedAction {
   title: string;
   description: string;
+  cta: string;
   href: string;
   icon: ComponentType<{ size?: number | string }>;
   color: string;
@@ -36,6 +37,7 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
     return {
       title: 'Train your first soldiers',
       description: 'You have no units yet. Recruit and train troops to defend your kingdom.',
+      cta: 'Raise your first army',
       href: '/battle/training',
       icon: IconSwords,
       color: 'red',
@@ -44,8 +46,9 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
 
   if (state.untrainedCitizens > 0) {
     return {
-      title: 'Train your idle citizens',
-      description: `${state.untrainedCitizens.toLocaleString()} citizen${state.untrainedCitizens > 1 ? 's are' : ' is'} sitting idle. Put them to work!`,
+      title: `${state.untrainedCitizens.toLocaleString()} citizens await your command`,
+      description: 'Mobilize your workforce before your rivals outscale you.',
+      cta: 'Mobilize citizens',
       href: '/battle/training',
       icon: IconUsers,
       color: 'yellow',
@@ -56,6 +59,7 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
     return {
       title: 'You have unused turns',
       description: `${state.attackTurns} attack turns are waiting. Find a target and put them to use!`,
+      cta: 'Spend turns now',
       href: '/battle/players',
       icon: IconBolt,
       color: 'yellow',
@@ -66,6 +70,7 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
     return {
       title: 'Allocate proficiency points',
       description: `You have ${state.availablePoints} unspent point${state.availablePoints > 1 ? 's' : ''}. Boost your strengths!`,
+      cta: 'Allocate points',
       href: '/battle/proficiencies',
       icon: IconStar,
       color: 'grape',
@@ -76,6 +81,7 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
     return {
       title: 'New upgrades available',
       description: `${state.availableUpgrades} upgrade${state.availableUpgrades > 1 ? 's' : ''} ready to purchase. Strengthen your kingdom.`,
+      cta: 'Review upgrades',
       href: '/structures/upgrades',
       icon: IconArrowUp,
       color: 'blue',
@@ -86,6 +92,7 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
     return {
       title: 'Your fort needs repairs',
       description: `Fort HP is at ${Math.round(state.fortHpPercent)}%. Repair it before the next attack.`,
+      cta: 'Repair fortifications',
       href: '/structures/repair',
       icon: IconWall,
       color: 'orange',
@@ -96,6 +103,7 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
     return {
       title: 'Bank your gold',
       description: 'You have unbanked gold that enemies can steal. Deposit it for safety.',
+      cta: 'Secure your gold',
       href: '/structures/bank',
       icon: IconBuildingBank,
       color: 'green',
@@ -106,6 +114,7 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
     return {
       title: 'Equip your troops',
       description: 'Your soldiers have no equipment. Visit the armory to gear them up.',
+      cta: 'Gear up now',
       href: '/structures/armory',
       icon: IconTarget,
       color: 'cyan',
@@ -115,6 +124,7 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
   return {
     title: 'Find your next target',
     description: 'Check the rankings for worthy opponents to attack.',
+    cta: 'Scout targets',
     href: '/world/rankings',
     icon: IconTrophy,
     color: 'ot',

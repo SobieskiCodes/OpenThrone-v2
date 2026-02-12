@@ -466,7 +466,7 @@ export default function DashboardPage() {
           </Group>
         </div>
 
-        <OTCard accent p="sm" style={{ gridArea: 'econ', overflow: 'hidden' }} header={
+        <OTCard accent p="sm" className="ot-tier-secondary" style={{ gridArea: 'econ', overflow: 'hidden' }} header={
           <Group gap="xs" align="center"><IconCoins size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Economy</Text></Group>
         }>
           <Stack gap={8}>
@@ -479,7 +479,7 @@ export default function DashboardPage() {
           </Stack>
         </OTCard>
 
-        <OTCard p="sm" style={{ gridArea: 'mil', overflow: 'hidden' }} header={
+        <OTCard p="sm" className="ot-tier-primary" style={{ gridArea: 'mil', overflow: 'hidden' }} header={
           <Group gap="xs" align="center"><IconSwords size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Military</Text></Group>
         }>
           <Stack gap={8}>
@@ -499,20 +499,20 @@ export default function DashboardPage() {
           </Stack>
         </OTCard>
 
-        <OTCard featured p="sm" style={{ gridArea: 'rec', overflow: 'hidden' }} header={
+        <OTCard featured p="sm" className="ot-tier-primary" style={{ gridArea: 'rec', overflow: 'hidden' }} header={
           <Group gap="xs" align="center"><IconSparkles size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Recommended</Text></Group>
         }>
           <Stack gap="sm" align="center" ta="center" className="ot-recommended-panel">
             <ThemeIcon size={40} radius="xl" variant="light" color={recommended.color}><RecommendedIcon size={22} /></ThemeIcon>
             <Text fw={700}>{recommended.title}</Text>
             <Text size="sm" className="ot-text-dim" lineClamp={2}>{recommended.description}</Text>
-            <Button component={Link} href={recommended.href} variant="gradient" gradient={{ from: 'var(--ot-accent)', to: '#8166f8', deg: 90 }} size="sm" fullWidth>
-              Take Action
+            <Button component={Link} href={recommended.href} variant="gradient" gradient={{ from: 'var(--ot-accent)', to: '#8166f8', deg: 90 }} size="sm" fullWidth className="ot-recommended-button">
+              {recommended.cta}
             </Button>
           </Stack>
         </OTCard>
 
-        <OTCard p="sm" style={{ gridArea: 'activity', overflow: 'hidden' }} header={
+        <OTCard p="sm" className="ot-tier-tertiary" style={{ gridArea: 'activity', overflow: 'hidden' }} header={
           <Group justify="space-between" align="center">
             <Group gap="xs" align="center"><IconHistory size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Activity & Messages</Text></Group>
             <Group gap="xs">
@@ -533,8 +533,10 @@ export default function DashboardPage() {
                   ))}
                 </Group>
               </Group>
-              {activeFeed && activeFeed.data.length > 0 ? activeFeed.data.slice(0, 5).map((item) => (
-                <ActivityFeedItem key={item.id} item={item} showPlayerName={activityScope !== 'my'} />
+              {activeFeed && activeFeed.data.length > 0 ? activeFeed.data.slice(0, 5).map((item, index) => (
+                <div key={item.id} className={`ot-activity-row ${index === 0 ? 'is-latest' : ''}`}>
+                  <ActivityFeedItem item={item} showPlayerName={activityScope !== 'my'} />
+                </div>
               )) : (
                 <Text size="xs" className="ot-text-dim">{activityScope === 'alliance' && !firstAllianceId ? 'Join an alliance.' : 'No activity yet.'}</Text>
               )}
@@ -560,7 +562,7 @@ export default function DashboardPage() {
           </SimpleGrid>
         </OTCard>
 
-        <OTCard p="sm" style={{ gridArea: 'rank', overflow: 'hidden' }} header={
+        <OTCard p="sm" className="ot-tier-secondary" style={{ gridArea: 'rank', overflow: 'hidden' }} header={
           <Group justify="space-between" align="center">
             <Group gap="xs" align="center"><IconTrophy size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Rankings</Text></Group>
             <Anchor component={Link} href="/world/rankings" size="xs">View</Anchor>
@@ -580,7 +582,7 @@ export default function DashboardPage() {
           </Stack>
         </OTCard>
 
-        <OTCard p="sm" style={{ gridArea: 'fort', overflow: 'hidden' }} header={
+        <OTCard p="sm" className="ot-tier-secondary" style={{ gridArea: 'fort', overflow: 'hidden' }} header={
           <Group gap="xs" align="center"><IconWall size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Fort</Text></Group>
         }>
           <Group gap="sm" wrap="nowrap" align="flex-start">
@@ -595,18 +597,18 @@ export default function DashboardPage() {
           </Group>
         </OTCard>
 
-        <OTCard p="sm" style={{ gridArea: 'quick', overflow: 'hidden' }} header={
+        <OTCard p="sm" className="ot-tier-primary ot-actions-panel" style={{ gridArea: 'quick', overflow: 'hidden' }} header={
           <Group gap="xs" align="center"><IconRocket size={14} style={{ color: 'var(--ot-text-dim)' }} /><Text size="sm" fw={700}>Actions</Text></Group>
         }>
           <SimpleGrid cols={2} spacing={6}>
-            <Button component={Link} href="/battle/players" variant="light" color="red" leftSection={<IconSwords size={14} />} size="sm" fullWidth>Attack</Button>
-            <Button component={Link} href="/battle/training" variant="light" color="blue" leftSection={<IconUsers size={14} />} size="sm" fullWidth>Train</Button>
-            <Button component={Link} href="/structures/bank" variant="light" color="green" leftSection={<IconBuildingBank size={14} />} size="sm" fullWidth>Bank</Button>
-            <Button component={Link} href="/structures/armory" variant="light" color="grape" leftSection={<IconTarget size={14} />} size="sm" fullWidth>Armory</Button>
+            <Button component={Link} href="/battle/players" variant="light" color="red" leftSection={<IconSwords size={14} />} size="sm" fullWidth className="ot-action-button">Attack</Button>
+            <Button component={Link} href="/battle/training" variant="light" color="blue" leftSection={<IconUsers size={14} />} size="sm" fullWidth className="ot-action-button">Train</Button>
+            <Button component={Link} href="/structures/bank" variant="light" color="green" leftSection={<IconBuildingBank size={14} />} size="sm" fullWidth className="ot-action-button">Bank</Button>
+            <Button component={Link} href="/structures/armory" variant="light" color="grape" leftSection={<IconTarget size={14} />} size="sm" fullWidth className="ot-action-button">Armory</Button>
           </SimpleGrid>
         </OTCard>
 
-        <OTCard p="sm" style={{ gridArea: 'prof', overflow: 'hidden' }} header={
+        <OTCard p="sm" className="ot-tier-secondary" style={{ gridArea: 'prof', overflow: 'hidden' }} header={
           <Group justify="space-between" align="center">
             <Group gap="xs" align="center"><IconStar size={14} style={{ color: 'var(--ot-accent)' }} /><Text size="sm" fw={700}>Proficiencies</Text></Group>
             {availablePoints > 0 && <Badge size="xs" color="green" variant="light">{availablePoints} pts</Badge>}
