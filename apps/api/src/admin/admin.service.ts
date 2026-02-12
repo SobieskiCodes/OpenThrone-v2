@@ -28,8 +28,8 @@ export class AdminService {
 
     if (search) {
       where.OR = [
-        { display_name: { contains: search } },
-        { email: { contains: search } },
+        { display_name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
     if (status) {

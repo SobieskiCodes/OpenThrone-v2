@@ -54,7 +54,7 @@ export class BattleService {
     };
 
     if (search) {
-      where.display_name = { contains: search };
+      where.display_name = { contains: search, mode: 'insensitive' };
     }
     if (race) {
       where.race = race;

@@ -35,10 +35,11 @@ export class PlayerService {
   constructor(private readonly prisma: PrismaService) {}
 
   async searchPlayers(search: string) {
+    const where: any = {
+      display_name: { contains: search, mode: 'insensitive' },
+    };
     const players = await this.prisma.player.findMany({
-      where: {
-        display_name: { contains: search },
-      },
+      where,
       select: {
         id: true,
         display_name: true,
