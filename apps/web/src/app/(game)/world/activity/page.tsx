@@ -5,16 +5,17 @@ import {
   Stack,
   Group,
   Text,
+  Title,
   Pagination,
   Skeleton,
   Badge,
 } from '@mantine/core';
-import { OTCard, ActivityFeedItem, PageHeaderStatus } from '@/components/ui';
+import { OTCard, ActivityFeedItem } from '@/components/ui';
 import type { ActivityItem } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
-import { IconHistory } from '@tabler/icons-react';
+
 import { ActivityType } from '@openthrone/shared';
 
 const ACTIVITY_TYPES = Object.values(ActivityType);
@@ -69,11 +70,7 @@ export default function ServerActivityPage() {
   return (
     <Container size="md">
       <Stack gap="md">
-        <PageHeaderStatus
-          title="Server Activity"
-          subtitle="Live highlights from every kingdom. Filter by event type to focus on what matters most."
-          icon={IconHistory}
-        />
+        <Title order={2}>Server Activity</Title>
 
         <OTCard p="md">
           {/* Type filter pills */}

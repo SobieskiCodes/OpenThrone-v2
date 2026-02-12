@@ -1,11 +1,11 @@
 'use client';
 
-import { Container, Tabs, Stack, Text } from '@mantine/core';
+import { Container, Tabs, Stack, Text, Title } from '@mantine/core';
 import { useState } from 'react';
 import InboxTab from './InboxTab';
 import ChatTab from './ChatTab';
-import { OTCard, PageHeaderStatus } from '@/components/ui';
-import { IconMail } from '@tabler/icons-react';
+import { OTCard } from '@/components/ui';
+
 
 export default function MessagingPage() {
   const [tab, setTab] = useState<string | null>('inbox');
@@ -13,11 +13,7 @@ export default function MessagingPage() {
   return (
     <Container size="lg">
       <Stack gap="md">
-        <PageHeaderStatus
-          title="Messaging"
-          subtitle="Stay in sync with allies, keep an eye on battle intel, and respond quickly to threats."
-          icon={IconMail}
-        />
+        <Title order={2}>Messaging</Title>
 
         <OTCard p="md">
           <Text size="sm" className="ot-text-dim" mb="sm">

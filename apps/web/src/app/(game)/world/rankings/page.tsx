@@ -14,12 +14,12 @@ import {
   UnstyledButton,
   Tooltip,
 } from '@mantine/core';
-import { OTCard, PageHeaderStatus, PlayerHoverCard } from '@/components/ui';
+import { OTCard, PlayerHoverCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
-import { IconTrophy } from '@tabler/icons-react';
+
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -187,11 +187,7 @@ export default function RankingsPage() {
   return (
     <Container size="lg">
       <Stack gap="md">
-        <PageHeaderStatus
-          title="Rankings"
-          subtitle="Track power shifts, rivalry trends, and where your kingdom stands right now."
-          icon={IconTrophy}
-        />
+        <Title order={2}>Rankings</Title>
 
         <OTCard p="md">
           {/* All-Time / Today toggle */}
