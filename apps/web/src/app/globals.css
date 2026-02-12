@@ -298,8 +298,8 @@ body {
   grid-template-rows: auto auto auto auto;
   grid-template-areas:
     "status   status   status"
-    "econ     mil      rec"
-    "activity activity rank"
+    "econ     mil      rank"
+    "activity activity rec"
     "fort     quick    prof";
   gap: 14px;
   width: 100%;
@@ -315,9 +315,81 @@ body {
 
 .ot-status-strip {
   padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
-  border-bottom: 1px solid var(--ot-border-subtle);
+  border: 1px solid var(--ot-border-subtle);
   border-radius: var(--mantine-radius-lg);
-  background: var(--ot-bg-surface);
+  background:
+    radial-gradient(circle at 75% 0%, rgba(133, 111, 255, 0.25), rgba(133, 111, 255, 0) 45%),
+    linear-gradient(120deg, rgba(10, 14, 39, 0.95), rgba(16, 18, 42, 0.88));
+}
+
+.ot-status-progress {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ot-border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ot-dashboard-meta {
+  color: var(--ot-text-dim);
+}
+.ot-dashboard-meta svg {
+  color: var(--ot-accent);
+}
+
+.ot-dashboard-stat-line {
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.07);
+}
+.ot-dashboard-stat-icon {
+  color: var(--ot-text-dim);
+}
+.ot-dashboard-stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.ot-recommended-panel {
+  min-height: 170px;
+  justify-content: center;
+}
+
+.ot-segmented-pill {
+  border-radius: 999px;
+  border: 1px solid var(--ot-border-subtle);
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ot-segmented-pill button {
+  border: 0;
+  background: transparent;
+  color: var(--ot-text-dim);
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 5px 10px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.ot-segmented-pill button.active {
+  background: rgba(245, 210, 111, 0.14);
+  color: var(--ot-accent);
+}
+
+
+.ot-fort-illustration {
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--ot-border-subtle);
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ot-mail-row {
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
 }
 
 @media (max-width: 1200px) {
@@ -326,7 +398,7 @@ body {
     grid-template-areas:
       "status   status"
       "econ     mil"
-      "rec      rank"
+      "rank    rec"
       "activity activity"
       "fort     quick"
       "prof     prof";
@@ -346,6 +418,10 @@ body {
       "fort"
       "quick"
       "prof";
+  }
+
+  .ot-status-strip {
+    padding: var(--mantine-spacing-sm);
   }
 }
 

@@ -3,7 +3,6 @@
 import {
   AppShell,
   Group,
-  Title,
   NavLink,
   Stack,
   Text,
@@ -173,17 +172,6 @@ function GameShell({ children }: { children: React.ReactNode }) {
               size="sm"
               color="var(--ot-text-dim)"
             />
-            <Title
-              order={3}
-              className="ot-text-accent"
-              style={{
-                letterSpacing: '0.02em',
-                cursor: 'pointer',
-              }}
-              onClick={() => router.push('/home')}
-            >
-              OpenThrone
-            </Title>
           </Group>
 
           {/* Quick stats + timers */}
