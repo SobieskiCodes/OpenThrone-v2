@@ -392,7 +392,8 @@ export default function DashboardPage() {
   const RecommendedIcon = recommended.icon;
 
   return (
-    <div className="ot-dashboard" style={{ gap: 10, padding: 10 }}>
+    <Container fluid px={{ base: 'xs', sm: 'md' }} py="sm">
+      <div className="ot-dashboard">
         {/* ── Status Strip ──────────────────────────────────── */}
         <div className="ot-status-strip" style={{ gridArea: 'status' }}>
           <Group justify="space-between" align="center" wrap="wrap">
@@ -550,6 +551,7 @@ export default function DashboardPage() {
             {availablePoints > 0 && <Anchor component={Link} href="/battle/proficiencies" size="xs">Allocate</Anchor>}
           </Stack>
         </OTCard>
-    </div>
+      </div>
+    </Container>
   );
 }

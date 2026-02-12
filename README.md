@@ -35,7 +35,11 @@ pnpm db:seed            # Seed test data (creates test players)
 pnpm dev                # web → localhost:3000, api → localhost:3001
 ```
 
-Copy `.env.example` to `.env` in both `apps/web` and `apps/api` if needed.
+Copy `.env.example` to `.env` (repo root) before running the app. For local auth, set `JWT_SECRET`, `NEXTAUTH_SECRET`, and `AUTH_SECRET` to the same value.
+
+Seeded admin login after `pnpm db:seed`:
+- email: `testplayer1@openthrone.dev`
+- password: `password123`
 
 ## Project Structure
 
