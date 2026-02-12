@@ -256,6 +256,19 @@ function GameShell({ children }: { children: React.ReactNode }) {
           <Button variant="subtle" fullWidth color="red" onClick={handleLogout}>
             Logout
           </Button>
+          <Text
+            size="xs"
+            ta="center"
+            className="ot-text-dim"
+            mt={4}
+            component="a"
+            href={`https://github.com/SobieskiCodes/OpenThrone-v2/commit/${process.env.NEXT_PUBLIC_BUILD_VERSION}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: 'none' }}
+          >
+            v:{process.env.NEXT_PUBLIC_BUILD_VERSION ?? 'dev'}
+          </Text>
         </Stack>
 
         {/* ── Desktop: Icon rail with hover flyouts ── */}
@@ -334,6 +347,18 @@ function GameShell({ children }: { children: React.ReactNode }) {
               <IconLogout size={22} />
             </ActionIcon>
           </Tooltip>
+          <Text
+            size="9px"
+            className="ot-text-dim"
+            ta="center"
+            component="a"
+            href={`https://github.com/SobieskiCodes/OpenThrone-v2/commit/${process.env.NEXT_PUBLIC_BUILD_VERSION}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: 'none' }}
+          >
+            v:{process.env.NEXT_PUBLIC_BUILD_VERSION ?? 'dev'}
+          </Text>
         </Stack>
       </AppShell.Navbar>
 
