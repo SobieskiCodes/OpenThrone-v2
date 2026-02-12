@@ -3,14 +3,13 @@
 import {
   Container,
   Stack,
-  Title,
   Group,
   Text,
   Pagination,
   Skeleton,
   Badge,
 } from '@mantine/core';
-import { OTCard, ActivityFeedItem } from '@/components/ui';
+import { OTCard, ActivityFeedItem, PageHeaderStatus } from '@/components/ui';
 import type { ActivityItem } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -70,26 +69,29 @@ export default function ServerActivityPage() {
   return (
     <Container size="md">
       <Stack gap="md">
-        <Group gap="xs" align="center">
-          <IconHistory size={24} style={{ color: 'var(--ot-accent)' }} />
-          <Title order={2}>Server Activity</Title>
-        </Group>
+        <PageHeaderStatus
+          title="Server Activity"
+          subtitle="Live highlights from every kingdom. Filter by event type to focus on what matters most."
+          icon={IconHistory}
+        />
 
-        {/* Type filter pills */}
-        <Group gap={6} wrap="wrap">
-          {ACTIVITY_TYPES.map((type) => (
-            <Badge
-              key={type}
-              variant={selectedType === type ? 'filled' : 'light'}
-              color={selectedType === type ? 'blue' : 'gray'}
-              size="sm"
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleTypeToggle(type)}
-            >
-              {TYPE_LABELS[type] ?? type}
-            </Badge>
-          ))}
-        </Group>
+        <OTCard p="md">
+          {/* Type filter pills */}
+          <Group gap={6} wrap="wrap">
+            {ACTIVITY_TYPES.map((type) => (
+              <Badge
+                key={type}
+                variant={selectedType === type ? 'filled' : 'light'}
+                color={selectedType === type ? 'blue' : 'gray'}
+                size="sm"
+                style={{ cursor: 'pointer' }}
+                onClick={() => handleTypeToggle(type)}
+              >
+                {TYPE_LABELS[type] ?? type}
+              </Badge>
+            ))}
+          </Group>
+        </OTCard>
 
         <OTCard>
           {isLoading ? (
