@@ -27,42 +27,51 @@ export interface ActivityItem {
 
 const ACTIVITY_CONFIG: Record<
   string,
-  { icon: typeof IconSwords; color: string; label: (item: ActivityItem) => string }
+  { icon: typeof IconSwords; color: string; label: (item: ActivityItem, isOwnFeed?: boolean) => string }
 > = {
   ATTACK_WIN: {
     icon: IconSwords,
     color: 'green',
-    label: (item) => `won attack against ${item.target?.displayName ?? 'unknown'}`,
+    label: (item) => `defeated ${item.target?.displayName ?? 'someone'}`,
   },
   ATTACK_LOSS: {
     icon: IconSwords,
     color: 'red',
-    label: (item) => `lost attack against ${item.target?.displayName ?? 'unknown'}`,
+    label: (item) => `lost to ${item.target?.displayName ?? 'someone'}`,
   },
   DEFEND_WIN: {
     icon: IconShield,
     color: 'green',
-    label: (item) => `defended against ${item.target?.displayName ?? 'unknown'}`,
+    label: (item) => `defended against ${item.target?.displayName ?? 'someone'}`,
   },
   DEFEND_LOSS: {
     icon: IconShield,
     color: 'red',
-    label: (item) => `was defeated by ${item.target?.displayName ?? 'unknown'}`,
+    label: (item, isOwnFeed) =>
+      isOwnFeed
+        ? `were defeated by ${item.target?.displayName ?? 'someone'}`
+        : `was defeated by ${item.target?.displayName ?? 'someone'}`,
   },
   SPY_SUCCESS: {
     icon: IconEye,
     color: 'blue',
-    label: (item) => `spy ${item.metadata?.missionType ?? 'mission'} succeeded`,
+    label: (item, isOwnFeed) =>
+      isOwnFeed
+        ? `completed spy ${item.metadata?.missionType ?? 'mission'} on ${item.target?.displayName ?? 'someone'}`
+        : `completed spy ${item.metadata?.missionType ?? 'mission'} on ${item.target?.displayName ?? 'someone'}`,
   },
   SPY_FAILED: {
     icon: IconEyeOff,
     color: 'orange',
-    label: (item) => `spy ${item.metadata?.missionType ?? 'mission'} failed`,
+    label: (item, isOwnFeed) =>
+      isOwnFeed
+        ? `failed spy ${item.metadata?.missionType ?? 'mission'} against ${item.target?.displayName ?? 'someone'}`
+        : `failed spy ${item.metadata?.missionType ?? 'mission'} against ${item.target?.displayName ?? 'someone'}`,
   },
   SPY_DETECTED: {
     icon: IconAlertTriangle,
     color: 'yellow',
-    label: () => `detected enemy spies`,
+    label: (item) => `caught ${item.target?.displayName ?? 'enemy spies'} spying`,
   },
   LEVEL_UP: {
     icon: IconArrowUp,
@@ -117,10 +126,36 @@ export function ActivityFeedItem({ item, showPlayerName = true }: ActivityFeedIt
   const config = ACTIVITY_CONFIG[item.activityType];
   if (!config) return null;
 
+  const isOwnFeed = !showPlayerName;
   const Icon = config.icon;
-  const message = config.label(item);
+  const message = config.label(item, isOwnFeed);
   const hasReport = item.referenceId && (
     item.activityType.startsWith('ATTACK_') || item.activityType.startsWith('DEFEND_')
+  );
+
+  const playerLabel = showPlayerName ? (
+    // When the row is already a link (hasReport), render plain text to avoid
+    // nested <a> tags which cause hydration errors.
+    hasReport ? (
+      <Text span fw={600} style={{ color: 'var(--ot-accent)' }}>
+        {item.player.displayName}{' '}
+      </Text>
+    ) : (
+      <>
+        <Text
+          span
+          fw={600}
+          component={Link}
+          href={`/profile/${item.player.id}`}
+          style={{ color: 'var(--ot-accent)', textDecoration: 'none' }}
+        >
+          {item.player.displayName}
+        </Text>
+        {' '}
+      </>
+    )
+  ) : (
+    <Text span fw={600}>You </Text>
   );
 
   const content = (
@@ -129,18 +164,7 @@ export function ActivityFeedItem({ item, showPlayerName = true }: ActivityFeedIt
         <Icon size={13} />
       </ThemeIcon>
       <Text size="xs" truncate style={{ flex: 1 }}>
-        {showPlayerName && (
-          <Text
-            span
-            fw={600}
-            component={Link}
-            href={`/profile/${item.player.id}`}
-            style={{ color: 'var(--ot-accent)', textDecoration: 'none' }}
-          >
-            {item.player.displayName}
-          </Text>
-        )}
-        {showPlayerName && ' '}
+        {playerLabel}
         {message}
       </Text>
       <Text size="xs" className="ot-text-dim" style={{ flexShrink: 0 }}>
