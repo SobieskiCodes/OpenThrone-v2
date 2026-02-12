@@ -27,3 +27,4 @@ coverage/
 docker/data/
 .claude/settings.local.json
 packages/db/dev.db
+packages/db/prisma/prisma/dev.db
