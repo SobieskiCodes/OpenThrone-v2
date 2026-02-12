@@ -21,7 +21,7 @@ import { OTCard, StatRow, ActivityFeedItem } from '@/components/ui';
 import type { ActivityItem } from '@/components/ui';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -29,7 +29,7 @@ import { useApi } from '@/hooks/use-api';
 import Link from 'next/link';
 import { IconHistory } from '@tabler/icons-react';
 
-type ActivityDirection = 'all' | 'outgoing' | 'incoming';
+type ActivityDirection = 'history' | 'all' | 'outgoing' | 'incoming';
 import { getFortificationByLevel, getLevelForXP, toLocale } from '@openthrone/game-logic';
 
 interface AllianceIntelData {
@@ -94,7 +94,7 @@ export default function PlayerProfilePage() {
   const queryClient = useQueryClient();
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
   const [attackTurns, setAttackTurns] = useState(1);
-  const [activityDirection, setActivityDirection] = useState<ActivityDirection>('all');
+  const [activityDirection, setActivityDirection] = useState<ActivityDirection>('history');
 
   const { data: player, isLoading } = useQuery<PlayerProfile>({
     queryKey: ['player', params.id],
@@ -113,6 +113,13 @@ export default function PlayerProfilePage() {
     queryFn: () => api.get(`/activity/player/${params.id}?limit=10&direction=${activityDirection}`),
     enabled: !!params.id && isReady,
   });
+
+  // If history is empty, fall back to all
+  useEffect(() => {
+    if (activityDirection === 'history' && activityData && activityData.data.length === 0) {
+      setActivityDirection('all');
+    }
+  }, [activityData, activityDirection]);
 
   const myAttackTurns = meData?.economy?.attackTurns ?? 0;
 
@@ -412,7 +419,7 @@ export default function PlayerProfilePage() {
                 <Title order={4}>Recent Activity</Title>
               </Group>
               <Group gap={6}>
-                {(['all', 'outgoing', 'incoming'] as const).map((dir) => (
+                {(['history', 'all', 'outgoing', 'incoming'] as const).map((dir) => (
                   <Badge
                     key={dir}
                     variant={activityDirection === dir ? 'filled' : 'light'}
@@ -421,7 +428,7 @@ export default function PlayerProfilePage() {
                     style={{ cursor: 'pointer' }}
                     onClick={() => setActivityDirection(dir)}
                   >
-                    {dir === 'all' ? 'All' : dir === 'outgoing' ? 'Outgoing' : 'Incoming'}
+                    {dir === 'history' ? 'History' : dir === 'all' ? 'All' : dir === 'outgoing' ? 'Outgoing' : 'Incoming'}
                   </Badge>
                 ))}
               </Group>

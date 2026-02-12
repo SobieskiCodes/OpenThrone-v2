@@ -40,16 +40,52 @@ export class ActivityService {
     // activity entry from the listener, so OR-ing with target_id would pull
     // in the *other* player's entries (e.g. showing the defender's DEFEND_LOSS
     // on the attacker's "my" feed).
+    // 'history' shows interactions between the profile player and the requester.
     const directionFilter =
-      direction === 'outgoing'
-        ? { player_id: playerId }
-        : direction === 'incoming'
-          ? { target_id: playerId }
-          : { player_id: playerId };
+      direction === 'history' && requesterId
+        ? {
+            OR: [
+              { player_id: playerId, target_id: requesterId },
+              { player_id: requesterId, target_id: playerId },
+            ],
+          }
+        : direction === 'outgoing'
+          ? {
+              player_id: playerId,
+              activity_type: {
+                in: [
+                  'ATTACK_WIN',
+                  'ATTACK_LOSS',
+                  'SPY_SUCCESS',
+                  'SPY_FAILED',
+                ],
+              },
+            }
+          : direction === 'incoming'
+            ? {
+                target_id: playerId,
+                activity_type: {
+                  in: [
+                    'ATTACK_WIN',
+                    'ATTACK_LOSS',
+                    'SPY_SUCCESS',
+                    'SPY_FAILED',
+                  ],
+                },
+              }
+            : { player_id: playerId };
+
+    // For 'history', exclude defender-perspective duplicates (same battle,
+    // different POV) — ATTACK_WIN already covers DEFEND_LOSS, etc.
+    const DEFENDER_TYPES = ['DEFEND_WIN', 'DEFEND_LOSS', 'SPY_DETECTED'];
 
     const where: any = {
       ...directionFilter,
-      ...(type ? { activity_type: type } : {}),
+      ...(type
+        ? { activity_type: type }
+        : direction === 'history'
+          ? { activity_type: { notIn: DEFENDER_TYPES } }
+          : {}),
       ...(!isOwnFeed ? { is_public: true } : {}),
     };
 

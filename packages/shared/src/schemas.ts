@@ -362,7 +362,7 @@ export const activityFeedQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
   type: z.nativeEnum(ActivityType).optional(),
-  direction: z.enum(['all', 'outgoing', 'incoming']).default('all'),
+  direction: z.enum(['all', 'outgoing', 'incoming', 'history']).default('all'),
 });
 
 // ─── Inferred Types ──────────────────────────────────────────────────
