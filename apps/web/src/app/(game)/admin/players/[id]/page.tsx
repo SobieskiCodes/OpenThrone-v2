@@ -37,8 +37,6 @@ interface PlayerDetail {
     gold: string;
     goldInBank: string;
     attackTurns: number;
-    houseLevel: number;
-    economyLevel: number;
   } | null;
   stats: {
     experience: number;

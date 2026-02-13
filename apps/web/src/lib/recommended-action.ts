@@ -76,7 +76,7 @@ export function getRecommendedAction(state: PlayerState): RecommendedAction {
     return {
       title: 'New upgrades available',
       description: `${state.availableUpgrades} upgrade${state.availableUpgrades > 1 ? 's' : ''} ready to purchase. Strengthen your kingdom.`,
-      href: '/structures/upgrades',
+      href: '/structures/buildings',
       icon: IconArrowUp,
       color: 'blue',
     };
