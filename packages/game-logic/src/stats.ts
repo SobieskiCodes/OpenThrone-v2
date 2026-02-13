@@ -1,6 +1,7 @@
-import { UnitType, BonusType, ItemUsage, BattleUpgradeType } from '@openthrone/shared';
+import { UnitType, BonusType, ItemUsage, BattleUpgradeType, BuildingType } from '@openthrone/shared';
 import { getFortificationByLevel } from './fortifications';
-import { getOffensiveUpgradeByLevel, getSpyUpgradeByLevel, getSentryUpgradeByLevel, getHouseUpgradeByLevel } from './structure-upgrades';
+import { getOffensiveUpgradeByLevel, getSpyUpgradeByLevel, getSentryUpgradeByLevel } from './structure-upgrades';
+import { getBuildingLevel } from './buildings';
 import { Bonuses } from './bonuses';
 import { UnitTypes } from './units';
 import { ItemTypes } from './items';
@@ -61,7 +62,7 @@ export interface FullStatBreakdown {
 }
 
 export interface GoldPerTurnBreakdown {
-  fortGold: number;
+  baseIncome: number;
   workerGold: number;
   incomeBonus: number;
   incomeBonusPercent: number;
@@ -364,13 +365,11 @@ export function calculateFullDetailedBreakdown(input: StatCalcInput): FullDetail
 }
 
 export function calculateGoldPerTurnBreakdown(
-  fortLevel: number,
   workers: Array<{ level: number; quantity: number }>,
+  mineBonusPercent: number,
   incomeBonusLevel: number,
 ): GoldPerTurnBreakdown {
-  const fort = getFortificationByLevel(fortLevel);
-  const fortGold = fort?.goldPerTurn ?? 1000;
-
+  const BASE_INCOME = 1000; // base gold per turn even with no workers
   let workerGold = 0;
   for (const w of workers) {
     const def = UnitTypes.find(
@@ -379,24 +378,24 @@ export function calculateGoldPerTurnBreakdown(
     workerGold += (def?.bonus ?? 50) * w.quantity;
   }
 
-  const base = fortGold + workerGold;
-  const incomeBonus = Math.round((incomeBonusLevel / 100) * base);
+  const totalBonusPercent = mineBonusPercent + incomeBonusLevel;
+  const incomeBonus = Math.round((totalBonusPercent / 100) * workerGold);
 
   return {
-    fortGold,
+    baseIncome: BASE_INCOME,
     workerGold,
     incomeBonus,
-    incomeBonusPercent: incomeBonusLevel,
-    total: base + incomeBonus,
+    incomeBonusPercent: totalBonusPercent,
+    total: BASE_INCOME + workerGold + incomeBonus,
   };
 }
 
 export function calculateCitizensPerDayBreakdown(
-  houseLevel: number,
+  housingBuildingLevel: number,
   recruitBonusLevel: number,
 ): CitizensPerDayBreakdown {
-  const house = getHouseUpgradeByLevel(houseLevel);
-  const houseBase = house?.citizensDaily ?? 1;
+  const housingDef = getBuildingLevel(BuildingType.HOUSING, housingBuildingLevel);
+  const houseBase = housingDef?.citizensPerDay ?? 1; // base 1 citizen/day without any housing
   const recruitBonusPercent = recruitBonusLevel * 5; // each level = 5% more citizens
   const recruitBonus = Math.round((recruitBonusPercent / 100) * houseBase);
 

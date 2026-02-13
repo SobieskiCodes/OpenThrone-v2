@@ -1,5 +1,4 @@
 import { UnitType } from '@openthrone/shared';
-import { getFortificationByLevel } from './fortifications';
 import { UnitTypes } from './units';
 
 interface WorkerEntry {
@@ -10,19 +9,18 @@ interface WorkerEntry {
 /**
  * Calculate gold earned per turn tick for a player.
  * Each worker tier has its own gold rate from the unit definition's bonus field.
- * @param fortLevel - player's fortification level
+ * Mine building provides a percentage bonus on worker income.
  * @param workers - array of worker entries with level and quantity
- * @param incomeBonusLevel - player's INCOME bonus point level (percentage boost)
+ * @param mineBonusPercent - mine building income bonus (0-50)
+ * @param proficiencyPercent - player's INCOME bonus point level (percentage boost)
  * @returns total gold to award this turn
  */
 export function calculateGoldPerTurn(
-  fortLevel: number,
   workers: WorkerEntry[],
-  incomeBonusLevel: number,
+  mineBonusPercent: number,
+  proficiencyPercent: number,
 ): number {
-  const fort = getFortificationByLevel(fortLevel);
-  const goldPerTurn = fort?.goldPerTurn ?? 1000;
-
+  const BASE_INCOME = 1000; // base gold per turn even with no workers
   let workerGold = 0;
   for (const w of workers) {
     const def = UnitTypes.find(
@@ -31,7 +29,7 @@ export function calculateGoldPerTurn(
     workerGold += (def?.bonus ?? 50) * w.quantity;
   }
 
-  const base = goldPerTurn + workerGold;
-  const bonus = Math.round((incomeBonusLevel / 100) * base);
-  return base + bonus;
+  const totalBonusPercent = mineBonusPercent + proficiencyPercent;
+  const bonus = Math.round((totalBonusPercent / 100) * workerGold);
+  return BASE_INCOME + workerGold + bonus;
 }
