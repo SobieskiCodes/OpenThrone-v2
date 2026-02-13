@@ -65,6 +65,15 @@ export enum StructureUpgradeType {
   MERCENARY_CAMP = 'MERCENARY_CAMP',
 }
 
+export enum BuildingType {
+  FORTIFICATION = 'FORTIFICATION',
+  ARMORY = 'ARMORY',
+  MINE = 'MINE',
+  SPY_ACADEMY = 'SPY_ACADEMY',
+  HOUSING = 'HOUSING',
+  MERCENARY_CAMP = 'MERCENARY_CAMP',
+}
+
 export enum AccountStatus {
   ACTIVE = 'ACTIVE',
   VACATION = 'VACATION',

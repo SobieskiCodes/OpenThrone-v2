@@ -115,22 +115,26 @@ export type {
   PrioritizedAction,
 } from './bot-strategies';
 
+// ─── Buildings (new system) ──────────────────────────────────────────
 export {
-  EconomyUpgrades,
+  Buildings,
+  getBuildingDefinition,
+  getBuildingLevel,
+  getNextBuildingLevel,
+  getMaxBuildingLevel,
+  canUpgradeBuilding,
+  meetsBuildingRequirements,
+  getBuildingUnlocksForLevelRange,
+  MERCENARY_PRICE_MULTIPLIER,
+  getMercenaryStockDistribution,
+} from './buildings';
+
+// ─── Proficiency Upgrades (OFFENSE/SPY/SENTRY — still active) ────
+export {
   OffensiveUpgrades,
   SpyUpgrades,
   SentryUpgrades,
-  ArmoryUpgrades,
-  HouseUpgrades,
-  MercenaryCampUpgrades,
-  MERCENARY_PRICE_MULTIPLIER,
-  getEconomyUpgradeByLevel,
   getOffensiveUpgradeByLevel,
   getSpyUpgradeByLevel,
   getSentryUpgradeByLevel,
-  getArmoryUpgradeByLevel,
-  getHouseUpgradeByLevel,
-  getMercenaryCampByLevel,
-  getMercenaryStockDistribution,
 } from './structure-upgrades';
-export type { MercenaryCampDefinition } from './structure-upgrades';

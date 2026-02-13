@@ -6,10 +6,36 @@ import type {
   ItemUsage,
   BonusType,
   BattleUpgradeType,
+  BuildingType,
   AccountStatus,
   PermissionType,
   Locale,
 } from './enums';
+
+// ─── Building Definitions ───────────────────────────────────────────
+
+export interface BuildingRequirement {
+  buildingType: BuildingType;
+  level: number;
+}
+
+export interface BuildingLevelDefinition {
+  level: number;
+  name: string;
+  cost: number;
+  playerLevelRequirement: number;
+  fortHitpoints?: number;
+  incomeBonusPercent?: number;
+  spyOffenseBonus?: number;
+  citizensPerDay?: number;
+  dailyMercStock?: number;
+}
+
+export interface BuildingDefinition {
+  type: BuildingType;
+  description: string;
+  levels: BuildingLevelDefinition[];
+}
 
 // ─── Unit Definitions ────────────────────────────────────────────────
 
@@ -23,6 +49,7 @@ export interface UnitDefinition {
   hp: number;
   killingStrength: number;
   defenseStrength: number;
+  buildingRequirements: BuildingRequirement[];
 }
 
 // ─── Item Definitions ────────────────────────────────────────────────
