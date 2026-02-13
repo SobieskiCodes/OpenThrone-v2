@@ -13,6 +13,7 @@ export class SpyMissionExecutedEvent {
     public readonly defenderId: string,
     public readonly missionType: string,
     public readonly success: boolean,
+    public readonly logId: number,
   ) {}
 }
 

@@ -8,7 +8,11 @@ import {
   AllianceJoinedEvent,
   AllianceLeftEvent,
   PlayerRecruitedEvent,
+  LeveledUpEvent,
+  AttackExecutedEvent,
+  SpyMissionExecutedEvent,
 } from '@openthrone/events';
+import { DEFAULT_COMBAT_CONFIG } from '@openthrone/game-logic';
 
 @Injectable()
 export class NotificationListener {
@@ -94,5 +98,115 @@ export class NotificationListener {
       'Recruitment successful!',
       `You recruited a new citizen! You earned ${event.citizensAwarded} citizen(s).`,
     );
+  }
+
+  // ─── Level-up Notification ──────────────────────────────────────────
+
+  @OnEvent('account.leveled_up')
+  async handleLeveledUp(event: LeveledUpEvent) {
+    const unlocks = this.getLevelUnlocks(event.oldLevel, event.newLevel);
+    const unlockText = unlocks.length > 0
+      ? `\n\nNewly unlocked:\n${unlocks.map((u) => `- ${u}`).join('\n')}`
+      : '';
+
+    await this.mailService.sendSystemMail(
+      [event.playerId],
+      `Level up! You reached level ${event.newLevel}`,
+      `Congratulations! You advanced from level ${event.oldLevel} to level ${event.newLevel}.${unlockText}`,
+      { type: 'level_up', oldLevel: event.oldLevel, newLevel: event.newLevel, unlocks },
+    );
+  }
+
+  private getLevelUnlocks(oldLevel: number, newLevel: number): string[] {
+    const unlocks: string[] = [];
+    const config = DEFAULT_COMBAT_CONFIG;
+
+    const missions: { name: string; level: number }[] = [
+      { name: 'Steal Gold missions', level: config.stealGoldRequiredLevel },
+      { name: 'Sabotage missions', level: config.sabotageRequiredLevel },
+    ];
+
+    for (const mission of missions) {
+      if (oldLevel < mission.level && newLevel >= mission.level) {
+        unlocks.push(mission.name);
+      }
+    }
+
+    return unlocks;
+  }
+
+  // ─── Attack Notification ────────────────────────────────────────────
+
+  @OnEvent('combat.attack')
+  async handleAttack(event: AttackExecutedEvent) {
+    const attacker = await this.prisma.player.findUnique({
+      where: { id: event.attackerId },
+      select: { display_name: true },
+    });
+
+    const attackerName = attacker?.display_name ?? 'Unknown';
+    const attackerWon = event.winnerId === event.attackerId;
+
+    await this.mailService.sendSystemMail(
+      [event.defenderId],
+      attackerWon ? `You were attacked by ${attackerName}!` : `You repelled an attack from ${attackerName}!`,
+      attackerWon
+        ? `${attackerName} attacked your kingdom and won. Check the battle report for details.`
+        : `${attackerName} attacked your kingdom but your defenses held. Check the battle report for details.`,
+      { type: 'attack_result', logId: event.logId, opponentId: event.attackerId },
+    );
+  }
+
+  // ─── Spy Mission Notification ───────────────────────────────────────
+
+  @OnEvent('combat.spy')
+  async handleSpyMission(event: SpyMissionExecutedEvent) {
+    const pastVerb = this.getMissionPastVerb(event.missionType);
+
+    if (event.success) {
+      // Covert success — anonymous notification
+      await this.mailService.sendSystemMail(
+        [event.defenderId],
+        `Suspicious activity detected`,
+        `Someone has ${pastVerb} your kingdom. Your sentries were unable to identify the intruder.`,
+        { type: 'spy_result', logId: event.logId, missionType: event.missionType },
+      );
+    } else {
+      // Failed — spies caught, reveal attacker identity
+      const attacker = await this.prisma.player.findUnique({
+        where: { id: event.attackerId },
+        select: { display_name: true },
+      });
+      const attackerName = attacker?.display_name ?? 'Unknown';
+
+      await this.mailService.sendSystemMail(
+        [event.defenderId],
+        `Enemy spies caught!`,
+        `Your sentries caught enemy spies from ${attackerName} attempting to ${this.getMissionInfinitive(event.missionType)} your kingdom.`,
+        { type: 'spy_result', logId: event.logId, missionType: event.missionType, opponentId: event.attackerId },
+      );
+    }
+  }
+
+  private getMissionPastVerb(missionType: string): string {
+    const verbs: Record<string, string> = {
+      intel: 'gathered intelligence on',
+      assassinate: 'assassinated soldiers in',
+      infiltrate: 'infiltrated',
+      steal_gold: 'stolen gold from',
+      sabotage: 'sabotaged the armory of',
+    };
+    return verbs[missionType] ?? 'targeted';
+  }
+
+  private getMissionInfinitive(missionType: string): string {
+    const verbs: Record<string, string> = {
+      intel: 'spy on',
+      assassinate: 'assassinate soldiers in',
+      infiltrate: 'infiltrate',
+      steal_gold: 'steal gold from',
+      sabotage: 'sabotage the armory of',
+    };
+    return verbs[missionType] ?? 'target';
   }
 }

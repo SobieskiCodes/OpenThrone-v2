@@ -842,7 +842,7 @@ export class BattleService {
 
       this.eventEmitter.emit(
         'combat.spy',
-        new SpyMissionExecutedEvent(attackerId, defenderId, 'intel', result.success),
+        new SpyMissionExecutedEvent(attackerId, defenderId, 'intel', result.success, attackLog.id),
       );
 
       return { ...result, missionType: 'intel', intelData, attackLogId: attackLog.id };
@@ -859,7 +859,7 @@ export class BattleService {
       );
       const logStats = { ...result, missionType: 'assassinate' };
 
-      await this.prisma.$transaction(async (tx) => {
+      const assassinateLog = await this.prisma.$transaction(async (tx) => {
         await tx.playerEconomy.update({
           where: { player_id: attackerId },
           data: { attack_turns: { decrement: mc.turnCost } },
@@ -873,7 +873,7 @@ export class BattleService {
           await this.applyCasualties(tx, defenderId, dto.targetUnitType!, result.unitsKilled);
         }
 
-        await tx.attackLog.create({
+        const log = await tx.attackLog.create({
           data: {
             attacker_id: attackerId,
             defender_id: defenderId,
@@ -886,11 +886,12 @@ export class BattleService {
 
         await this.recalculatePlayerStats(tx, attackerId);
         await this.recalculatePlayerStats(tx, defenderId);
+        return log;
       });
 
       this.eventEmitter.emit(
         'combat.spy',
-        new SpyMissionExecutedEvent(attackerId, defenderId, 'assassinate', result.success),
+        new SpyMissionExecutedEvent(attackerId, defenderId, 'assassinate', result.success, assassinateLog.id),
       );
 
       return { ...result, missionType: 'assassinate' };
@@ -902,7 +903,7 @@ export class BattleService {
       );
       const logStats = { ...result, missionType: 'infiltrate' };
 
-      await this.prisma.$transaction(async (tx) => {
+      const infiltrateLog = await this.prisma.$transaction(async (tx) => {
         await tx.playerEconomy.update({
           where: { player_id: attackerId },
           data: { attack_turns: { decrement: mc.turnCost } },
@@ -921,7 +922,7 @@ export class BattleService {
           });
         }
 
-        await tx.attackLog.create({
+        const log = await tx.attackLog.create({
           data: {
             attacker_id: attackerId,
             defender_id: defenderId,
@@ -933,11 +934,12 @@ export class BattleService {
         });
 
         await this.recalculatePlayerStats(tx, attackerId);
+        return log;
       });
 
       this.eventEmitter.emit(
         'combat.spy',
-        new SpyMissionExecutedEvent(attackerId, defenderId, 'infiltrate', result.success),
+        new SpyMissionExecutedEvent(attackerId, defenderId, 'infiltrate', result.success, infiltrateLog.id),
       );
       if (result.fortDamage > 0) {
         const newHP = Math.max(0, (defenderPlayer.fortification?.hitpoints ?? 0) - result.fortDamage);
@@ -954,7 +956,7 @@ export class BattleService {
       const result = resolveStealGold(attackerProfile, defenderProfile, dto.spiesSent, config);
       const logStats = { ...result, missionType: 'steal_gold' };
 
-      await this.prisma.$transaction(async (tx) => {
+      const stealLog = await this.prisma.$transaction(async (tx) => {
         await tx.playerEconomy.update({
           where: { player_id: attackerId },
           data: {
@@ -990,7 +992,7 @@ export class BattleService {
           });
         }
 
-        await tx.attackLog.create({
+        const log = await tx.attackLog.create({
           data: {
             attacker_id: attackerId,
             defender_id: defenderId,
@@ -1002,11 +1004,12 @@ export class BattleService {
         });
 
         await this.recalculatePlayerStats(tx, attackerId);
+        return log;
       });
 
       this.eventEmitter.emit(
         'combat.spy',
-        new SpyMissionExecutedEvent(attackerId, defenderId, 'steal_gold', result.success),
+        new SpyMissionExecutedEvent(attackerId, defenderId, 'steal_gold', result.success, stealLog.id),
       );
 
       return { ...result, missionType: 'steal_gold', goldStolen: result.goldStolen.toString() };
@@ -1016,7 +1019,7 @@ export class BattleService {
       const result = resolveSabotage(attackerProfile, defenderProfile, dto.spiesSent, config);
       const destroyedItems: { itemType: string; usage: string; level: number }[] = [];
 
-      await this.prisma.$transaction(async (tx) => {
+      const sabotageLog = await this.prisma.$transaction(async (tx) => {
         await tx.playerEconomy.update({
           where: { player_id: attackerId },
           data: {
@@ -1057,7 +1060,7 @@ export class BattleService {
           await this.recalculatePlayerStats(tx, defenderId);
         }
 
-        await tx.attackLog.create({
+        const log = await tx.attackLog.create({
           data: {
             attacker_id: attackerId,
             defender_id: defenderId,
@@ -1069,11 +1072,12 @@ export class BattleService {
         });
 
         await this.recalculatePlayerStats(tx, attackerId);
+        return log;
       });
 
       this.eventEmitter.emit(
         'combat.spy',
-        new SpyMissionExecutedEvent(attackerId, defenderId, 'sabotage', result.success),
+        new SpyMissionExecutedEvent(attackerId, defenderId, 'sabotage', result.success, sabotageLog.id),
       );
 
       return { ...result, missionType: 'sabotage', destroyedItems };
