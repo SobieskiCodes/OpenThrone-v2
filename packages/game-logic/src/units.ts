@@ -1,5 +1,5 @@
 import type { UnitDefinition } from '@openthrone/shared';
-import { UnitType } from '@openthrone/shared';
+import { UnitType, BuildingType } from '@openthrone/shared';
 
 export const UnitTypes: UnitDefinition[] = [
   {
@@ -12,6 +12,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 10,
     killingStrength: 2,
     defenseStrength: 1,
+    buildingRequirements: [],
   },
   {
     name: 'Worker',
@@ -23,6 +24,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 20,
     killingStrength: 3,
     defenseStrength: 1,
+    buildingRequirements: [],
   },
   {
     name: 'Expert Miner',
@@ -34,6 +36,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 25,
     killingStrength: 4,
     defenseStrength: 2,
+    buildingRequirements: [{ buildingType: BuildingType.MINE, level: 2 }],
   },
   {
     name: 'Master Miner',
@@ -45,6 +48,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 30,
     killingStrength: 5,
     defenseStrength: 3,
+    buildingRequirements: [{ buildingType: BuildingType.MINE, level: 3 }],
   },
   {
     name: 'Soldier',
@@ -56,6 +60,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 10,
     killingStrength: 5,
     defenseStrength: 2,
+    buildingRequirements: [],
   },
   {
     name: 'Knight',
@@ -67,6 +72,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 20,
     killingStrength: 15,
     defenseStrength: 5,
+    buildingRequirements: [{ buildingType: BuildingType.FORTIFICATION, level: 2 }],
   },
   {
     name: 'Berserker',
@@ -78,6 +84,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 30,
     killingStrength: 40,
     defenseStrength: 10,
+    buildingRequirements: [{ buildingType: BuildingType.FORTIFICATION, level: 3 }],
   },
   {
     name: 'Warrior',
@@ -89,6 +96,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 40,
     killingStrength: 80,
     defenseStrength: 20,
+    buildingRequirements: [{ buildingType: BuildingType.FORTIFICATION, level: 4 }],
   },
   {
     name: 'Guard',
@@ -100,6 +108,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 10,
     killingStrength: 3,
     defenseStrength: 5,
+    buildingRequirements: [],
   },
   {
     name: 'Archer',
@@ -111,6 +120,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 20,
     killingStrength: 15,
     defenseStrength: 5,
+    buildingRequirements: [{ buildingType: BuildingType.FORTIFICATION, level: 2 }],
   },
   {
     name: 'Royal Guard',
@@ -122,6 +132,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 30,
     killingStrength: 40,
     defenseStrength: 10,
+    buildingRequirements: [{ buildingType: BuildingType.FORTIFICATION, level: 3 }],
   },
   {
     name: 'Elite Archer',
@@ -133,6 +144,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 40,
     killingStrength: 80,
     defenseStrength: 20,
+    buildingRequirements: [{ buildingType: BuildingType.FORTIFICATION, level: 4 }],
   },
   {
     name: 'Spy',
@@ -144,6 +156,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 10,
     killingStrength: 3,
     defenseStrength: 1,
+    buildingRequirements: [],
   },
   {
     name: 'Infiltrator',
@@ -155,6 +168,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 20,
     killingStrength: 5,
     defenseStrength: 2,
+    buildingRequirements: [{ buildingType: BuildingType.SPY_ACADEMY, level: 2 }],
   },
   {
     name: 'Assassin',
@@ -166,6 +180,10 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 30,
     killingStrength: 270,
     defenseStrength: 225,
+    buildingRequirements: [
+      { buildingType: BuildingType.FORTIFICATION, level: 3 },
+      { buildingType: BuildingType.SPY_ACADEMY, level: 3 },
+    ],
   },
   {
     name: 'Sentry',
@@ -177,6 +195,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 10,
     killingStrength: 3,
     defenseStrength: 5,
+    buildingRequirements: [],
   },
   {
     name: 'Sentinel',
@@ -188,6 +207,7 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 20,
     killingStrength: 15,
     defenseStrength: 20,
+    buildingRequirements: [{ buildingType: BuildingType.SPY_ACADEMY, level: 2 }],
   },
   {
     name: 'Inquisitor',
@@ -199,6 +219,10 @@ export const UnitTypes: UnitDefinition[] = [
     hp: 30,
     killingStrength: 225,
     defenseStrength: 250,
+    buildingRequirements: [
+      { buildingType: BuildingType.FORTIFICATION, level: 3 },
+      { buildingType: BuildingType.SPY_ACADEMY, level: 3 },
+    ],
   },
 ];
 

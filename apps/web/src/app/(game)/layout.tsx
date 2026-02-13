@@ -58,7 +58,8 @@ const navItems = [
     icon: IconBuildingCastle,
     children: [
       { label: 'Bank', href: '/structures/bank' },
-      { label: 'Buildings', href: '/structures/upgrades' },
+      { label: 'Buildings', href: '/structures/buildings' },
+      { label: 'Upgrades', href: '/structures/upgrades' },
       { label: 'Repair', href: '/structures/repair' },
     ],
   },
@@ -135,7 +136,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
   const badgeCounts: Record<string, number> = {};
   if (unreadCount > 0) badgeCounts['/messaging'] = unreadCount;
   if (availablePoints > 0) badgeCounts['/battle/proficiencies'] = availablePoints;
-  if (availableUpgrades > 0) badgeCounts['/structures/upgrades'] = availableUpgrades;
+  if (availableUpgrades > 0) badgeCounts['/structures/buildings'] = availableUpgrades;
 
   const handleLogout = async () => {
     await signOut({ redirect: false });

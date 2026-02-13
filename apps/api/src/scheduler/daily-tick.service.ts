@@ -4,11 +4,11 @@ import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  getHouseUpgradeByLevel,
+  getBuildingLevel,
   calculateAutoRecruitCitizens,
 } from '@openthrone/game-logic';
 import { DailyTickEvent } from '@openthrone/events';
-import { BankAccountType, BankTransferHistoryType } from '@openthrone/shared';
+import { BankAccountType, BankTransferHistoryType, BuildingType } from '@openthrone/shared';
 
 @Injectable()
 export class DailyTickService {
@@ -51,7 +51,7 @@ export class DailyTickService {
         where: { status: 'ACTIVE' },
         include: {
           economy: true,
-          structure_upgrades: { where: { upgrade_type: 'HOUSE' } },
+          buildings: { where: { building_type: 'HOUSING' } },
           bonus_points: { where: { bonus_type: 'RECRUITING' } },
         },
       });
@@ -61,12 +61,12 @@ export class DailyTickService {
           const economy = player.economy;
           if (!economy) continue;
 
-          const houseUpgrade = player.structure_upgrades.find(
-            (u) => u.upgrade_type === 'HOUSE',
+          const housingRow = player.buildings.find(
+            (b) => b.building_type === 'HOUSING',
           );
-          const houseLevel = houseUpgrade?.level ?? 1;
-          const houseDef = getHouseUpgradeByLevel(houseLevel);
-          const citizensDaily = houseDef?.citizensDaily ?? 1;
+          const housingLevel = housingRow?.level ?? 0;
+          const housingDef = getBuildingLevel(BuildingType.HOUSING, housingLevel);
+          const citizensDaily = housingDef?.citizensPerDay ?? 1; // base 1 citizen/day
 
           const recruitingBonus =
             player.bonus_points.find((b) => b.bonus_type === 'RECRUITING')

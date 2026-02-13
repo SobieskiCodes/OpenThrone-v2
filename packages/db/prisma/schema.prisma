@@ -36,6 +36,7 @@ model Player {
   battle_upgrades     PlayerBattleUpgrade[]
   structure_upgrades  PlayerStructureUpgrade[]
   fortification       PlayerFortification?
+  buildings           PlayerBuilding[]
   bonus_points        PlayerBonusPoint[]
   stats               PlayerStats?
   cumulative_stats    PlayerCumulativeStats?
@@ -166,6 +167,19 @@ model PlayerFortification {
   player Player @relation(fields: [player_id], references: [id])
 
   @@map("player_fortification")
+}
+
+model PlayerBuilding {
+  id            Int    @id @default(autoincrement())
+  player_id     String
+  building_type String // BuildingType: FORTIFICATION, ARMORY, MINE, SPY_ACADEMY, HOUSING, MERCENARY_CAMP
+  level         Int    @default(0)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@unique([player_id, building_type])
+  @@index([player_id])
+  @@map("player_buildings")
 }
 
 model PlayerBonusPoint {

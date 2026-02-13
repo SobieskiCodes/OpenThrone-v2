@@ -35,6 +35,7 @@ interface TrainingStatus {
   citizens: number;
   fortLevel: number;
   pricesBonusLevel: number;
+  buildings: Record<string, number>;
   units: UnitEntry[];
   unitDefinitions: UnitDefinition[];
 }
@@ -250,7 +251,10 @@ export default function TrainingPage() {
                 const key = getKey(def.type, def.level);
                 const owned = getOwned(def.type, def.level);
                 const discountedCost = getDiscountedCost(def.cost);
-                const locked = def.fortLevel > fortLevel;
+                const locked = (def.buildingRequirements ?? []).some((req: { buildingType: string; level: number }) => {
+                  const playerLevel = status.buildings?.[req.buildingType] ?? 0;
+                  return playerLevel < req.level;
+                });
                 const isLv2Plus = def.level > 1;
                 const lowerDef = getLowerTierDef(def);
                 const sourceAvailable = isLv2Plus ? getOwned(def.type, def.level - 1) : citizens;
@@ -267,11 +271,17 @@ export default function TrainingPage() {
                   <Table.Tr key={key} style={locked ? { opacity: 0.5 } : undefined}>
                     <Table.Td>
                       {def.name}
-                      {locked && (
-                        <Badge color="red" size="xs" ml="xs">
-                          Fort Lv {def.fortLevel}
-                        </Badge>
-                      )}
+                      {locked && (def.buildingRequirements ?? [])
+                        .filter((req: { buildingType: string; level: number }) => (status.buildings?.[req.buildingType] ?? 0) < req.level)
+                        .map((req: { buildingType: string; level: number }, i: number) => {
+                          const buildingName = req.buildingType.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+                          return (
+                            <Badge key={i} color="red" size="xs" ml="xs" variant="light">
+                              {buildingName} Lv{req.level}
+                            </Badge>
+                          );
+                        })
+                      }
                       {isLv2Plus && !locked && (
                         <Badge color="blue" size="xs" variant="light" ml="xs">
                           {toLocale(sourceAvailable)} {lowerDef?.name ?? 'units'}
@@ -334,7 +344,7 @@ export default function TrainingPage() {
           </Table>
 
           {/* Cost info: requirement for Lv2+ */}
-          {defs.some((d) => d.level > 1 && d.fortLevel <= fortLevel) && (
+          {defs.some((d) => d.level > 1 && !(d.buildingRequirements ?? []).some((req: any) => (status.buildings?.[req.buildingType] ?? 0) < req.level)) && (
             <Text size="xs" mt="sm" style={{ color: 'var(--ot-text-dim)' }}>
               Upgrading a unit consumes 1 lower-tier unit of the same type.
             </Text>
@@ -342,7 +352,7 @@ export default function TrainingPage() {
         </Paper>
 
         {/* ── Untrain table ── */}
-        {defs.some((d) => d.fortLevel <= fortLevel && getOwned(d.type, d.level) > 0) && (
+        {defs.some((d) => !(d.buildingRequirements ?? []).some((req: any) => (status.buildings?.[req.buildingType] ?? 0) < req.level) && getOwned(d.type, d.level) > 0) && (
           <Paper withBorder p="md">
             <Title order={4} mb="sm">{TAB_LABELS[selectedType]} — Untrain (75% gold refund)</Title>
 
@@ -358,7 +368,7 @@ export default function TrainingPage() {
               </Table.Thead>
               <Table.Tbody>
                 {defs
-                  .filter((d) => d.fortLevel <= fortLevel && getOwned(d.type, d.level) > 0)
+                  .filter((d) => !(d.buildingRequirements ?? []).some((req: any) => (status.buildings?.[req.buildingType] ?? 0) < req.level) && getOwned(d.type, d.level) > 0)
                   .map((def) => {
                     const key = getKey(def.type, def.level);
                     const owned = getOwned(def.type, def.level);

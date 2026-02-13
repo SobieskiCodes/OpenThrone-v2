@@ -63,3 +63,15 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 ## ADD to todo
 i might consider something like a retail bonus later it would only show up in the alliance feed for ~10m with a "retaliate" button which has some type of bonus to it - either reward or damage
+
+alliances should function sim to torn with war perks / ability to increase perks with member achivments ie 10k spies = level 1 +1% spy bonus for clan (maybe some gold too)
+
+ai could join clans - or a clan (bot clan?) - could be a setting for the clan - allow registration -> allow bots to join -> auto accept option in general (unrelated)
+
+
+https://github.com/Rihoj/dtg-recruit
+
+spy calcs: 
+https://discord.com/channels/1210025164985864234/1450488850001694750/1466066344331186239
+
+barracks is cit per tick - maybe?

@@ -7,6 +7,7 @@ import {
   ItemUsage,
   BonusType,
   BattleUpgradeType,
+  BuildingType,
   StructureUpgradeType,
   Locale,
   SocialRelationshipType,
@@ -139,6 +140,10 @@ export const sellBattleUpgradeSchema = z.object({
   upgradeType: z.nativeEnum(BattleUpgradeType),
   level: z.number().int().min(1),
   quantity: z.number().int().min(1),
+});
+
+export const upgradeBuildingSchema = z.object({
+  buildingType: z.nativeEnum(BuildingType),
 });
 
 export const repairFortSchema = z.object({
@@ -382,6 +387,7 @@ export type BankWithdrawDto = z.infer<typeof bankWithdrawSchema>;
 export type EquipItemDto = z.infer<typeof equipItemSchema>;
 export type UnequipItemDto = z.infer<typeof unequipItemSchema>;
 export type PurchaseStructureUpgradeDto = z.infer<typeof purchaseStructureUpgradeSchema>;
+export type UpgradeBuildingDto = z.infer<typeof upgradeBuildingSchema>;
 export type PurchaseBattleUpgradeDto = z.infer<typeof purchaseBattleUpgradeSchema>;
 export type SellBattleUpgradeDto = z.infer<typeof sellBattleUpgradeSchema>;
 export type RepairFortDto = z.infer<typeof repairFortSchema>;

@@ -6,7 +6,7 @@ import {
   UnitsUntrainedEvent,
   UnitsConvertedEvent,
 } from '@openthrone/events';
-import { getUnitByTypeAndLevel, UnitTypes } from '@openthrone/game-logic';
+import { getUnitByTypeAndLevel, UnitTypes, meetsBuildingRequirements } from '@openthrone/game-logic';
 import {
   UnitType,
   BankAccountType,
@@ -23,11 +23,12 @@ export class TrainingService {
   ) {}
 
   async getTrainingStatus(playerId: string) {
-    const [economy, units, fortification, bonusPoints] = await Promise.all([
+    const [economy, units, fortification, bonusPoints, playerBuildings] = await Promise.all([
       this.prisma.playerEconomy.findUnique({ where: { player_id: playerId } }),
       this.prisma.playerUnit.findMany({ where: { player_id: playerId } }),
       this.prisma.playerFortification.findUnique({ where: { player_id: playerId } }),
       this.prisma.playerBonusPoint.findMany({ where: { player_id: playerId } }),
+      this.prisma.playerBuilding.findMany({ where: { player_id: playerId } }),
     ]);
 
     if (!economy) throw new BadRequestException('Player economy not found');
@@ -43,12 +44,19 @@ export class TrainingService {
     );
     const pricesBonusLevel = pricesBonus?.level ?? 0;
 
+    // Build a map of building_type -> level for the frontend
+    const buildingsMap: Record<string, number> = {};
+    for (const b of playerBuildings) {
+      buildingsMap[b.building_type] = b.level;
+    }
+
     return {
       gold: economy.gold.toString(),
       goldInBank: economy.gold_in_bank.toString(),
       citizens,
       fortLevel,
       pricesBonusLevel,
+      buildings: buildingsMap,
       units: units.map((u) => ({
         unitType: u.unit_type,
         level: u.level,
@@ -60,16 +68,17 @@ export class TrainingService {
 
   async train(playerId: string, dto: TrainUnitsDto) {
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, units, fortification, bonusPoints] = await Promise.all([
-        tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
-        tx.playerUnit.findMany({ where: { player_id: playerId } }),
-        tx.playerFortification.findUnique({ where: { player_id: playerId } }),
-        tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
-      ]);
-
+      const economy = await tx.playerEconomy.findUnique({ where: { player_id: playerId } });
       if (!economy) throw new BadRequestException('Player economy not found');
+      const units = await tx.playerUnit.findMany({ where: { player_id: playerId } });
+      const bonusPoints = await tx.playerBonusPoint.findMany({ where: { player_id: playerId } });
+      const playerBuildings = await tx.playerBuilding.findMany({ where: { player_id: playerId } });
 
-      const fortLevel = fortification?.fort_level ?? 1;
+      const buildingsMap = new Map<string, number>();
+      for (const b of playerBuildings) {
+        buildingsMap.set(b.building_type, b.level);
+      }
+
       const pricesBonus = bonusPoints.find(
         (bp) => bp.bonus_type === BonusType.PRICES,
       );
@@ -87,10 +96,17 @@ export class TrainingService {
             `Invalid unit: ${entry.unitType} level ${entry.level}`,
           );
         }
-        if (unitDef.fortLevel > fortLevel) {
-          throw new BadRequestException(
-            `${unitDef.name} requires fort level ${unitDef.fortLevel} (you have ${fortLevel})`,
-          );
+        // Check building requirements
+        if (unitDef.buildingRequirements.length > 0) {
+          const { met, unmet } = meetsBuildingRequirements(unitDef.buildingRequirements, buildingsMap);
+          if (!met) {
+            const req = unmet[0]!;
+            const playerLevel = buildingsMap.get(req.buildingType) ?? 0;
+            const buildingName = req.buildingType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+            throw new BadRequestException(
+              `${unitDef.name} requires ${buildingName} Lv${req.level} (you have Lv${playerLevel})`,
+            );
+          }
         }
         if (entry.unitType === UnitType.CITIZEN) {
           throw new BadRequestException('Cannot train citizens');
@@ -269,13 +285,10 @@ export class TrainingService {
 
   async untrain(playerId: string, dto: UntrainUnitsDto) {
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, units, bonusPoints] = await Promise.all([
-        tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
-        tx.playerUnit.findMany({ where: { player_id: playerId } }),
-        tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
-      ]);
-
+      const economy = await tx.playerEconomy.findUnique({ where: { player_id: playerId } });
       if (!economy) throw new BadRequestException('Player economy not found');
+      const units = await tx.playerUnit.findMany({ where: { player_id: playerId } });
+      const bonusPoints = await tx.playerBonusPoint.findMany({ where: { player_id: playerId } });
 
       const pricesBonus = bonusPoints.find(
         (bp) => bp.bonus_type === BonusType.PRICES,
@@ -408,16 +421,17 @@ export class TrainingService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, units, fortification, bonusPoints] = await Promise.all([
-        tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
-        tx.playerUnit.findMany({ where: { player_id: playerId } }),
-        tx.playerFortification.findUnique({ where: { player_id: playerId } }),
-        tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
-      ]);
-
+      const economy = await tx.playerEconomy.findUnique({ where: { player_id: playerId } });
       if (!economy) throw new BadRequestException('Player economy not found');
+      const units = await tx.playerUnit.findMany({ where: { player_id: playerId } });
+      const bonusPoints = await tx.playerBonusPoint.findMany({ where: { player_id: playerId } });
+      const playerBuildings = await tx.playerBuilding.findMany({ where: { player_id: playerId } });
 
-      const fortLevel = fortification?.fort_level ?? 1;
+      const buildingsMap = new Map<string, number>();
+      for (const b of playerBuildings) {
+        buildingsMap.set(b.building_type, b.level);
+      }
+
       const pricesBonus = bonusPoints.find(
         (bp) => bp.bonus_type === BonusType.PRICES,
       );
@@ -430,10 +444,17 @@ export class TrainingService {
         throw new BadRequestException('Invalid unit definition for conversion');
       }
 
-      if (toDef.fortLevel > fortLevel) {
-        throw new BadRequestException(
-          `${toDef.name} requires fort level ${toDef.fortLevel} (you have ${fortLevel})`,
-        );
+      // Check building requirements for target unit
+      if (toDef.buildingRequirements.length > 0) {
+        const { met, unmet } = meetsBuildingRequirements(toDef.buildingRequirements, buildingsMap);
+        if (!met) {
+          const req = unmet[0]!;
+          const playerLevel = buildingsMap.get(req.buildingType) ?? 0;
+          const buildingName = req.buildingType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+          throw new BadRequestException(
+            `${toDef.name} requires ${buildingName} Lv${req.level} (you have Lv${playerLevel})`,
+          );
+        }
       }
 
       // Check player has enough source units

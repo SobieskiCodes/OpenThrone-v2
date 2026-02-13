@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 const RACES = ['HUMAN', 'ELF', 'GOBLIN', 'UNDEAD'] as const;
 const CLASSES = ['FIGHTER', 'CLERIC', 'ASSASSIN', 'THIEF'] as const;
 const BONUS_TYPES = ['OFFENSE', 'DEFENSE', 'INTEL', 'PRICES', 'INCOME'] as const;
+const BUILDING_TYPES = ['FORTIFICATION', 'ARMORY', 'MINE', 'SPY_ACADEMY', 'HOUSING', 'MERCENARY_CAMP'] as const;
 
 interface TestPlayer {
   email: string;
@@ -117,14 +118,25 @@ async function main() {
       },
     });
 
-    // Fortification
+    // Fortification (level 0 = Encampment)
     await prisma.playerFortification.create({
       data: {
         player_id: player.id,
-        fort_level: 1,
+        fort_level: 0,
         hitpoints: 50,
       },
     });
+
+    // Buildings (all start at level 0)
+    for (const buildingType of BUILDING_TYPES) {
+      await prisma.playerBuilding.create({
+        data: {
+          player_id: player.id,
+          building_type: buildingType,
+          level: 0,
+        },
+      });
+    }
 
     // Stats
     await prisma.playerStats.create({
@@ -234,10 +246,21 @@ async function main() {
     await prisma.playerFortification.create({
       data: {
         player_id: botPlayer.id,
-        fort_level: 1,
+        fort_level: 0,
         hitpoints: 50,
       },
     });
+
+    // Buildings (all start at level 0)
+    for (const buildingType of BUILDING_TYPES) {
+      await prisma.playerBuilding.create({
+        data: {
+          player_id: botPlayer.id,
+          building_type: buildingType,
+          level: 0,
+        },
+      });
+    }
 
     await prisma.playerStats.create({
       data: {

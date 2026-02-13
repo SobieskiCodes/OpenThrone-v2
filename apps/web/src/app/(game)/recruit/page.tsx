@@ -24,7 +24,8 @@ interface RecruitmentStatus {
   recruitingBonusLevel: number;
   citizensPerRecruit: number;
   citizensPerAutoRecruit: number;
-  houseLevel: number;
+  housingLevel: number;
+  citizensDaily: number;
   todayRecruits: number;
   maxRecruitsPerDay: number;
   canAutoRecruit: boolean;

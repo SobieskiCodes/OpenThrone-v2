@@ -89,8 +89,6 @@ interface PlayerData {
     gold: string;
     goldInBank: string;
     attackTurns: number;
-    houseLevel: number;
-    economyLevel: number;
   };
   stats: {
     experience: number;
@@ -120,7 +118,7 @@ interface StatBreakdown {
 }
 
 interface GoldPerTurnBreakdown {
-  fortGold: number;
+  baseIncome: number;
   workerGold: number;
   incomeBonus: number;
   incomeBonusPercent: number;
@@ -241,7 +239,7 @@ function GoldTooltipContent({ bd }: { bd: GoldPerTurnBreakdown }) {
   return (
     <Stack gap={2}>
       <Text size="xs" fw={700}>Gold Per Turn Breakdown</Text>
-      <Text size="xs">Fort Income: {toLocale(bd.fortGold)}</Text>
+      <Text size="xs">Base Income: {toLocale(bd.baseIncome)}</Text>
       <Text size="xs">Workers: {toLocale(bd.workerGold)}</Text>
       {bd.incomeBonusPercent > 0 && (
         <Text size="xs">Income Bonus: +{bd.incomeBonusPercent}% ({toLocale(bd.incomeBonus)})</Text>

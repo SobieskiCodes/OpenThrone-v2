@@ -10,9 +10,9 @@ import {
   AUTO_RECRUIT_POOL_CITIZENS,
   calculateRecruitLinkBonus,
   calculateAutoRecruitCitizens,
-  getHouseUpgradeByLevel,
+  getBuildingLevel,
 } from '@openthrone/game-logic';
-import { UnitType, BonusType } from '@openthrone/shared';
+import { UnitType, BonusType, BuildingType } from '@openthrone/shared';
 
 @Injectable()
 export class RecruitmentService {
@@ -26,7 +26,7 @@ export class RecruitmentService {
    * Get recruitment status for the authenticated player.
    */
   async getRecruitmentStatus(playerId: string) {
-    const [player, economy, bonusPoints, recentRecruits] = await Promise.all([
+    const [player, economy, bonusPoints, recentRecruits, housingBuilding] = await Promise.all([
       this.prisma.player.findUnique({
         where: { id: playerId },
         select: { recruit_link: true, display_name: true },
@@ -37,6 +37,9 @@ export class RecruitmentService {
         where: { to_user: playerId },
         orderBy: { timestamp: 'desc' },
         take: 20,
+      }),
+      this.prisma.playerBuilding.findFirst({
+        where: { player_id: playerId, building_type: BuildingType.HOUSING },
       }),
     ]);
 
@@ -49,8 +52,9 @@ export class RecruitmentService {
     );
     const recruitingBonusLevel = recruitingBonus?.level ?? 0;
 
-    const houseUpgrade = getHouseUpgradeByLevel(economy.house_level || 1);
-    const citizensDaily = houseUpgrade?.citizensDaily ?? 1;
+    const housingLevel = housingBuilding?.level ?? 0;
+    const housingDef = getBuildingLevel(BuildingType.HOUSING, housingLevel);
+    const citizensDaily = housingDef?.citizensPerDay ?? 1; // base 1 citizen/day
     const autoRecruitCitizens = calculateAutoRecruitCitizens(
       citizensDaily,
       recruitingBonusLevel,
@@ -87,7 +91,8 @@ export class RecruitmentService {
       recruitingBonusLevel,
       citizensPerRecruit: linkBonus,
       citizensPerAutoRecruit: AUTO_RECRUIT_POOL_CITIZENS,
-      houseLevel: economy.house_level || 1,
+      housingLevel,
+      citizensDaily,
       todayRecruits,
       maxRecruitsPerDay: RECRUIT_LINK_MAX_PER_DAY,
       canAutoRecruit,

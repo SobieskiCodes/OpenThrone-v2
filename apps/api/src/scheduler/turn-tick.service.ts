@@ -3,9 +3,9 @@ import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { calculateGoldPerTurn, calculateRankScore, computeArmoryValue } from '@openthrone/game-logic';
+import { calculateGoldPerTurn, calculateRankScore, computeArmoryValue, getBuildingLevel } from '@openthrone/game-logic';
 import { TurnTickEvent, RankingsRecalculatedEvent } from '@openthrone/events';
-import { BankAccountType, BankTransferHistoryType } from '@openthrone/shared';
+import { BankAccountType, BankTransferHistoryType, BuildingType } from '@openthrone/shared';
 
 @Injectable()
 export class TurnTickService {
@@ -44,7 +44,7 @@ export class TurnTickService {
     try {
       this.logger.log('Executing 30-minute turn tick...');
 
-      // Fetch all ACTIVE players with their economy, fortification, units, and bonus points
+      // Fetch all ACTIVE players with their economy, fortification, units, bonus points, and mine building
       const players = await this.prisma.player.findMany({
         where: { status: 'ACTIVE' },
         include: {
@@ -52,16 +52,15 @@ export class TurnTickService {
           fortification: true,
           units: { where: { unit_type: 'WORKER' } },
           bonus_points: { where: { bonus_type: 'INCOME' } },
+          buildings: { where: { building_type: 'MINE' } },
         },
       });
 
       for (const player of players) {
         try {
           const economy = player.economy;
-          const fort = player.fortification;
-          if (!economy || !fort) continue;
+          if (!economy) continue;
 
-          const fortLevel = fort.fort_level;
           const workers = player.units.map((u) => ({
             level: u.level,
             quantity: u.quantity,
@@ -70,9 +69,15 @@ export class TurnTickService {
             player.bonus_points.find((b) => b.bonus_type === 'INCOME')?.level ??
             0;
 
+          // Get mine building bonus
+          const mineRow = player.buildings.find((b) => b.building_type === 'MINE');
+          const mineLevel = mineRow?.level ?? 0;
+          const mineDef = getBuildingLevel(BuildingType.MINE, mineLevel);
+          const mineBonusPercent = mineDef?.incomeBonusPercent ?? 0;
+
           const goldEarned = calculateGoldPerTurn(
-            fortLevel,
             workers,
+            mineBonusPercent,
             incomeBonus,
           );
 

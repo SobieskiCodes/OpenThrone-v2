@@ -2,8 +2,8 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { GoldDepositedEvent, GoldWithdrawnEvent } from '@openthrone/events';
-import { getEconomyUpgradeByLevel } from '@openthrone/game-logic';
-import { BankAccountType, BankTransferHistoryType } from '@openthrone/shared';
+import { getBuildingLevel } from '@openthrone/game-logic';
+import { BankAccountType, BankTransferHistoryType, BuildingType } from '@openthrone/shared';
 
 @Injectable()
 export class BankService {
@@ -19,9 +19,12 @@ export class BankService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const economy = await tx.playerEconomy.findUnique({
-        where: { player_id: playerId },
-      });
+      const [economy, mineBuilding] = await Promise.all([
+        tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
+        tx.playerBuilding.findFirst({
+          where: { player_id: playerId, building_type: BuildingType.MINE },
+        }),
+      ]);
       if (!economy) throw new BadRequestException('Player economy not found');
 
       const gold = BigInt(economy.gold);
@@ -37,11 +40,10 @@ export class BankService {
         );
       }
 
-      // Check daily deposit limit
+      // Check daily deposit limit (base 3 + 1 per Mine level)
       const depositsToday = await this.countDepositsLast24h(tx, playerId);
-      const economyLevel = economy.economy_level || 0;
-      const upgrade = getEconomyUpgradeByLevel(economyLevel + 1);
-      const maxDeposits = upgrade?.depositsPerDay ?? 3;
+      const mineLevel = mineBuilding?.level ?? 0;
+      const maxDeposits = 3 + mineLevel;
 
       if (depositsToday >= maxDeposits) {
         throw new BadRequestException(
@@ -152,15 +154,17 @@ export class BankService {
   }
 
   async getDepositsRemaining(playerId: string) {
-    const economy = await this.prisma.playerEconomy.findUnique({
-      where: { player_id: playerId },
-    });
+    const [economy, mineBuilding] = await Promise.all([
+      this.prisma.playerEconomy.findUnique({ where: { player_id: playerId } }),
+      this.prisma.playerBuilding.findFirst({
+        where: { player_id: playerId, building_type: BuildingType.MINE },
+      }),
+    ]);
     if (!economy) throw new BadRequestException('Player economy not found');
 
     const depositsToday = await this.countDepositsLast24h(this.prisma, playerId);
-    const economyLevel = economy.economy_level || 0;
-    const upgrade = getEconomyUpgradeByLevel(economyLevel + 1);
-    const maxDeposits = upgrade?.depositsPerDay ?? 3;
+    const mineLevel = mineBuilding?.level ?? 0;
+    const maxDeposits = 3 + mineLevel;
 
     return {
       depositsUsed: depositsToday,

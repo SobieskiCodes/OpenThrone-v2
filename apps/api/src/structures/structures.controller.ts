@@ -8,11 +8,13 @@ import {
   sellBattleUpgradeSchema,
   repairFortSchema,
   buyMercenarySchema,
+  upgradeBuildingSchema,
   PurchaseStructureUpgradeDto,
   PurchaseBattleUpgradeDto,
   SellBattleUpgradeDto,
   RepairFortDto,
   BuyMercenaryDto,
+  UpgradeBuildingDto,
 } from '@openthrone/shared';
 
 @Controller('structures')
@@ -22,6 +24,19 @@ export class StructuresController {
   @Get('status')
   async getStatus(@CurrentPlayer() player: any) {
     return this.structuresService.getStructuresStatus(player.id);
+  }
+
+  @Get('buildings')
+  async getBuildingsStatus(@CurrentPlayer() player: any) {
+    return this.structuresService.getBuildingsStatus(player.id);
+  }
+
+  @Post('buildings/upgrade')
+  async upgradeBuilding(
+    @CurrentPlayer() player: any,
+    @Body(new ZodValidationPipe(upgradeBuildingSchema)) body: UpgradeBuildingDto,
+  ) {
+    return this.structuresService.upgradeBuilding(player.id, body);
   }
 
   @Post('upgrade')
