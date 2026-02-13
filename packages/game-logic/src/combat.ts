@@ -115,10 +115,10 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   fortDamageVariance: 5,
   fortDamageRatioScaler: 0.5,
 
-  xpBase: 500,
-  xpWinnerMultiplier: 0.75,
-  xpLoserMultiplier: 0.25,
-  xpLevelDiffBonus: 50,
+  xpBase: 20,
+  xpWinnerMultiplier: 1.0,
+  xpLoserMultiplier: 0.05,
+  xpLevelDiffBonus: 2,
 
   intelRevealPerSpy: 10,
   intelMaxReveal: 100,

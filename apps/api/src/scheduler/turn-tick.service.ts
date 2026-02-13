@@ -82,7 +82,7 @@ export class TurnTickService {
               where: { player_id: player.id },
               data: {
                 gold: { increment: goldEarned },
-                attack_turns: { increment: 1 },
+                attack_turns: { increment: 6 },
               },
             });
 
