@@ -7,35 +7,41 @@ import {
   Fortifications,
   getFortificationByLevel,
   getNextFortification,
-  EconomyUpgrades,
-  getEconomyUpgradeByLevel,
   OffensiveUpgrades,
   getOffensiveUpgradeByLevel,
   SpyUpgrades,
   getSpyUpgradeByLevel,
   SentryUpgrades,
   getSentryUpgradeByLevel,
-  ArmoryUpgrades,
-  getArmoryUpgradeByLevel,
-  HouseUpgrades,
-  getHouseUpgradeByLevel,
-  MercenaryCampUpgrades,
-  getMercenaryCampByLevel,
-  getMercenaryStockDistribution,
-  MERCENARY_PRICE_MULTIPLIER,
   BattleUpgrades,
   getBattleUpgradesByType,
   getUnitByTypeAndLevel,
   getLevelForXP,
+  Buildings,
+  getBuildingDefinition,
+  getBuildingLevel,
+  getNextBuildingLevel,
+  getMaxBuildingLevel,
+  canUpgradeBuilding,
+  MERCENARY_PRICE_MULTIPLIER,
+  getMercenaryStockDistribution,
 } from '@openthrone/game-logic';
 import {
   StructureUpgradeType,
   BattleUpgradeType,
   BankAccountType,
   BankTransferHistoryType,
+  BuildingType,
   UnitType,
 } from '@openthrone/shared';
-import type { PurchaseStructureUpgradeDto, PurchaseBattleUpgradeDto, SellBattleUpgradeDto, RepairFortDto, BuyMercenaryDto } from '@openthrone/shared';
+import type {
+  PurchaseStructureUpgradeDto,
+  PurchaseBattleUpgradeDto,
+  SellBattleUpgradeDto,
+  RepairFortDto,
+  BuyMercenaryDto,
+  UpgradeBuildingDto,
+} from '@openthrone/shared';
 
 @Injectable()
 export class StructuresService {
@@ -44,15 +50,190 @@ export class StructuresService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async getStructuresStatus(playerId: string) {
-    const [economy, fort, structureUpgrades, battleUpgrades, stats, units] = await Promise.all([
+  // ─── Buildings (new system) ──────────────────────────────────────────
+
+  async getBuildingsStatus(playerId: string) {
+    const [buildings, economy, stats] = await Promise.all([
+      this.prisma.playerBuilding.findMany({ where: { player_id: playerId } }),
       this.prisma.playerEconomy.findUnique({ where: { player_id: playerId } }),
-      this.prisma.playerFortification.findUnique({ where: { player_id: playerId } }),
-      this.prisma.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
-      this.prisma.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
       this.prisma.playerStats.findUnique({ where: { player_id: playerId } }),
-      this.prisma.playerUnit.findMany({ where: { player_id: playerId } }),
     ]);
+
+    if (!economy) throw new BadRequestException('Player economy not found');
+
+    const playerLevel = getLevelForXP(stats?.experience ?? 0);
+    const gold = BigInt(economy.gold);
+
+    const getBuildingLevelForPlayer = (type: string): number => {
+      const entry = buildings.find((b) => b.building_type === type);
+      return entry?.level ?? 0;
+    };
+
+    const buildingTypes = Object.values(BuildingType);
+    const buildingStatuses = buildingTypes.map((type) => {
+      const currentLevel = getBuildingLevelForPlayer(type);
+      const currentLevelDef = currentLevel > 0 ? getBuildingLevel(type, currentLevel) : null;
+      const nextLevelDef = getNextBuildingLevel(type, currentLevel);
+      const maxLevel = getMaxBuildingLevel(type);
+      const upgradeCheck = canUpgradeBuilding(type, currentLevel, playerLevel, gold);
+      const definition = getBuildingDefinition(type);
+
+      return {
+        buildingType: type,
+        description: definition?.description ?? '',
+        currentLevel,
+        currentLevelName: currentLevelDef?.name ?? 'Not Built',
+        nextLevel: nextLevelDef
+          ? {
+              level: nextLevelDef.level,
+              name: nextLevelDef.name,
+              cost: nextLevelDef.cost,
+              playerLevelRequirement: nextLevelDef.playerLevelRequirement,
+              fortHitpoints: nextLevelDef.fortHitpoints,
+              incomeBonusPercent: nextLevelDef.incomeBonusPercent,
+              spyOffenseBonus: nextLevelDef.spyOffenseBonus,
+              citizensPerDay: nextLevelDef.citizensPerDay,
+              dailyMercStock: nextLevelDef.dailyMercStock,
+            }
+          : null,
+        canUpgrade: upgradeCheck.canUpgrade,
+        upgradeBlockedReason: upgradeCheck.reason,
+        maxLevel,
+      };
+    });
+
+    return {
+      gold: economy.gold.toString(),
+      goldInBank: economy.gold_in_bank.toString(),
+      playerLevel,
+      buildings: buildingStatuses,
+      definitions: Buildings,
+    };
+  }
+
+  async upgradeBuilding(playerId: string, dto: UpgradeBuildingDto) {
+    const { buildingType } = dto;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const [buildings, economy, stats] = await Promise.all([
+        tx.playerBuilding.findMany({ where: { player_id: playerId } }),
+        tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
+        tx.playerStats.findUnique({ where: { player_id: playerId } }),
+      ]);
+
+      if (!economy) throw new BadRequestException('Player economy not found');
+
+      const playerLevel = getLevelForXP(stats?.experience ?? 0);
+      const gold = BigInt(economy.gold);
+
+      const currentEntry = buildings.find((b) => b.building_type === buildingType);
+      const currentLevel = currentEntry?.level ?? 0;
+
+      const nextLevelDef = getNextBuildingLevel(buildingType as BuildingType, currentLevel);
+      if (!nextLevelDef) {
+        throw new BadRequestException(`${buildingType} is already at maximum level`);
+      }
+
+      if (playerLevel < nextLevelDef.playerLevelRequirement) {
+        throw new BadRequestException(
+          `${nextLevelDef.name} requires player level ${nextLevelDef.playerLevelRequirement} (you are level ${playerLevel})`,
+        );
+      }
+
+      if (gold < BigInt(nextLevelDef.cost)) {
+        throw new BadRequestException(
+          `Not enough gold. Required: ${nextLevelDef.cost}, Available: ${gold}`,
+        );
+      }
+
+      const newGold = gold - BigInt(nextLevelDef.cost);
+
+      // Deduct gold
+      await tx.playerEconomy.update({
+        where: { player_id: playerId },
+        data: { gold: newGold },
+      });
+
+      // Upsert building level
+      await tx.playerBuilding.upsert({
+        where: {
+          player_id_building_type: {
+            player_id: playerId,
+            building_type: buildingType,
+          },
+        },
+        update: { level: nextLevelDef.level },
+        create: {
+          player_id: playerId,
+          building_type: buildingType,
+          level: nextLevelDef.level,
+        },
+      });
+
+      // Special case: FORTIFICATION upgrades also reset fort hitpoints
+      if (buildingType === BuildingType.FORTIFICATION && nextLevelDef.fortHitpoints) {
+        await tx.playerFortification.upsert({
+          where: { player_id: playerId },
+          update: {
+            fort_level: nextLevelDef.level,
+            hitpoints: nextLevelDef.fortHitpoints,
+          },
+          create: {
+            player_id: playerId,
+            fort_level: nextLevelDef.level,
+            hitpoints: nextLevelDef.fortHitpoints,
+          },
+        });
+      }
+
+      // Bank history
+      await this.createBankHistory(tx, playerId, BigInt(nextLevelDef.cost), 'BUILDING_UPGRADE', {
+        buildingType,
+        fromLevel: currentLevel,
+        toLevel: nextLevelDef.level,
+        name: nextLevelDef.name,
+      });
+
+      return {
+        newGold: newGold.toString(),
+        newLevel: nextLevelDef.level,
+        goldSpent: nextLevelDef.cost,
+        name: nextLevelDef.name,
+      };
+    });
+
+    // Emit event after transaction
+    this.eventEmitter.emit(
+      'structure.upgraded',
+      new StructureUpgradedEvent(
+        playerId,
+        `BUILDING_${buildingType}`,
+        result.newLevel,
+        BigInt(result.goldSpent),
+      ),
+    );
+
+    return {
+      gold: result.newGold,
+      buildingType,
+      newLevel: result.newLevel,
+      name: result.name,
+    };
+  }
+
+  // ─── Legacy Structures Status (includes buildings data) ──────────────
+
+  async getStructuresStatus(playerId: string) {
+    const [economy, fort, structureUpgrades, battleUpgrades, stats, units, buildings] =
+      await Promise.all([
+        this.prisma.playerEconomy.findUnique({ where: { player_id: playerId } }),
+        this.prisma.playerFortification.findUnique({ where: { player_id: playerId } }),
+        this.prisma.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
+        this.prisma.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
+        this.prisma.playerStats.findUnique({ where: { player_id: playerId } }),
+        this.prisma.playerUnit.findMany({ where: { player_id: playerId } }),
+        this.prisma.playerBuilding.findMany({ where: { player_id: playerId } }),
+      ]);
 
     if (!economy) throw new BadRequestException('Player economy not found');
 
@@ -64,6 +245,11 @@ export class StructuresService {
     const getStructureLevel = (type: string) => {
       const entry = structureUpgrades.find((u) => u.upgrade_type === type);
       return entry?.level ?? 1;
+    };
+
+    const getBuildingLevelForPlayer = (type: string): number => {
+      const entry = buildings.find((b) => b.building_type === type);
+      return entry?.level ?? 0;
     };
 
     return {
@@ -80,14 +266,14 @@ export class StructuresService {
         defenseBonusPercentage: fortDef?.defenseBonusPercentage ?? 5,
       },
       upgrades: {
-        economy: economy.economy_level || 1,
-        house: economy.house_level || 1,
         offense: getStructureLevel(StructureUpgradeType.OFFENSE),
         spy: getStructureLevel(StructureUpgradeType.SPY),
         sentry: getStructureLevel(StructureUpgradeType.SENTRY),
-        armory: getStructureLevel(StructureUpgradeType.ARMORY),
-        mercenaryCamp: getStructureLevel(StructureUpgradeType.MERCENARY_CAMP),
       },
+      buildings: Object.values(BuildingType).map((type) => ({
+        buildingType: type,
+        level: getBuildingLevelForPlayer(type),
+      })),
       battleUpgrades: battleUpgrades.map((bu) => ({
         upgradeType: bu.upgrade_type,
         level: bu.level,
@@ -100,52 +286,50 @@ export class StructuresService {
       })),
       definitions: {
         fortifications: Fortifications,
-        economy: EconomyUpgrades,
-        house: HouseUpgrades,
         offense: OffensiveUpgrades,
         spy: SpyUpgrades,
         sentry: SentryUpgrades,
-        armory: ArmoryUpgrades,
         battle: BattleUpgrades,
-        mercenaryCamp: MercenaryCampUpgrades,
+        buildings: Buildings,
       },
     };
   }
 
+  // ─── Legacy upgrade (OFFENSE/SPY/SENTRY stay; others delegate to upgradeBuilding) ──
+
   async upgrade(playerId: string, dto: PurchaseStructureUpgradeDto) {
+    // Map old structure types to new building types
+    const buildingTypeMap: Partial<Record<StructureUpgradeType, BuildingType>> = {
+      [StructureUpgradeType.FORT]: BuildingType.FORTIFICATION,
+      [StructureUpgradeType.HOUSE]: BuildingType.HOUSING,
+      [StructureUpgradeType.ECONOMY]: BuildingType.MINE,
+      [StructureUpgradeType.ARMORY]: BuildingType.ARMORY,
+      [StructureUpgradeType.MERCENARY_CAMP]: BuildingType.MERCENARY_CAMP,
+    };
+
+    const mappedBuildingType = buildingTypeMap[dto.upgradeType];
+    if (mappedBuildingType) {
+      // Delegate to the new buildings system
+      return this.upgradeBuilding(playerId, { buildingType: mappedBuildingType });
+    }
+
+    // OFFENSE, SPY, SENTRY stay as legacy structure upgrades (proficiency bonuses)
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, fort, structureUpgrades, stats] = await Promise.all([
+      const [economy, fort, structureUpgrades] = await Promise.all([
         tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
         tx.playerFortification.findUnique({ where: { player_id: playerId } }),
         tx.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
-        tx.playerStats.findUnique({ where: { player_id: playerId } }),
       ]);
 
       if (!economy) throw new BadRequestException('Player economy not found');
 
       const gold = BigInt(economy.gold);
       const fortLevel = fort?.fort_level ?? 1;
-      const playerLevel = getLevelForXP(stats?.experience ?? 0);
 
       switch (dto.upgradeType) {
-        case StructureUpgradeType.FORT:
-          return this.handleFortUpgrade(tx, playerId, gold, fortLevel, playerLevel);
-
-        case StructureUpgradeType.HOUSE:
-          return this.handleHouseUpgrade(tx, playerId, gold, fortLevel, economy.house_level || 1);
-
-        case StructureUpgradeType.ECONOMY:
-          return this.handleEconomyUpgrade(tx, playerId, gold, fortLevel, economy.economy_level || 1);
-
-        case StructureUpgradeType.MERCENARY_CAMP:
-          return this.handleMercenaryCampUpgrade(
-            tx, playerId, gold, fortLevel, structureUpgrades,
-          );
-
         case StructureUpgradeType.OFFENSE:
         case StructureUpgradeType.SPY:
         case StructureUpgradeType.SENTRY:
-        case StructureUpgradeType.ARMORY:
           return this.handleStructureUpgrade(
             tx, playerId, gold, fortLevel, dto.upgradeType, structureUpgrades,
           );
@@ -166,117 +350,6 @@ export class StructuresService {
     );
 
     return { gold: result.newGold, upgradeType: dto.upgradeType, newLevel: result.newLevel };
-  }
-
-  private async handleFortUpgrade(
-    tx: any, playerId: string, gold: bigint, currentFortLevel: number, playerLevel: number,
-  ) {
-    const nextFort = getNextFortification(currentFortLevel);
-    if (!nextFort) {
-      throw new BadRequestException('Fortification is already at maximum level');
-    }
-
-    if (playerLevel < nextFort.levelRequirement) {
-      throw new BadRequestException(
-        `${nextFort.name} requires player level ${nextFort.levelRequirement} (you are level ${playerLevel})`,
-      );
-    }
-
-    if (gold < BigInt(nextFort.cost)) {
-      throw new BadRequestException(
-        `Not enough gold. Required: ${nextFort.cost}, Available: ${gold}`,
-      );
-    }
-
-    const newGold = gold - BigInt(nextFort.cost);
-    await tx.playerEconomy.update({
-      where: { player_id: playerId },
-      data: { gold: newGold },
-    });
-
-    await tx.playerFortification.upsert({
-      where: { player_id: playerId },
-      update: { fort_level: nextFort.level, hitpoints: nextFort.hitpoints },
-      create: { player_id: playerId, fort_level: nextFort.level, hitpoints: nextFort.hitpoints },
-    });
-
-    await this.createBankHistory(tx, playerId, BigInt(nextFort.cost), 'FORT_UPGRADE', {
-      fromLevel: currentFortLevel,
-      toLevel: nextFort.level,
-      name: nextFort.name,
-    });
-
-    return { newGold: newGold.toString(), newLevel: nextFort.level, goldSpent: nextFort.cost };
-  }
-
-  private async handleHouseUpgrade(
-    tx: any, playerId: string, gold: bigint, fortLevel: number, currentHouseLevel: number,
-  ) {
-    const nextHouse = getHouseUpgradeByLevel(currentHouseLevel + 1);
-    if (!nextHouse) {
-      throw new BadRequestException('Housing is already at maximum level');
-    }
-
-    if (fortLevel < nextHouse.fortLevel) {
-      throw new BadRequestException(
-        `${nextHouse.name} requires fort level ${nextHouse.fortLevel} (you have fort level ${fortLevel})`,
-      );
-    }
-
-    if (gold < BigInt(nextHouse.cost)) {
-      throw new BadRequestException(
-        `Not enough gold. Required: ${nextHouse.cost}, Available: ${gold}`,
-      );
-    }
-
-    const newGold = gold - BigInt(nextHouse.cost);
-    await tx.playerEconomy.update({
-      where: { player_id: playerId },
-      data: { gold: newGold, house_level: nextHouse.level },
-    });
-
-    await this.createBankHistory(tx, playerId, BigInt(nextHouse.cost), 'HOUSE_UPGRADE', {
-      fromLevel: currentHouseLevel,
-      toLevel: nextHouse.level,
-      name: nextHouse.name,
-    });
-
-    return { newGold: newGold.toString(), newLevel: nextHouse.level, goldSpent: nextHouse.cost };
-  }
-
-  private async handleEconomyUpgrade(
-    tx: any, playerId: string, gold: bigint, fortLevel: number, currentEconomyLevel: number,
-  ) {
-    const nextEcon = getEconomyUpgradeByLevel(currentEconomyLevel + 1);
-    if (!nextEcon) {
-      throw new BadRequestException('Economy is already at maximum level');
-    }
-
-    if (fortLevel < nextEcon.fortLevel) {
-      throw new BadRequestException(
-        `${nextEcon.name} requires fort level ${nextEcon.fortLevel} (you have fort level ${fortLevel})`,
-      );
-    }
-
-    if (gold < BigInt(nextEcon.cost)) {
-      throw new BadRequestException(
-        `Not enough gold. Required: ${nextEcon.cost}, Available: ${gold}`,
-      );
-    }
-
-    const newGold = gold - BigInt(nextEcon.cost);
-    await tx.playerEconomy.update({
-      where: { player_id: playerId },
-      data: { gold: newGold, economy_level: nextEcon.level },
-    });
-
-    await this.createBankHistory(tx, playerId, BigInt(nextEcon.cost), 'ECONOMY_UPGRADE', {
-      fromLevel: currentEconomyLevel,
-      toLevel: nextEcon.level,
-      name: nextEcon.name,
-    });
-
-    return { newGold: newGold.toString(), newLevel: nextEcon.level, goldSpent: nextEcon.cost };
   }
 
   private async handleStructureUpgrade(
@@ -349,13 +422,12 @@ export class StructuresService {
       case StructureUpgradeType.SENTRY:
         nextDef = getSentryUpgradeByLevel(nextLevel);
         break;
-      case StructureUpgradeType.ARMORY:
-        nextDef = getArmoryUpgradeByLevel(nextLevel);
-        break;
     }
 
     return { nextDef, nextLevel };
   }
+
+  // ─── Fort Repair ────────────────────────────────────────────────────
 
   async repair(playerId: string, dto: RepairFortDto) {
     const result = await this.prisma.$transaction(async (tx) => {
@@ -440,6 +512,8 @@ export class StructuresService {
 
     return result;
   }
+
+  // ─── Battle Upgrades ────────────────────────────────────────────────
 
   async purchaseBattleUpgrade(playerId: string, dto: PurchaseBattleUpgradeDto) {
     const result = await this.prisma.$transaction(async (tx) => {
@@ -626,78 +700,24 @@ export class StructuresService {
     }
   }
 
-  private async handleMercenaryCampUpgrade(
-    tx: any,
-    playerId: string,
-    gold: bigint,
-    fortLevel: number,
-    structureUpgrades: Array<{ upgrade_type: string; level: number }>,
-  ) {
-    const current = structureUpgrades.find(
-      (u) => u.upgrade_type === StructureUpgradeType.MERCENARY_CAMP,
-    );
-    const currentLevel = current?.level ?? 1;
-    const nextDef = getMercenaryCampByLevel(currentLevel + 1);
-
-    if (!nextDef) {
-      throw new BadRequestException('Mercenary Camp is already at maximum level');
-    }
-
-    if (fortLevel < nextDef.fortLevel) {
-      throw new BadRequestException(
-        `${nextDef.name} requires fort level ${nextDef.fortLevel} (you have fort level ${fortLevel})`,
-      );
-    }
-
-    if (gold < BigInt(nextDef.cost)) {
-      throw new BadRequestException(
-        `Not enough gold. Required: ${nextDef.cost}, Available: ${gold}`,
-      );
-    }
-
-    const newGold = gold - BigInt(nextDef.cost);
-    await tx.playerEconomy.update({
-      where: { player_id: playerId },
-      data: { gold: newGold },
-    });
-
-    await tx.playerStructureUpgrade.upsert({
-      where: {
-        player_id_upgrade_type: {
-          player_id: playerId,
-          upgrade_type: StructureUpgradeType.MERCENARY_CAMP,
-        },
-      },
-      update: { level: nextDef.level },
-      create: {
-        player_id: playerId,
-        upgrade_type: StructureUpgradeType.MERCENARY_CAMP,
-        level: nextDef.level,
-      },
-    });
-
-    await this.createBankHistory(tx, playerId, BigInt(nextDef.cost), 'MERCENARY_CAMP_UPGRADE', {
-      fromLevel: currentLevel,
-      toLevel: nextDef.level,
-      name: nextDef.name,
-    });
-
-    return { newGold: newGold.toString(), newLevel: nextDef.level, goldSpent: nextDef.cost };
-  }
+  // ─── Mercenary (reads from PlayerBuilding) ──────────────────────────
 
   async getMercenaryStatus(playerId: string) {
-    const [structureUpgrades, purchases] = await Promise.all([
-      this.prisma.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
+    const [buildings, purchases] = await Promise.all([
+      this.prisma.playerBuilding.findMany({ where: { player_id: playerId } }),
       this.prisma.mercenaryDailyPurchase.findMany({ where: { player_id: playerId } }),
     ]);
 
-    const campEntry = structureUpgrades.find(
-      (u) => u.upgrade_type === StructureUpgradeType.MERCENARY_CAMP,
+    const campEntry = buildings.find(
+      (b) => b.building_type === BuildingType.MERCENARY_CAMP,
     );
-    const campLevel = campEntry?.level ?? 1;
-    const campDef = getMercenaryCampByLevel(campLevel);
-    const nextDef = getMercenaryCampByLevel(campLevel + 1);
-    const distribution = getMercenaryStockDistribution(campDef?.dailyStock ?? 0);
+    const campLevel = campEntry?.level ?? 0;
+
+    // Camp must be at least level 1 to have any stock
+    const campLevelDef = campLevel >= 1 ? getBuildingLevel(BuildingType.MERCENARY_CAMP, campLevel) : null;
+    const nextLevelDef = getNextBuildingLevel(BuildingType.MERCENARY_CAMP, campLevel);
+    const dailyMercStock = campLevelDef?.dailyMercStock ?? 0;
+    const distribution = getMercenaryStockDistribution(dailyMercStock);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -732,9 +752,15 @@ export class StructuresService {
 
     return {
       campLevel,
-      campName: campDef?.name ?? 'No Camp',
-      nextUpgrade: nextDef
-        ? { name: nextDef.name, cost: nextDef.cost, fortLevel: nextDef.fortLevel, dailyStock: nextDef.dailyStock }
+      campName: campLevelDef?.name ?? 'No Camp',
+      nextUpgrade: nextLevelDef
+        ? {
+            level: nextLevelDef.level,
+            name: nextLevelDef.name,
+            cost: nextLevelDef.cost,
+            playerLevelRequirement: nextLevelDef.playerLevelRequirement,
+            dailyMercStock: nextLevelDef.dailyMercStock,
+          }
         : null,
       stock,
     };
@@ -742,23 +768,24 @@ export class StructuresService {
 
   async buyMercenary(playerId: string, dto: BuyMercenaryDto) {
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, structureUpgrades] = await Promise.all([
+      const [economy, buildings] = await Promise.all([
         tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
-        tx.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
+        tx.playerBuilding.findMany({ where: { player_id: playerId } }),
       ]);
 
       if (!economy) throw new BadRequestException('Player economy not found');
 
-      const campEntry = structureUpgrades.find(
-        (u) => u.upgrade_type === StructureUpgradeType.MERCENARY_CAMP,
+      const campEntry = buildings.find(
+        (b) => b.building_type === BuildingType.MERCENARY_CAMP,
       );
-      const campLevel = campEntry?.level ?? 1;
-      if (campLevel <= 1) {
+      const campLevel = campEntry?.level ?? 0;
+      if (campLevel < 1) {
         throw new BadRequestException('You must build a Mercenary Camp first');
       }
 
-      const campDef = getMercenaryCampByLevel(campLevel);
-      const distribution = getMercenaryStockDistribution(campDef?.dailyStock ?? 0);
+      const campLevelDef = getBuildingLevel(BuildingType.MERCENARY_CAMP, campLevel);
+      const dailyMercStock = campLevelDef?.dailyMercStock ?? 0;
+      const distribution = getMercenaryStockDistribution(dailyMercStock);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -877,6 +904,8 @@ export class StructuresService {
 
     return result;
   }
+
+  // ─── Helpers ────────────────────────────────────────────────────────
 
   private async createBankHistory(
     tx: any,

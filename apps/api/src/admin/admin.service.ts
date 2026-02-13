@@ -120,8 +120,6 @@ export class AdminService {
             gold: player.economy.gold.toString(),
             goldInBank: player.economy.gold_in_bank.toString(),
             attackTurns: player.economy.attack_turns,
-            houseLevel: player.economy.house_level,
-            economyLevel: player.economy.economy_level,
           }
         : null,
       stats: player.stats

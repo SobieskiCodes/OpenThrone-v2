@@ -18,15 +18,13 @@ import {
   calculateGoldPerTurnBreakdown,
   calculateCitizensPerDayBreakdown,
   computeArmoryValue,
-  Fortifications,
-  EconomyUpgrades,
-  HouseUpgrades,
   OffensiveUpgrades,
   SpyUpgrades,
   SentryUpgrades,
-  ArmoryUpgrades,
-  MercenaryCampUpgrades,
+  canUpgradeBuilding,
+  getBuildingLevel,
 } from '@openthrone/game-logic';
+import { BuildingType } from '@openthrone/shared';
 import type { StatCalcInput } from '@openthrone/game-logic';
 import * as argon2 from 'argon2';
 
@@ -64,6 +62,7 @@ export class PlayerService {
         fortification: true,
         bonus_points: true,
         stats: true,
+        buildings: true,
         permission_grants: { select: { type: true } },
         alliance_membership: {
           select: {
@@ -103,8 +102,6 @@ export class PlayerService {
             gold: player.economy.gold.toString(),
             goldInBank: player.economy.gold_in_bank.toString(),
             attackTurns: player.economy.attack_turns,
-            houseLevel: player.economy.house_level,
-            economyLevel: player.economy.economy_level,
           }
         : null,
       units: player.units.map((u) => ({
@@ -161,40 +158,52 @@ export class PlayerService {
 
   private countAvailableUpgrades(
     player: {
-      economy: { gold: bigint; economy_level: number; house_level: number } | null;
+      economy: { gold: bigint } | null;
       fortification: { fort_level: number } | null;
       structure_upgrades: { upgrade_type: string; level: number }[];
+      buildings: { building_type: string; level: number }[];
     },
     playerLevel: number,
   ): number {
-    const gold = Number(player.economy?.gold ?? 0);
+    const gold = BigInt(player.economy?.gold ?? 0);
     const fortLevel = player.fortification?.fort_level ?? 1;
+
+    let count = 0;
+
+    // Count buildings that can be upgraded (player level met, regardless of gold)
+    for (const type of Object.values(BuildingType)) {
+      const current = player.buildings.find((b) => b.building_type === type);
+      const currentLevel = current?.level ?? 0;
+      const result = canUpgradeBuilding(type, currentLevel, playerLevel, gold);
+      // Count if upgradeable (either can afford or just level-gated but level is met)
+      // We want to show "available" when requirements are met even if gold is short
+      const nextLevel = currentLevel + 1;
+      const nextDef = getBuildingLevel(type, nextLevel);
+      if (nextDef && playerLevel >= nextDef.playerLevelRequirement) {
+        count++;
+      }
+    }
+
+    // Count legacy structure upgrades (OFFENSE/SPY/SENTRY) that can be upgraded
     const getLevel = (type: string) =>
       player.structure_upgrades.find((s) => s.upgrade_type === type)?.level ?? 1;
 
-    const categories: Array<{
-      defs: Array<{ level: number; cost: number; [k: string]: any }>;
+    const legacyCategories: Array<{
+      defs: Array<{ level: number; cost: number; fortLevelRequirement?: number; [k: string]: any }>;
       currentLevel: number;
-      reqField: 'levelRequirement' | 'fortLevelRequirement' | 'fortLevel';
-      reqValue: number; // player level or fort level to compare against
     }> = [
-      { defs: Fortifications, currentLevel: fortLevel, reqField: 'levelRequirement', reqValue: playerLevel },
-      { defs: EconomyUpgrades, currentLevel: player.economy?.economy_level || 1, reqField: 'fortLevel', reqValue: fortLevel },
-      { defs: HouseUpgrades, currentLevel: player.economy?.house_level || 1, reqField: 'fortLevel', reqValue: fortLevel },
-      { defs: OffensiveUpgrades, currentLevel: getLevel('OFFENSE'), reqField: 'fortLevelRequirement', reqValue: fortLevel },
-      { defs: SpyUpgrades, currentLevel: getLevel('SPY'), reqField: 'fortLevelRequirement', reqValue: fortLevel },
-      { defs: SentryUpgrades, currentLevel: getLevel('SENTRY'), reqField: 'fortLevelRequirement', reqValue: fortLevel },
-      { defs: ArmoryUpgrades, currentLevel: getLevel('ARMORY'), reqField: 'fortLevel', reqValue: fortLevel },
-      { defs: MercenaryCampUpgrades, currentLevel: getLevel('MERCENARY_CAMP'), reqField: 'fortLevel', reqValue: fortLevel },
+      { defs: OffensiveUpgrades, currentLevel: getLevel('OFFENSE') },
+      { defs: SpyUpgrades, currentLevel: getLevel('SPY') },
+      { defs: SentryUpgrades, currentLevel: getLevel('SENTRY') },
     ];
 
-    let count = 0;
-    for (const cat of categories) {
+    for (const cat of legacyCategories) {
       const nextDef = cat.defs.find((d) => d.level === cat.currentLevel + 1);
       if (!nextDef) continue;
-      const requirement = (nextDef as any)[cat.reqField] ?? 0;
-      if (cat.reqValue >= requirement) count++;
+      const requiredFort = nextDef.fortLevelRequirement ?? 0;
+      if (fortLevel >= requiredFort) count++;
     }
+
     return count;
   }
 
@@ -231,7 +240,6 @@ export class PlayerService {
           select: {
             gold: true,
             gold_in_bank: true,
-            house_level: true,
           },
         },
         units: {
@@ -402,11 +410,6 @@ export class PlayerService {
             fortLevel: player.fortification.fort_level,
           }
         : null,
-      economy: player.economy
-        ? {
-            houseLevel: player.economy.house_level,
-          }
-        : null,
       ranks: {
         overall: player.stats?.rank ?? 0,
         offense: offenseRank + 1,
@@ -435,6 +438,7 @@ export class PlayerService {
         fortification: true,
         bonus_points: true,
         stats: true,
+        buildings: true,
       },
     });
 
@@ -480,16 +484,23 @@ export class PlayerService {
       .filter((u) => u.unit_type === 'WORKER')
       .map((u) => ({ level: u.level, quantity: u.quantity }));
     const incomeBonus = player.bonus_points.find((bp) => bp.bonus_type === 'INCOME')?.level ?? 0;
+
+    const mineRow = (player.buildings ?? []).find((b) => b.building_type === 'MINE');
+    const mineLevel = mineRow?.level ?? 0;
+    const mineDef = getBuildingLevel(BuildingType.MINE, mineLevel);
+    const mineBonusPercent = mineDef?.incomeBonusPercent ?? 0;
+
     const goldPerTurn = calculateGoldPerTurnBreakdown(
-      fortLevel,
       workers,
+      mineBonusPercent,
       incomeBonus,
     );
 
     // Citizens per day breakdown
-    const houseLevel = player.economy?.house_level ?? 1;
-    const recruitBonus = 0; // TODO: pull from recruiting bonus when implemented
-    const citizensPerDay = calculateCitizensPerDayBreakdown(houseLevel, recruitBonus);
+    const housingRow = (player.buildings ?? []).find((b) => b.building_type === 'HOUSING');
+    const housingLevel = housingRow?.level ?? 0;
+    const recruitBonus = player.bonus_points.find((bp) => bp.bonus_type === 'RECRUITING')?.level ?? 0;
+    const citizensPerDay = calculateCitizensPerDayBreakdown(housingLevel, recruitBonus);
 
     // Also update PlayerStats with the newly calculated values
     await this.prisma.playerStats.upsert({

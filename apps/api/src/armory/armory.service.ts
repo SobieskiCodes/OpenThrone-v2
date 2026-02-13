@@ -9,7 +9,6 @@ import {
   BankAccountType,
   BankTransferHistoryType,
   BonusType,
-  StructureUpgradeType,
 } from '@openthrone/shared';
 import type { EquipItemDto, UnequipItemDto } from '@openthrone/shared';
 
@@ -21,7 +20,7 @@ export class ArmoryService {
   ) {}
 
   async getArmoryStatus(playerId: string) {
-    const [economy, items, player, structureUpgrades, bonusPoints, units, battleUpgrades, fortification] =
+    const [economy, items, player, playerBuildings, structureUpgrades, bonusPoints, units, battleUpgrades, fortification] =
       await Promise.all([
         this.prisma.playerEconomy.findUnique({
           where: { player_id: playerId },
@@ -31,6 +30,7 @@ export class ArmoryService {
           where: { id: playerId },
           select: { race: true, player_class: true },
         }),
+        this.prisma.playerBuilding.findMany({ where: { player_id: playerId } }),
         this.prisma.playerStructureUpgrade.findMany({
           where: { player_id: playerId },
         }),
@@ -44,15 +44,8 @@ export class ArmoryService {
 
     if (!economy) throw new BadRequestException('Player economy not found');
 
-    const armoryUpgrade = structureUpgrades.find(
-      (u) => u.upgrade_type === StructureUpgradeType.ARMORY,
-    );
-    const armoryLevel = armoryUpgrade?.level ?? 0;
-
-    const spyUpgrade = structureUpgrades.find(
-      (u) => u.upgrade_type === StructureUpgradeType.SPY,
-    );
-    const spyAcademyLevel = spyUpgrade?.level ?? 0;
+    const armoryLevel = playerBuildings.find((b) => b.building_type === 'ARMORY')?.level ?? 0;
+    const spyAcademyLevel = playerBuildings.find((b) => b.building_type === 'SPY_ACADEMY')?.level ?? 0;
 
     const pricesBonus = bonusPoints.find(
       (bp) => bp.bonus_type === BonusType.PRICES,
@@ -104,7 +97,7 @@ export class ArmoryService {
 
   async equip(playerId: string, dto: EquipItemDto) {
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, items, player, structureUpgrades, bonusPoints] =
+      const [economy, items, player, playerBuildings, bonusPoints] =
         await Promise.all([
           tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
           tx.playerItem.findMany({ where: { player_id: playerId } }),
@@ -112,23 +105,14 @@ export class ArmoryService {
             where: { id: playerId },
             select: { race: true, player_class: true },
           }),
-          tx.playerStructureUpgrade.findMany({
-            where: { player_id: playerId },
-          }),
+          tx.playerBuilding.findMany({ where: { player_id: playerId } }),
           tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
         ]);
 
       if (!economy) throw new BadRequestException('Player economy not found');
 
-      const armoryUpgrade = structureUpgrades.find(
-        (u) => u.upgrade_type === StructureUpgradeType.ARMORY,
-      );
-      const armoryLevel = armoryUpgrade?.level ?? 0;
-
-      const spyUpgrade = structureUpgrades.find(
-        (u) => u.upgrade_type === StructureUpgradeType.SPY,
-      );
-      const spyAcademyLevel = spyUpgrade?.level ?? 0;
+      const armoryLevel = playerBuildings.find((b) => b.building_type === 'ARMORY')?.level ?? 0;
+      const spyAcademyLevel = playerBuildings.find((b) => b.building_type === 'SPY_ACADEMY')?.level ?? 0;
 
       const pricesBonus = bonusPoints.find(
         (bp) => bp.bonus_type === BonusType.PRICES,
