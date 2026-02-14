@@ -365,4 +365,52 @@ export class AdminService {
       totalUnits: unitAgg._sum.quantity ?? 0,
     };
   }
+
+  async resetDatabase(adminId: string) {
+    // WARNING: This deletes ALL data and reseeds the database
+    // Only admins can call this
+
+    // Get all table names except migrations
+    const tables = [
+      'bot_action_logs',
+      'bot_configs',
+      'player_buildings',
+      'structure_upgrades',
+      'battle_upgrades',
+      'spy_reports',
+      'bank_history',
+      'recruitment_links',
+      'battle_history',
+      'chat_messages',
+      'mail_messages',
+      'activity_log',
+      'player_alliances',
+      'alliances',
+      'player_items',
+      'player_units',
+      'bonus_points',
+      'job_logs',
+      'permission_grants',
+      'player_stats',
+      'player_fortifications',
+      'player_economy',
+      'players',
+      'blog_posts',
+    ];
+
+    // Delete all records from all tables
+    await this.prisma.$transaction(async (tx) => {
+      for (const table of tables) {
+        await tx.$executeRawUnsafe(`DELETE FROM "${table}"`);
+      }
+    });
+
+    // Run seed data (this would need to import and call the seed script)
+    // For now, return success - you'll need to manually run seed or
+    // trigger it via a separate endpoint/job
+    return {
+      success: true,
+      message: 'Database reset complete. Run seed script manually or generate bots from /admin/bots.',
+    };
+  }
 }

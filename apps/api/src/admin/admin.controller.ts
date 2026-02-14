@@ -37,6 +37,11 @@ export class AdminController {
     return this.adminService.getServerStats();
   }
 
+  @Post('reset-database')
+  async resetDatabase(@CurrentPlayer('id') adminId: string) {
+    return this.adminService.resetDatabase(adminId);
+  }
+
   @Post('permissions')
   @UsePipes(new ZodValidationPipe(adminGrantPermissionSchema))
   async grantPermission(@Body() dto: AdminGrantPermissionDto) {

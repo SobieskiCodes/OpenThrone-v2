@@ -34,7 +34,6 @@ interface TrainingStatus {
   goldInBank: string;
   citizens: number;
   fortLevel: number;
-  pricesBonusLevel: number;
   buildings: Record<string, number>;
   units: UnitEntry[];
   unitDefinitions: UnitDefinition[];
@@ -124,7 +123,7 @@ export default function TrainingPage() {
   }
 
   const gold = Number(status.gold);
-  const { citizens, fortLevel, pricesBonusLevel } = status;
+  const { citizens, fortLevel } = status;
 
   const getKey = (unitType: string, level: number) => `${unitType}_${level}`;
 
@@ -138,9 +137,6 @@ export default function TrainingPage() {
       .filter((u) => u.unitType === unitType)
       .reduce((sum, u) => sum + u.quantity, 0);
 
-  const getDiscountedCost = (cost: number) =>
-    cost - Math.round((pricesBonusLevel / 100) * cost);
-
   const getLowerTierDef = (def: UnitDefinition): UnitDefinition | undefined => {
     if (def.level <= 1) return undefined;
     return status.unitDefinitions.find(
@@ -149,7 +145,7 @@ export default function TrainingPage() {
   };
 
   const getMaxTrainable = (def: UnitDefinition) => {
-    const unitCost = getDiscountedCost(def.cost);
+    const unitCost = def.cost;
     const maxByGold = unitCost <= 0 ? Infinity : Math.floor(gold / unitCost);
     if (def.level === 1) return Math.max(0, Math.min(maxByGold, citizens));
     const lowerOwned = getOwned(def.type, def.level - 1);
@@ -198,12 +194,6 @@ export default function TrainingPage() {
               <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Fort Level</Text>
               <Text fw={700} size="lg" className="ot-stat-value">{fortLevel}</Text>
             </Stack>
-            {pricesBonusLevel > 0 && (
-              <Stack gap={4}>
-                <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Price Discount</Text>
-                <Text fw={700} size="lg" c="green">-{pricesBonusLevel}%</Text>
-              </Stack>
-            )}
           </Group>
         </OTCard>
 
@@ -250,7 +240,6 @@ export default function TrainingPage() {
               {defs.map((def) => {
                 const key = getKey(def.type, def.level);
                 const owned = getOwned(def.type, def.level);
-                const discountedCost = getDiscountedCost(def.cost);
                 const locked = (def.buildingRequirements ?? []).some((req: { buildingType: string; level: number }) => {
                   const playerLevel = status.buildings?.[req.buildingType] ?? 0;
                   return playerLevel < req.level;
@@ -262,8 +251,8 @@ export default function TrainingPage() {
                 const isTraining = busyKey === key + '_train';
 
                 const costLabel = isLv2Plus
-                  ? `${toLocale(discountedCost)} + 1 ${lowerDef?.name ?? 'unit'}`
-                  : `${toLocale(discountedCost)} + 1 citizen`;
+                  ? `${toLocale(def.cost)} + 1 ${lowerDef?.name ?? 'unit'}`
+                  : `${toLocale(def.cost)} + 1 citizen`;
 
                 const statLabel = `+${def.bonus} ${STAT_LABELS[def.type] || ''}`;
 
@@ -290,10 +279,7 @@ export default function TrainingPage() {
                     </Table.Td>
                     <Table.Td ta="center">{statLabel}</Table.Td>
                     <Table.Td ta="right">
-                      {toLocale(discountedCost)}
-                      {pricesBonusLevel > 0 && discountedCost < def.cost && (
-                        <Text component="span" size="xs" c="green"> (-{pricesBonusLevel}%)</Text>
-                      )}
+                      {toLocale(def.cost)}
                     </Table.Td>
                     <Table.Td ta="center">{toLocale(owned)}</Table.Td>
                     <Table.Td ta="right">
@@ -329,7 +315,7 @@ export default function TrainingPage() {
                         </Button>
                         <Button
                           size="xs"
-                          disabled={locked || qty <= 0 || qty * discountedCost > gold || qty > sourceAvailable}
+                          disabled={locked || qty <= 0 || qty * def.cost > gold || qty > sourceAvailable}
                           loading={isTraining}
                           onClick={() => handleTrain(def, qty)}
                         >
@@ -372,8 +358,7 @@ export default function TrainingPage() {
                   .map((def) => {
                     const key = getKey(def.type, def.level);
                     const owned = getOwned(def.type, def.level);
-                    const discountedCost = getDiscountedCost(def.cost);
-                    const refundEach = Math.floor(discountedCost * 0.75);
+                    const refundEach = Math.floor(def.cost * 0.75);
                     const qty = untrainQty[key] || 0;
                     const isUntraining = busyKey === key + '_untrain';
 

@@ -287,6 +287,7 @@ function SpyPageContent() {
                     Send assassins to eliminate specific enemy units.
                     Higher risk but can take out key units.
                   </Text>
+                  <Badge color="blue" variant="light">Requires Spy Academy Level 1</Badge>
                   <Group>
                     <NumberInput
                       label="Assassins to Send"
@@ -325,6 +326,7 @@ function SpyPageContent() {
                     Send infiltrators to sabotage the enemy&apos;s fortifications.
                     Deals direct damage to their fort hitpoints.
                   </Text>
+                  <Badge color="blue" variant="light">Requires Spy Academy Level 1</Badge>
                   <NumberInput
                     label="Infiltrators to Send"
                     value={spiesSent}
@@ -354,7 +356,7 @@ function SpyPageContent() {
                     Send spies to steal gold from the target&apos;s coffers. Steals 5-10% of their hand gold on success.
                     High risk: 50% spy loss on failure. Costs 10,000 gold and 5 attack turns.
                   </Text>
-                  <Badge color="orange" variant="light">Requires Spy Level 2+</Badge>
+                  <Badge color="orange" variant="light">Requires Spy Academy Level 2</Badge>
                   <NumberInput
                     label="Spies to Send"
                     value={spiesSent}
@@ -384,7 +386,7 @@ function SpyPageContent() {
                     Send spies to destroy the enemy&apos;s equipped items. Destroys 3-5 random items on success.
                     High risk: 50% spy loss on failure. Costs 10,000 gold and 5 attack turns.
                   </Text>
-                  <Badge color="orange" variant="light">Requires Spy Level 2+</Badge>
+                  <Badge color="orange" variant="light">Requires Spy Academy Level 2</Badge>
                   <NumberInput
                     label="Spies to Send"
                     value={spiesSent}

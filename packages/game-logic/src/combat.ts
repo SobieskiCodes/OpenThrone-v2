@@ -46,7 +46,7 @@ export interface CombatConfig {
   intelSpyLossOnSuccess: number;
   intelGoldCost: number;
   intelTurnCost: number;
-  intelRequiredLevel: number;
+  intelRequiredSpyAcademy: number; // Spy Academy building level requirement
 
   // Gold visibility on attack page
   goldVisibilityRatio: number;
@@ -57,17 +57,17 @@ export interface CombatConfig {
   assassinKillVarianceMax: number;
   assassinSpyLossOnFail: number;
   assassinSpyLossOnSuccess: number;
-  assassinateRequiredLevel: number;
+  assassinateRequiredSpyAcademy: number; // Spy Academy building level requirement
 
   // Spy: Infiltration
   infiltrationDamagePerSpy: number;
   infiltrationDamageVariance: number;
   infiltrationSpyLossOnFail: number;
   infiltrationSpyLossOnSuccess: number;
-  infiltrateRequiredLevel: number;
+  infiltrateRequiredSpyAcademy: number; // Spy Academy building level requirement
 
   // Spy: Steal Gold
-  stealGoldRequiredLevel: number;
+  stealGoldRequiredSpyAcademy: number; // Spy Academy building level requirement
   stealGoldCost: number;
   stealGoldTurnCost: number;
   stealGoldMinPercent: number;
@@ -77,7 +77,7 @@ export interface CombatConfig {
   stealGoldMaxPerTargetPer24h: number;
 
   // Spy: Sabotage
-  sabotageRequiredLevel: number;
+  sabotageRequiredSpyAcademy: number; // Spy Academy building level requirement
   sabotageCost: number;
   sabotageTurnCost: number;
   sabotageItemsMin: number;
@@ -126,7 +126,7 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   intelSpyLossOnSuccess: 0.0,
   intelGoldCost: 3000,
   intelTurnCost: 2,
-  intelRequiredLevel: 1,
+  intelRequiredSpyAcademy: 0, // No Spy Academy required
 
   goldVisibilityRatio: 1.1,
 
@@ -135,15 +135,15 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   assassinKillVarianceMax: 1.20,
   assassinSpyLossOnFail: 1.0,
   assassinSpyLossOnSuccess: 0.10,
-  assassinateRequiredLevel: 1,
+  assassinateRequiredSpyAcademy: 1, // Requires Spy Academy level 1
 
   infiltrationDamagePerSpy: 8,
   infiltrationDamageVariance: 4,
   infiltrationSpyLossOnFail: 1.0,
   infiltrationSpyLossOnSuccess: 0.15,
-  infiltrateRequiredLevel: 1,
+  infiltrateRequiredSpyAcademy: 1, // Requires Spy Academy level 1
 
-  stealGoldRequiredLevel: 2,
+  stealGoldRequiredSpyAcademy: 2, // Requires Spy Academy level 2
   stealGoldCost: 10000,
   stealGoldTurnCost: 5,
   stealGoldMinPercent: 0.05,
@@ -152,7 +152,7 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   stealGoldSpyLossOnFail: 0.50,
   stealGoldMaxPerTargetPer24h: 3,
 
-  sabotageRequiredLevel: 2,
+  sabotageRequiredSpyAcademy: 2, // Requires Spy Academy level 2
   sabotageCost: 10000,
   sabotageTurnCost: 5,
   sabotageItemsMin: 3,

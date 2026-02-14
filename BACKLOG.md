@@ -24,13 +24,11 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 - [ ] Battle report should link back to attack list easily
 
 ## Navigation / Notifications
-- [ ] Level-up should send in-game mail: congratulations + what's newly unlocked (buildings, units, etc.) (user needs to be able to mark as read/delete)
-- [ ] Attack/defense events should generate notifications/mail
+
 - [ ] the server/tick time should be in a menu / side bar visible on all screens imo.
 
 ## Dashboard
 
-- [ ] Activity feed of recent attacks/events (not just your own battles — server-wide or alliance-wide needs both tabs) this aligns with the event system needed for profiles (see todo above)
 
 ## Leaderboard
 
@@ -54,6 +52,21 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
   - Could fund alliance features (bounties, contracts)
   - Must not block solo player progression
 - [ ] **Alliance contracts** — clans post bounties/missions, individuals or other clans accept them, game handles tracking and payment on completion
+
+## Admin / Infrastructure
+
+- [ ] **API Key Authentication**
+  - Allow ADMINISTRATOR users to generate API keys for programmatic access
+  - Keys are tied to a user account
+  - Admin dashboard UI to:
+    - Generate new keys (shown only once)
+    - List all keys with name, created date, last used
+    - Enable/disable keys
+    - Delete keys permanently
+  - Auth flow: Check `X-API-Key` header, validate against hashed keys in DB
+  - Optional: Scope permissions per key (read-only, admin, specific endpoints)
+  - Use case: External scripts, admin tools, data analysis, testing
+  - DB model: `ApiKey` (id, name, key_hash, player_id, permissions[], enabled, created_at, last_used, expires_at)
 
 ## Future Ideas
 - [ ] Specialization trees (warlord / economist / spymaster)

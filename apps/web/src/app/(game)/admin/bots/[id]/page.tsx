@@ -343,7 +343,7 @@ export default function BotDetailPage() {
                     <NumberInput
                       label="Sessions Per Day"
                       min={1}
-                      max={5}
+                      max={50}
                       value={editSessionsPerDay}
                       onChange={(val) => setEditSessionsPerDay(Number(val) || 3)}
                     />

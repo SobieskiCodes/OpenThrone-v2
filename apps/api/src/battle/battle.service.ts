@@ -731,12 +731,12 @@ export class BattleService {
     const config = DEFAULT_COMBAT_CONFIG;
 
     // Mission cost/config lookup
-    const missionConfig: Record<string, { turnCost: number; goldCost: number; requiredLevel: number; rateLimit: number; logType: string }> = {
-      INTEL: { turnCost: config.intelTurnCost, goldCost: config.intelGoldCost, requiredLevel: config.intelRequiredLevel, rateLimit: config.maxSpyPerTargetPer24h, logType: 'intel' },
-      ASSASSINATE: { turnCost: 1, goldCost: 0, requiredLevel: config.assassinateRequiredLevel, rateLimit: config.maxSpyPerTargetPer24h, logType: 'assassinate' },
-      INFILTRATE: { turnCost: 1, goldCost: 0, requiredLevel: config.infiltrateRequiredLevel, rateLimit: config.maxSpyPerTargetPer24h, logType: 'infiltrate' },
-      STEAL_GOLD: { turnCost: config.stealGoldTurnCost, goldCost: config.stealGoldCost, requiredLevel: config.stealGoldRequiredLevel, rateLimit: config.stealGoldMaxPerTargetPer24h, logType: 'steal_gold' },
-      SABOTAGE: { turnCost: config.sabotageTurnCost, goldCost: config.sabotageCost, requiredLevel: config.sabotageRequiredLevel, rateLimit: config.sabotageMaxPerTargetPer24h, logType: 'sabotage' },
+    const missionConfig: Record<string, { turnCost: number; goldCost: number; requiredSpyAcademy: number; rateLimit: number; logType: string }> = {
+      INTEL: { turnCost: config.intelTurnCost, goldCost: config.intelGoldCost, requiredSpyAcademy: config.intelRequiredSpyAcademy, rateLimit: config.maxSpyPerTargetPer24h, logType: 'intel' },
+      ASSASSINATE: { turnCost: 1, goldCost: 0, requiredSpyAcademy: config.assassinateRequiredSpyAcademy, rateLimit: config.maxSpyPerTargetPer24h, logType: 'assassinate' },
+      INFILTRATE: { turnCost: 1, goldCost: 0, requiredSpyAcademy: config.infiltrateRequiredSpyAcademy, rateLimit: config.maxSpyPerTargetPer24h, logType: 'infiltrate' },
+      STEAL_GOLD: { turnCost: config.stealGoldTurnCost, goldCost: config.stealGoldCost, requiredSpyAcademy: config.stealGoldRequiredSpyAcademy, rateLimit: config.stealGoldMaxPerTargetPer24h, logType: 'steal_gold' },
+      SABOTAGE: { turnCost: config.sabotageTurnCost, goldCost: config.sabotageCost, requiredSpyAcademy: config.sabotageRequiredSpyAcademy, rateLimit: config.sabotageMaxPerTargetPer24h, logType: 'sabotage' },
     };
 
     const mc = missionConfig[dto.type];
@@ -775,12 +775,30 @@ export class BattleService {
       );
     }
 
-    // Check spy units of correct level
-    const spyUnits = attackerPlayer.units.find(
-      (u) => u.unit_type === 'SPY' && u.level >= mc.requiredLevel,
-    );
+    // Check Spy Academy building level
+    if (mc.requiredSpyAcademy > 0) {
+      const spyAcademy = await this.prisma.playerBuilding.findUnique({
+        where: {
+          player_id_building_type: {
+            player_id: attackerId,
+            building_type: 'SPY_ACADEMY',
+          },
+        },
+      });
+      const spyAcademyLevel = spyAcademy?.level ?? 0;
+      if (spyAcademyLevel < mc.requiredSpyAcademy) {
+        throw new BadRequestException(
+          `This mission requires Spy Academy level ${mc.requiredSpyAcademy} (you have level ${spyAcademyLevel})`,
+        );
+      }
+    }
+
+    // Check spy units available
+    const spyUnits = attackerPlayer.units.find((u) => u.unit_type === 'SPY');
     if (!spyUnits || spyUnits.quantity < dto.spiesSent) {
-      throw new BadRequestException(`Not enough spy units of level ${mc.requiredLevel}+ (need ${dto.spiesSent}, have ${spyUnits?.quantity ?? 0})`);
+      throw new BadRequestException(
+        `Not enough spy units (need ${dto.spiesSent}, have ${spyUnits?.quantity ?? 0})`,
+      );
     }
 
     // Per-type rate limit

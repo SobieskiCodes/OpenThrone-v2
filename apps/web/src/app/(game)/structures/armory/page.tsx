@@ -15,6 +15,7 @@ import {
   Paper,
   Progress,
   SimpleGrid,
+  Tooltip,
 } from '@mantine/core';
 import { OTCard } from '@/components/ui';
 import { useState } from 'react';
@@ -38,6 +39,43 @@ interface UnitEntry {
   quantity: number;
 }
 
+interface StatBreakdown {
+  units: number;
+  items: number;
+  battleUpgrades: number;
+  bonusPercent: number;
+  bonusAmount: number;
+  total: number;
+}
+
+interface DetailedStatBreakdown {
+  statType: string;
+  unitLines: Array<{ name: string; quantity: number; bonusEach: number; total: number }>;
+  unitTotal: number;
+  itemLines: Array<{ name: string; quantity: number; bonusEach: number; total: number }>;
+  itemTotal: number;
+  upgradeLines: Array<{ name: string; quantity: number; bonusEach: number; total: number }>;
+  upgradeTotal: number;
+  subtotal: number;
+  bonusLines: Array<{ label: string; percent: number }>;
+  bonusPercent: number;
+  bonusAmount: number;
+  total: number;
+}
+
+interface StatBreakdownResponse {
+  offense: StatBreakdown;
+  defense: StatBreakdown;
+  spy: StatBreakdown;
+  sentry: StatBreakdown;
+  detailed: {
+    offense: DetailedStatBreakdown;
+    defense: DetailedStatBreakdown;
+    spy: DetailedStatBreakdown;
+    sentry: DetailedStatBreakdown;
+  };
+}
+
 interface ArmoryStatus {
   gold: string;
   goldInBank: string;
@@ -54,6 +92,43 @@ interface ArmoryStatus {
     sentry: number;
   };
   itemDefinitions: ItemDefinition[];
+}
+
+// Stat tooltip component
+function StatTooltipContent({
+  label,
+  bd,
+  detailed
+}: {
+  label: string;
+  bd: StatBreakdown;
+  detailed?: DetailedStatBreakdown;
+}) {
+  return (
+    <Stack gap={2}>
+      <Text size="xs" fw={700}>{label} Breakdown</Text>
+      <Text size="xs">Units: {toLocale(bd.units)}</Text>
+      <Text size="xs">Items (equipped): {toLocale(bd.items)}</Text>
+      <Text size="xs">Battle Upgrades: {toLocale(bd.battleUpgrades)}</Text>
+      <Text size="xs" style={{ color: 'var(--ot-text-dim)', fontStyle: 'italic' }} mt={4}>
+        Each unit equips 1 weapon + 1 armor
+      </Text>
+      {detailed?.bonusLines && detailed.bonusLines.length > 0 ? (
+        <>
+          <Text size="xs" fw={600} mt={4}>Bonus Sources (+{bd.bonusPercent}%):</Text>
+          {detailed.bonusLines.map((bl, i) => (
+            <Text size="xs" key={i} pl={8}>
+              {bl.label}: +{bl.percent}%
+            </Text>
+          ))}
+          <Text size="xs">= {toLocale(bd.bonusAmount)} bonus</Text>
+        </>
+      ) : (
+        <Text size="xs">Bonus: +{bd.bonusPercent}% ({toLocale(bd.bonusAmount)})</Text>
+      )}
+      <Text size="xs" fw={600}>Total: {toLocale(bd.total)}</Text>
+    </Stack>
+  );
 }
 
 const USAGE_LABELS: Record<string, string> = {
@@ -110,6 +185,12 @@ export default function ArmoryPage() {
   const { data: status, isLoading } = useQuery<ArmoryStatus>({
     queryKey: ['armory', 'status'],
     queryFn: () => api.get('/armory/status'),
+    enabled: isReady,
+  });
+
+  const { data: breakdown } = useQuery<StatBreakdownResponse>({
+    queryKey: ['player', 'stat-breakdown'],
+    queryFn: () => api.get('/player/me/stat-breakdown'),
     enabled: isReady,
   });
 
@@ -358,20 +439,47 @@ export default function ArmoryPage() {
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           <OTCard>
             <Stack gap="sm">
-              <Text size="xs" fw={600} tt="uppercase" style={{ color: 'var(--ot-text-dim)', letterSpacing: '0.05em' }}>
-                Combat Stats
-              </Text>
+              <Tooltip
+                label="Each unit equips 1 weapon + 1 armor. Best items are equipped first. Unused items give no bonus."
+                multiline
+                w={220}
+                withArrow
+              >
+                <Text
+                  size="xs"
+                  fw={600}
+                  tt="uppercase"
+                  style={{ color: 'var(--ot-text-dim)', letterSpacing: '0.05em', cursor: 'help', textDecoration: 'underline dotted' }}
+                >
+                  Combat Stats
+                </Text>
+              </Tooltip>
               <SimpleGrid cols={2} spacing="xs">
                 {USAGE_ORDER.map((usage) => {
                   const statKey = usage.toLowerCase() as 'offense' | 'defense' | 'spy' | 'sentry';
                   const val = status.stats[statKey];
+                  const bd = breakdown?.[statKey];
+                  const det = breakdown?.detailed?.[statKey];
+
+                  const tooltipContent = bd ? (
+                    <StatTooltipContent label={USAGE_LABELS[usage]} bd={bd} detailed={det} />
+                  ) : (
+                    <Text size="xs">{USAGE_LABELS[usage]}: {toLocale(val)}</Text>
+                  );
+
                   return (
-                    <Paper key={usage} p="xs" withBorder>
-                      <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>{USAGE_LABELS[usage]}</Text>
-                      <Text fw={700} size="lg" style={{ color: `var(--mantine-color-${STAT_COLORS[usage]}-6)` }}>
-                        {toLocale(val)}
-                      </Text>
-                    </Paper>
+                    <Tooltip
+                      key={usage}
+                      label={tooltipContent}
+                      withArrow
+                    >
+                      <Paper p="xs" withBorder style={{ cursor: 'help' }}>
+                        <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>{USAGE_LABELS[usage]}</Text>
+                        <Text fw={700} size="lg" style={{ color: `var(--mantine-color-${STAT_COLORS[usage]}-6)` }}>
+                          {toLocale(val)}
+                        </Text>
+                      </Paper>
+                    </Tooltip>
                   );
                 })}
               </SimpleGrid>

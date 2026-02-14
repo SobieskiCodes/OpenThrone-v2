@@ -92,6 +92,25 @@ export default function AdminDashboard() {
     },
   });
 
+  const resetDatabaseMutation = useMutation({
+    mutationFn: () => api.post('/admin/reset-database'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin'] });
+      notifications.show({
+        title: 'Database Reset',
+        message: 'All data deleted. Generate bots from /admin/bots or run seed manually.',
+        color: 'orange',
+      });
+    },
+    onError: (err: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: err.message,
+        color: 'red',
+      });
+    },
+  });
+
   if (statsLoading) {
     return (
       <Center h={200}>
@@ -176,6 +195,18 @@ export default function AdminDashboard() {
           loading={dailyTickMutation.isPending}
         >
           Run Daily Tick
+        </Button>
+        <Button
+          color="red"
+          variant="light"
+          onClick={() => {
+            if (confirm('⚠️ WARNING: This will DELETE ALL DATA! Are you sure?')) {
+              resetDatabaseMutation.mutate();
+            }
+          }}
+          loading={resetDatabaseMutation.isPending}
+        >
+          Reset Database
         </Button>
       </Group>
 

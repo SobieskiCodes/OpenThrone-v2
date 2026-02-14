@@ -344,7 +344,7 @@ export const shareIntelSchema = z.object({
 export const updateBotSchema = z.object({
   strategy: z.nativeEnum(BotStrategy).optional(),
   isActive: z.boolean().optional(),
-  sessionsPerDay: z.number().int().min(1).max(5).optional(),
+  sessionsPerDay: z.number().int().min(1).max(50).optional(),
   notes: z.string().max(500).optional(),
 });
 
