@@ -402,18 +402,12 @@ export class TrainingService {
       const economy = await tx.playerEconomy.findUnique({ where: { player_id: playerId } });
       if (!economy) throw new BadRequestException('Player economy not found');
       const units = await tx.playerUnit.findMany({ where: { player_id: playerId } });
-      const bonusPoints = await tx.playerBonusPoint.findMany({ where: { player_id: playerId } });
       const playerBuildings = await tx.playerBuilding.findMany({ where: { player_id: playerId } });
 
       const buildingsMap = new Map<string, number>();
       for (const b of playerBuildings) {
         buildingsMap.set(b.building_type, b.level);
       }
-
-      const pricesBonus = bonusPoints.find(
-        (bp) => bp.bonus_type === BonusType.PRICES,
-      );
-      const pricesBonusPercent = pricesBonus?.level ?? 0;
 
       const fromDef = getUnitByTypeAndLevel(dto.fromType as UnitType, dto.fromLevel);
       const toDef = getUnitByTypeAndLevel(dto.toType as UnitType, dto.toLevel);
@@ -446,10 +440,8 @@ export class TrainingService {
         );
       }
 
-      // Calculate cost with price bonus applied
-      const fromCostDiscounted = fromDef.cost - Math.round((pricesBonusPercent / 100) * fromDef.cost);
-      const toCostDiscounted = toDef.cost - Math.round((pricesBonusPercent / 100) * toDef.cost);
-      const costDifference = toCostDiscounted - fromCostDiscounted;
+      // Calculate cost difference (no PRICES bonus for unit training/conversion)
+      const costDifference = toDef.cost - fromDef.cost;
 
       const isUpgrade = dto.toLevel > dto.fromLevel;
       let goldDelta: number;
