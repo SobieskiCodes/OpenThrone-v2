@@ -37,6 +37,7 @@ pnpm dev                # web → localhost:3000, api → localhost:3001
 
 Copy `.env.example` to `.env` in both `apps/web` and `apps/api` if needed. For local auth, set `JWT_SECRET`, `NEXTAUTH_SECRET`, and `AUTH_SECRET` to the same value.
 
+Server URL: http://143.198.226.184/
 Seeded admin login after `pnpm db:seed`:
 - email: `testplayer1@openthrone.dev`
 - password: `password123`
