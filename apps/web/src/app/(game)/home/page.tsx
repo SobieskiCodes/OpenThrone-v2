@@ -214,11 +214,14 @@ function StatTooltipContent({ label, bd, detailed }: { label: string; bd: StatBr
     <Stack gap={2}>
       <Text size="xs" fw={700}>{label} Breakdown</Text>
       <Text size="xs">Units: {toLocale(bd.units)}</Text>
-      <Text size="xs">Items: {toLocale(bd.items)}</Text>
+      <Text size="xs">Items (equipped): {toLocale(bd.items)}</Text>
       <Text size="xs">Battle Upgrades: {toLocale(bd.battleUpgrades)}</Text>
+      <Text size="xs" style={{ color: 'var(--ot-text-dim)', fontStyle: 'italic' }} mt={4}>
+        Each unit equips 1 weapon + 1 armor
+      </Text>
       {detailed?.bonusLines && detailed.bonusLines.length > 0 ? (
         <>
-          <Text size="xs" fw={600} mt={2}>Bonus Sources (+{bd.bonusPercent}%):</Text>
+          <Text size="xs" fw={600} mt={4}>Bonus Sources (+{bd.bonusPercent}%):</Text>
           {detailed.bonusLines.map((bl, i) => (
             <Text size="xs" key={i} pl={8}>
               {bl.label}: +{bl.percent}%

@@ -1,4 +1,4 @@
-import { UnitType, BonusType, ItemUsage, BattleUpgradeType, BuildingType } from '@openthrone/shared';
+import { UnitType, BonusType, ItemUsage, ItemType, BattleUpgradeType, BuildingType } from '@openthrone/shared';
 import { getFortificationByLevel } from './fortifications';
 import { getOffensiveUpgradeByLevel, getSpyUpgradeByLevel, getSentryUpgradeByLevel } from './structure-upgrades';
 import { getBuildingLevel } from './buildings';
@@ -137,27 +137,58 @@ function calculateSingleStat(
 
   // 1. Unit contribution: sum(unit.bonus * quantity) for matching type
   let unitStat = 0;
+  let totalUnits = 0; // Track total units for equipment capping
   for (const pu of input.units) {
     if (pu.unitType !== mapping.unitType) continue;
     const def = UnitTypes.find((u) => u.type === pu.unitType && u.level === pu.level);
     if (def) {
       unitStat += def.bonus * pu.quantity;
+      totalUnits += pu.quantity;
     }
   }
 
-  // 2. Item contribution: sum(item.bonus * quantity) for matching usage
+  // 2. Item contribution: Each unit equips 1 weapon + 1 armor. Best items equipped first. Unused items give no bonus.
   let itemStat = 0;
-  for (const pi of input.items) {
-    if (pi.usage !== mapping.itemUsage) continue;
-    const def = ItemTypes.find(
-      (i) => i.type === pi.itemType && i.usage === pi.usage && i.level === pi.level,
-    );
-    if (def) {
-      itemStat += def.bonus * pi.quantity;
-    }
+
+  // Get all weapons for this usage, sorted by bonus descending
+  const weapons = input.items
+    .filter((pi) => pi.usage === mapping.itemUsage && pi.itemType === ItemType.WEAPON)
+    .map((pi) => {
+      const def = ItemTypes.find((i) => i.type === pi.itemType && i.usage === pi.usage && i.level === pi.level);
+      return def ? { ...pi, bonusEach: def.bonus } : null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort((a, b) => b.bonusEach - a.bonusEach);
+
+  // Get all armor for this usage, sorted by bonus descending
+  const armor = input.items
+    .filter((pi) => pi.usage === mapping.itemUsage && pi.itemType === ItemType.ARMOR)
+    .map((pi) => {
+      const def = ItemTypes.find((i) => i.type === pi.itemType && i.usage === pi.usage && i.level === pi.level);
+      return def ? { ...pi, bonusEach: def.bonus } : null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort((a, b) => b.bonusEach - a.bonusEach);
+
+  // Equip best weapons first, capped by unit count
+  let weaponsEquipped = 0;
+  for (const weapon of weapons) {
+    const canEquip = Math.min(weapon.quantity, totalUnits - weaponsEquipped);
+    itemStat += weapon.bonusEach * canEquip;
+    weaponsEquipped += canEquip;
+    if (weaponsEquipped >= totalUnits) break;
   }
 
-  // 3. Battle upgrade contribution: sum(upgrade.bonus * min(quantity * unitsCovered, eligibleUnits))
+  // Equip best armor first, capped by unit count
+  let armorEquipped = 0;
+  for (const piece of armor) {
+    const canEquip = Math.min(piece.quantity, totalUnits - armorEquipped);
+    itemStat += piece.bonusEach * canEquip;
+    armorEquipped += canEquip;
+    if (armorEquipped >= totalUnits) break;
+  }
+
+  // 3. Battle upgrade contribution: capped by actual unit count
   let battleUpgradeStat = 0;
   for (const pbu of input.battleUpgrades) {
     if (pbu.upgradeType !== mapping.battleType) continue;
@@ -165,8 +196,8 @@ function calculateSingleStat(
       (b) => b.type === pbu.upgradeType && b.level === pbu.level,
     );
     if (def) {
-      // Each upgrade covers N units; total covered = quantity * unitsCovered
-      const covered = pbu.quantity * def.unitsCovered;
+      // Each upgrade covers N units; total covered = min(quantity * unitsCovered, totalUnits)
+      const covered = Math.min(pbu.quantity * def.unitsCovered, totalUnits);
       battleUpgradeStat += def.bonus * covered;
     }
   }
@@ -230,6 +261,7 @@ function calculateDetailedSingleStat(
   // 1. Units
   const unitLines: LineItem[] = [];
   let unitTotal = 0;
+  let totalUnits = 0;
   for (const pu of input.units) {
     if (pu.unitType !== mapping.unitType) continue;
     const def = UnitTypes.find((u) => u.type === pu.unitType && u.level === pu.level);
@@ -237,25 +269,61 @@ function calculateDetailedSingleStat(
       const total = def.bonus * pu.quantity;
       unitLines.push({ name: def.name, quantity: pu.quantity, bonusEach: def.bonus, total });
       unitTotal += total;
+      totalUnits += pu.quantity;
     }
   }
 
-  // 2. Items
+  // 2. Items: Each unit equips 1 weapon + 1 armor. Best items equipped first.
   const itemLines: LineItem[] = [];
   let itemTotal = 0;
-  for (const pi of input.items) {
-    if (pi.usage !== mapping.itemUsage) continue;
-    const def = ItemTypes.find(
-      (i) => i.type === pi.itemType && i.usage === pi.usage && i.level === pi.level,
-    );
-    if (def && pi.quantity > 0) {
-      const total = def.bonus * pi.quantity;
-      itemLines.push({ name: def.name, quantity: pi.quantity, bonusEach: def.bonus, total });
+
+  // Get all weapons for this usage, sorted by bonus descending
+  const weapons = input.items
+    .filter((pi) => pi.usage === mapping.itemUsage && pi.itemType === ItemType.WEAPON)
+    .map((pi) => {
+      const def = ItemTypes.find((i) => i.type === pi.itemType && i.usage === pi.usage && i.level === pi.level);
+      return def ? { ...pi, def } : null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort((a, b) => b.def.bonus - a.def.bonus);
+
+  // Get all armor for this usage, sorted by bonus descending
+  const armor = input.items
+    .filter((pi) => pi.usage === mapping.itemUsage && pi.itemType === ItemType.ARMOR)
+    .map((pi) => {
+      const def = ItemTypes.find((i) => i.type === pi.itemType && i.usage === pi.usage && i.level === pi.level);
+      return def ? { ...pi, def } : null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort((a, b) => b.def.bonus - a.def.bonus);
+
+  // Equip best weapons first, capped by unit count
+  let weaponsEquipped = 0;
+  for (const weapon of weapons) {
+    const canEquip = Math.min(weapon.quantity, totalUnits - weaponsEquipped);
+    if (canEquip > 0) {
+      const total = weapon.def.bonus * canEquip;
+      itemLines.push({ name: weapon.def.name, quantity: canEquip, bonusEach: weapon.def.bonus, total });
       itemTotal += total;
+      weaponsEquipped += canEquip;
     }
+    if (weaponsEquipped >= totalUnits) break;
   }
 
-  // 3. Battle upgrades
+  // Equip best armor first, capped by unit count
+  let armorEquipped = 0;
+  for (const piece of armor) {
+    const canEquip = Math.min(piece.quantity, totalUnits - armorEquipped);
+    if (canEquip > 0) {
+      const total = piece.def.bonus * canEquip;
+      itemLines.push({ name: piece.def.name, quantity: canEquip, bonusEach: piece.def.bonus, total });
+      itemTotal += total;
+      armorEquipped += canEquip;
+    }
+    if (armorEquipped >= totalUnits) break;
+  }
+
+  // 3. Battle upgrades: capped by actual unit count
   const upgradeLines: LineItem[] = [];
   let upgradeTotal = 0;
   for (const pbu of input.battleUpgrades) {
@@ -264,10 +332,12 @@ function calculateDetailedSingleStat(
       (b) => b.type === pbu.upgradeType && b.level === pbu.level,
     );
     if (def && pbu.quantity > 0) {
-      const covered = pbu.quantity * def.unitsCovered;
-      const total = def.bonus * covered;
-      upgradeLines.push({ name: def.name, quantity: covered, bonusEach: def.bonus, total });
-      upgradeTotal += total;
+      const covered = Math.min(pbu.quantity * def.unitsCovered, totalUnits);
+      if (covered > 0) {
+        const total = def.bonus * covered;
+        upgradeLines.push({ name: def.name, quantity: covered, bonusEach: def.bonus, total });
+        upgradeTotal += total;
+      }
     }
   }
 

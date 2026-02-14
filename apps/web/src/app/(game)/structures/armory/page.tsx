@@ -15,6 +15,7 @@ import {
   Paper,
   Progress,
   SimpleGrid,
+  Tooltip,
 } from '@mantine/core';
 import { OTCard } from '@/components/ui';
 import { useState } from 'react';
@@ -358,20 +359,42 @@ export default function ArmoryPage() {
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           <OTCard>
             <Stack gap="sm">
-              <Text size="xs" fw={600} tt="uppercase" style={{ color: 'var(--ot-text-dim)', letterSpacing: '0.05em' }}>
-                Combat Stats
-              </Text>
+              <Tooltip
+                label="Each unit equips 1 weapon + 1 armor. Best items are equipped first. Unused items give no bonus."
+                multiline
+                w={220}
+                withArrow
+              >
+                <Text
+                  size="xs"
+                  fw={600}
+                  tt="uppercase"
+                  style={{ color: 'var(--ot-text-dim)', letterSpacing: '0.05em', cursor: 'help', textDecoration: 'underline dotted' }}
+                >
+                  Combat Stats
+                </Text>
+              </Tooltip>
               <SimpleGrid cols={2} spacing="xs">
                 {USAGE_ORDER.map((usage) => {
                   const statKey = usage.toLowerCase() as 'offense' | 'defense' | 'spy' | 'sentry';
                   const val = status.stats[statKey];
+                  const unitType = USAGE_TO_UNIT[usage];
+                  const unitsOfType = status.units
+                    .filter((u) => u.unitType === unitType)
+                    .reduce((sum, u) => sum + u.quantity, 0);
                   return (
-                    <Paper key={usage} p="xs" withBorder>
-                      <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>{USAGE_LABELS[usage]}</Text>
-                      <Text fw={700} size="lg" style={{ color: `var(--mantine-color-${STAT_COLORS[usage]}-6)` }}>
-                        {toLocale(val)}
-                      </Text>
-                    </Paper>
+                    <Tooltip
+                      key={usage}
+                      label={`${toLocale(unitsOfType)} ${USAGE_LABELS[usage].toLowerCase()} units equipped`}
+                      withArrow
+                    >
+                      <Paper p="xs" withBorder style={{ cursor: 'help' }}>
+                        <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>{USAGE_LABELS[usage]}</Text>
+                        <Text fw={700} size="lg" style={{ color: `var(--mantine-color-${STAT_COLORS[usage]}-6)` }}>
+                          {toLocale(val)}
+                        </Text>
+                      </Paper>
+                    </Tooltip>
                   );
                 })}
               </SimpleGrid>
