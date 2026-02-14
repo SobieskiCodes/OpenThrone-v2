@@ -24,13 +24,11 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 - [ ] Battle report should link back to attack list easily
 
 ## Navigation / Notifications
-- [ ] Level-up should send in-game mail: congratulations + what's newly unlocked (buildings, units, etc.) (user needs to be able to mark as read/delete)
-- [ ] Attack/defense events should generate notifications/mail
+
 - [ ] the server/tick time should be in a menu / side bar visible on all screens imo.
 
 ## Dashboard
 
-- [ ] Activity feed of recent attacks/events (not just your own battles — server-wide or alliance-wide needs both tabs) this aligns with the event system needed for profiles (see todo above)
 
 ## Leaderboard
 

@@ -12,7 +12,7 @@ import {
   AttackExecutedEvent,
   SpyMissionExecutedEvent,
 } from '@openthrone/events';
-import { DEFAULT_COMBAT_CONFIG, getBuildingUnlocksForLevelRange } from '@openthrone/game-logic';
+import { getBuildingUnlocksForLevelRange } from '@openthrone/game-logic';
 
 @Injectable()
 export class NotificationListener {
@@ -119,19 +119,6 @@ export class NotificationListener {
 
   private getLevelUnlocks(oldLevel: number, newLevel: number): string[] {
     const unlocks: string[] = [];
-    const config = DEFAULT_COMBAT_CONFIG;
-
-    // Spy mission unlocks
-    const missions: { name: string; level: number }[] = [
-      { name: 'Steal Gold missions', level: config.stealGoldRequiredLevel },
-      { name: 'Sabotage missions', level: config.sabotageRequiredLevel },
-    ];
-
-    for (const mission of missions) {
-      if (oldLevel < mission.level && newLevel >= mission.level) {
-        unlocks.push(mission.name);
-      }
-    }
 
     // Building upgrade unlocks
     const buildingUnlocks = getBuildingUnlocksForLevelRange(oldLevel, newLevel);
