@@ -462,9 +462,9 @@ export default function ArmoryPage() {
                   const det = breakdown?.detailed?.[statKey];
 
                   const tooltipContent = bd ? (
-                    <StatTooltipContent label={USAGE_LABELS[usage]} bd={bd} detailed={det} />
+                    <StatTooltipContent label={USAGE_LABELS[usage] || usage} bd={bd} detailed={det} />
                   ) : (
-                    <Text size="xs">{USAGE_LABELS[usage]}: {toLocale(val)}</Text>
+                    <Text size="xs">{USAGE_LABELS[usage] || usage}: {toLocale(val)}</Text>
                   );
 
                   return (
