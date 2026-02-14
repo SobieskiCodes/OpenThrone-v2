@@ -375,13 +375,19 @@ export class StructuresService {
       );
     }
 
-    if (gold < BigInt(nextDef.cost)) {
+    // Apply PRICES bonus discount
+    const bonusPoints = await tx.playerBonusPoint.findMany({ where: { player_id: playerId } });
+    const pricesBonus = bonusPoints.find((bp: any) => bp.bonus_type === 'PRICES');
+    const pricesBonusPercent = pricesBonus?.level ?? 0;
+    const discountedCost = nextDef.cost - Math.ceil((pricesBonusPercent / 100) * nextDef.cost);
+
+    if (gold < BigInt(discountedCost)) {
       throw new BadRequestException(
-        `Not enough gold. Required: ${nextDef.cost}, Available: ${gold}`,
+        `Not enough gold. Required: ${discountedCost}, Available: ${gold}`,
       );
     }
 
-    const newGold = gold - BigInt(nextDef.cost);
+    const newGold = gold - BigInt(discountedCost);
     await tx.playerEconomy.update({
       where: { player_id: playerId },
       data: { gold: newGold },
@@ -398,14 +404,14 @@ export class StructuresService {
       create: { player_id: playerId, upgrade_type: upgradeType, level: nextLevel },
     });
 
-    await this.createBankHistory(tx, playerId, BigInt(nextDef.cost), 'STRUCTURE_UPGRADE', {
+    await this.createBankHistory(tx, playerId, BigInt(discountedCost), 'STRUCTURE_UPGRADE', {
       upgradeType,
       fromLevel: currentLevel,
       toLevel: nextLevel,
       name: nextDef.name,
     });
 
-    return { newGold: newGold.toString(), newLevel: nextLevel, goldSpent: nextDef.cost };
+    return { newGold: newGold.toString(), newLevel: nextLevel, goldSpent: discountedCost };
   }
 
   private getNextStructureDef(upgradeType: StructureUpgradeType, currentLevel: number) {
@@ -517,10 +523,11 @@ export class StructuresService {
 
   async purchaseBattleUpgrade(playerId: string, dto: PurchaseBattleUpgradeDto) {
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, existingUpgrades, units] = await Promise.all([
+      const [economy, existingUpgrades, units, bonusPoints] = await Promise.all([
         tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
         tx.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
         tx.playerUnit.findMany({ where: { player_id: playerId } }),
+        tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
       ]);
 
       if (!economy) throw new BadRequestException('Player economy not found');
@@ -555,7 +562,12 @@ export class StructuresService {
         );
       }
 
-      const totalCost = def.cost * dto.quantity;
+      // Apply PRICES bonus discount
+      const pricesBonus = bonusPoints.find((bp) => bp.bonus_type === 'PRICES');
+      const pricesBonusPercent = pricesBonus?.level ?? 0;
+      const discountedCostPerUnit = def.cost - Math.ceil((pricesBonusPercent / 100) * def.cost);
+      const totalCost = discountedCostPerUnit * dto.quantity;
+
       const gold = BigInt(economy.gold);
       if (gold < BigInt(totalCost)) {
         throw new BadRequestException(
@@ -623,9 +635,10 @@ export class StructuresService {
 
   async sellBattleUpgrade(playerId: string, dto: SellBattleUpgradeDto) {
     const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, existingUpgrades] = await Promise.all([
+      const [economy, existingUpgrades, bonusPoints] = await Promise.all([
         tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
         tx.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
+        tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
       ]);
 
       if (!economy) throw new BadRequestException('Player economy not found');
@@ -646,7 +659,12 @@ export class StructuresService {
         );
       }
 
-      const totalRefund = Math.floor(def.cost * dto.quantity * 0.75);
+      // Apply PRICES bonus discount (same discount on refund)
+      const pricesBonus = bonusPoints.find((bp) => bp.bonus_type === 'PRICES');
+      const pricesBonusPercent = pricesBonus?.level ?? 0;
+      const discountedCostPerUnit = def.cost - Math.ceil((pricesBonusPercent / 100) * def.cost);
+      const totalRefund = Math.floor(discountedCostPerUnit * dto.quantity * 0.75);
+
       const newGold = BigInt(economy.gold) + BigInt(totalRefund);
 
       await tx.playerEconomy.update({

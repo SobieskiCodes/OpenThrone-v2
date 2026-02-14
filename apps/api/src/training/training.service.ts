@@ -11,7 +11,6 @@ import {
   UnitType,
   BankAccountType,
   BankTransferHistoryType,
-  BonusType,
 } from '@openthrone/shared';
 import type { TrainUnitsDto, UntrainUnitsDto, ConvertUnitsDto } from '@openthrone/shared';
 
@@ -23,11 +22,10 @@ export class TrainingService {
   ) {}
 
   async getTrainingStatus(playerId: string) {
-    const [economy, units, fortification, bonusPoints, playerBuildings] = await Promise.all([
+    const [economy, units, fortification, playerBuildings] = await Promise.all([
       this.prisma.playerEconomy.findUnique({ where: { player_id: playerId } }),
       this.prisma.playerUnit.findMany({ where: { player_id: playerId } }),
       this.prisma.playerFortification.findUnique({ where: { player_id: playerId } }),
-      this.prisma.playerBonusPoint.findMany({ where: { player_id: playerId } }),
       this.prisma.playerBuilding.findMany({ where: { player_id: playerId } }),
     ]);
 
@@ -38,11 +36,6 @@ export class TrainingService {
       (u) => u.unit_type === UnitType.CITIZEN && u.level === 1,
     );
     const citizens = citizenRow?.quantity ?? 0;
-
-    const pricesBonus = bonusPoints.find(
-      (bp) => bp.bonus_type === BonusType.PRICES,
-    );
-    const pricesBonusLevel = pricesBonus?.level ?? 0;
 
     // Build a map of building_type -> level for the frontend
     const buildingsMap: Record<string, number> = {};
@@ -55,7 +48,6 @@ export class TrainingService {
       goldInBank: economy.gold_in_bank.toString(),
       citizens,
       fortLevel,
-      pricesBonusLevel,
       buildings: buildingsMap,
       units: units.map((u) => ({
         unitType: u.unit_type,
@@ -71,18 +63,12 @@ export class TrainingService {
       const economy = await tx.playerEconomy.findUnique({ where: { player_id: playerId } });
       if (!economy) throw new BadRequestException('Player economy not found');
       const units = await tx.playerUnit.findMany({ where: { player_id: playerId } });
-      const bonusPoints = await tx.playerBonusPoint.findMany({ where: { player_id: playerId } });
       const playerBuildings = await tx.playerBuilding.findMany({ where: { player_id: playerId } });
 
       const buildingsMap = new Map<string, number>();
       for (const b of playerBuildings) {
         buildingsMap.set(b.building_type, b.level);
       }
-
-      const pricesBonus = bonusPoints.find(
-        (bp) => bp.bonus_type === BonusType.PRICES,
-      );
-      const pricesBonusPercent = pricesBonus?.level ?? 0;
 
       let totalCost = 0;
       let citizensNeeded = 0;
@@ -112,8 +98,7 @@ export class TrainingService {
           throw new BadRequestException('Cannot train citizens');
         }
 
-        const discountedCost = unitDef.cost - Math.round((pricesBonusPercent / 100) * unitDef.cost);
-        totalCost += discountedCost * entry.quantity;
+        totalCost += unitDef.cost * entry.quantity;
 
         if (entry.level === 1) {
           // Level 1: costs citizens
@@ -288,12 +273,6 @@ export class TrainingService {
       const economy = await tx.playerEconomy.findUnique({ where: { player_id: playerId } });
       if (!economy) throw new BadRequestException('Player economy not found');
       const units = await tx.playerUnit.findMany({ where: { player_id: playerId } });
-      const bonusPoints = await tx.playerBonusPoint.findMany({ where: { player_id: playerId } });
-
-      const pricesBonus = bonusPoints.find(
-        (bp) => bp.bonus_type === BonusType.PRICES,
-      );
-      const pricesBonusPercent = pricesBonus?.level ?? 0;
 
       let totalRefund = 0;
       let totalQuantity = 0;
@@ -319,8 +298,7 @@ export class TrainingService {
           );
         }
 
-        const discountedCost = unitDef.cost - Math.round((pricesBonusPercent / 100) * unitDef.cost);
-        totalRefund += Math.floor(discountedCost * entry.quantity * 0.75);
+        totalRefund += Math.floor(unitDef.cost * entry.quantity * 0.75);
         totalQuantity += entry.quantity;
       }
 

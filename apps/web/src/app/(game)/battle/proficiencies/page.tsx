@@ -52,8 +52,8 @@ const BONUS_TYPE_INFO: Record<string, { label: string; description: string; stat
   },
   PRICES: {
     label: 'Prices',
-    description: 'Reduces training and armory costs',
-    stat: '-1% unit & item cost per point',
+    description: 'Reduces armory and upgrade costs',
+    stat: '-1% item & upgrade cost per point',
   },
   RECRUITING: {
     label: 'Recruiting',
