@@ -14,6 +14,7 @@ interface RankEntry {
   level: number;
   score: number;
   isBot: boolean;
+  rankChange?: number; // Positive = moved up, negative = moved down, 0 or undefined = no change
 }
 
 interface RankingsResult {
@@ -98,7 +99,7 @@ export class RankingsService {
         race: true,
         player_class: true,
         is_bot: true,
-        stats: { select: { offense: true, defense: true, experience: true } },
+        stats: { select: { offense: true, defense: true, experience: true, previous_rank: true } },
         economy: { select: { gold: true, gold_in_bank: true } },
         items: { select: { item_type: true, usage: true, level: true, quantity: true } },
         battle_upgrades: { select: { upgrade_type: true, level: true, quantity: true } },
@@ -140,6 +141,7 @@ export class RankingsService {
           level: getLevelForXP(p.stats!.experience),
           score,
           isBot: p.is_bot,
+          previousRank: p.stats!.previous_rank || 0,
         };
       });
 
@@ -147,10 +149,15 @@ export class RankingsService {
 
     const total = ranked.length;
     const offset = (page - 1) * limit;
-    const data = ranked.slice(offset, offset + limit).map((r, index) => ({
-      ...r,
-      rank: offset + index + 1,
-    }));
+    const data = ranked.slice(offset, offset + limit).map((r, index) => {
+      const currentRank = offset + index + 1;
+      const rankChange = r.previousRank > 0 ? r.previousRank - currentRank : 0;
+      return {
+        ...r,
+        rank: currentRank,
+        rankChange, // Positive = moved up, negative = moved down, 0 = no change or new
+      };
+    });
 
     return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
