@@ -407,9 +407,9 @@ export function resolveAttack(
     fortDamage = Math.min(fortDamage, defender.fortHitpoints);
   }
 
-  // 7. XP
-  const levelDiff = Math.abs(attacker.level - defender.level);
-  const totalXP = config.xpBase + levelDiff * config.xpLevelDiffBonus;
+  // 7. XP (higher level targets give more XP, lower level gives less)
+  const levelDiff = defender.level - attacker.level; // Positive if defender is higher
+  const totalXP = Math.max(5, config.xpBase + levelDiff * config.xpLevelDiffBonus);
   const attackerXP = Math.round(totalXP * (attackerWins ? config.xpWinnerMultiplier : config.xpLoserMultiplier));
   const defenderXP = Math.round(totalXP * (attackerWins ? config.xpLoserMultiplier : config.xpWinnerMultiplier));
 
