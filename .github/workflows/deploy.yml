@@ -2,6 +2,12 @@ name: Deploy to Digital Ocean
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'master'
+        type: string
 
 jobs:
   deploy:
@@ -13,11 +19,12 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+          DEPLOY_BRANCH: ${{ inputs.branch }}
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          envs: PRODUCTION_ENV
+          envs: PRODUCTION_ENV,DEPLOY_BRANCH
           script: |
             set -euo pipefail
 
@@ -54,9 +61,9 @@ jobs:
             fi
             echo "Ports 3000/3001 are free"
 
-            echo "==> Pulling latest code"
-            git fetch origin master
-            git reset --hard origin/master
+            echo "==> Pulling latest code from branch: $DEPLOY_BRANCH"
+            git fetch origin "$DEPLOY_BRANCH"
+            git reset --hard "origin/$DEPLOY_BRANCH"
             git clean -fd
             rm -rf apps/web/.next apps/api/dist node_modules/.cache/turbo
 
