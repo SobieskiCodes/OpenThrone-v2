@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { UpdateBotDto, GenerateBotsDto } from '@openthrone/shared';
 import {
   getLevelForXP,
+  getXPForLevel,
   getFortificationByLevel,
 } from '@openthrone/game-logic';
 import type { BotGameState } from '@openthrone/game-logic';
@@ -65,18 +66,19 @@ export class BotService {
     const ECONOMY_FORT_REQS = [0, 3, 7, 11, 15, 19, 23];
 
     const xpForLevel = (level: number): number => {
-      const levels = Object.keys(LEVEL_XP).map(Number).sort((a, b) => a - b);
-      for (let i = levels.length - 1; i >= 0; i--) {
-        if (levels[i]! <= level) {
-          const currentLevelXP = LEVEL_XP[levels[i]!]!;
-          const nextLevel = levels[i + 1];
-          const nextLevelXP = nextLevel ? LEVEL_XP[nextLevel]! : currentLevelXP + 10000;
-          // Stay safely within this level's range
-          const maxBonus = Math.min(3000, Math.floor((nextLevelXP - currentLevelXP) * 0.8));
-          return currentLevelXP + rand(0, maxBonus);
-        }
+      // Use the actual game XP curve (supports all levels 1-100)
+      const currentLevelXP = getXPForLevel(level);
+      const nextLevelXP = getXPForLevel(level + 1);
+
+      if (nextLevelXP === 0 || nextLevelXP <= currentLevelXP) {
+        // Max level or invalid - just return exact XP
+        return currentLevelXP;
       }
-      return rand(0, 3999);
+
+      // Add random XP within this level (80% of the gap to next level)
+      const gap = nextLevelXP - currentLevelXP;
+      const maxBonus = Math.floor(gap * 0.8);
+      return currentLevelXP + rand(0, maxBonus);
     };
     const maxFortFor = (lvl: number): number => {
       let m = 1;
