@@ -398,7 +398,7 @@ export default function RankingsPage() {
                 }}
               >
                 Your Rank: #{(myRank || myFullRank)!.rank}
-                {(myRank || myFullRank)!.rankChange && (myRank || myFullRank)!.rankChange !== 0 && (
+                {(myRank || myFullRank)!.rankChange !== 0 && (
                   <span style={{ marginLeft: 6 }}>
                     {(myRank || myFullRank)!.rankChange! > 0 ? '▲' : '▼'} {Math.abs((myRank || myFullRank)!.rankChange!)}
                   </span>
