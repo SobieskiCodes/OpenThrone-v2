@@ -51,7 +51,6 @@ const navItems = [
     children: [
       { label: 'Attack', href: '/battle/players' },
       { label: 'War History', href: '/battle/history' },
-      { label: 'Mercenaries', href: '/structures/mercenary' },
     ],
   },
   {
@@ -106,6 +105,15 @@ interface MeData {
   level?: number;
 }
 
+interface Building {
+  buildingType: string;
+  currentLevel: number;
+}
+
+interface BuildingsResponse {
+  buildings: Building[];
+}
+
 function GameShell({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
@@ -129,9 +137,37 @@ function GameShell({ children }: { children: React.ReactNode }) {
   });
   const availablePoints = meData?.availablePoints ?? 0;
   const availableUpgrades = meData?.availableUpgrades ?? 0;
+
+  const { data: buildingsData } = useQuery<BuildingsResponse>({
+    queryKey: ['structures', 'buildings'],
+    queryFn: () => api.get('/structures/buildings'),
+    enabled: isReady,
+    refetchInterval: 120000,
+  });
+
+  // Check if player has mercenary camp
+  const hasMercenaryCamp = buildingsData?.buildings?.some(
+    (b) => b.buildingType === 'MERCENARY_CAMP' && b.currentLevel > 0
+  ) ?? false;
+
   const permissions: string[] = (session as any)?.permissions ?? [];
   const isAdmin = permissions.includes('ADMINISTRATOR');
-  const allNavItems = isAdmin ? [...navItems, ...adminNavItems] : navItems;
+
+  // Build nav items dynamically based on player state
+  const dynamicNavItems = navItems.map(item => {
+    if (item.label === 'Army' && item.children) {
+      return {
+        ...item,
+        children: [
+          ...item.children,
+          ...(hasMercenaryCamp ? [{ label: 'Mercenaries', href: '/structures/mercenary' }] : [])
+        ]
+      };
+    }
+    return item;
+  });
+
+  const allNavItems = isAdmin ? [...dynamicNavItems, ...adminNavItems] : dynamicNavItems;
 
   // Badge counts keyed by child href
   const badgeCounts: Record<string, number> = {};
