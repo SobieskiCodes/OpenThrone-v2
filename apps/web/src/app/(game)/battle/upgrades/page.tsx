@@ -184,13 +184,21 @@ export default function BattleUpgradesPage() {
                 : upgradeType === BattleUpgradeType.SPY ? 'SPY'
                 : 'SENTRY';
 
+              const description = upgradeType === BattleUpgradeType.OFFENSE
+                ? `War mount - adds ${def.bonus} to offense`
+                : upgradeType === BattleUpgradeType.DEFENSE
+                ? `Defensive structure - adds ${def.bonus} to defense`
+                : upgradeType === BattleUpgradeType.SPY
+                ? `Espionage tool - adds ${def.bonus} to spy offense`
+                : `Counter-intelligence - adds ${def.bonus} to spy defense`;
+
               return (
                 <Table.Tr key={key} style={locked ? { opacity: 0.6 } : undefined}>
                   <Table.Td>
                     <Stack gap={2}>
                       <Text fw={600} size="sm">{def.name}</Text>
                       <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
-                        {def.description}
+                        {description}
                       </Text>
                       <Text size="xs" fw={500} style={{ color: locked ? 'var(--mantine-color-red-6)' : 'var(--ot-text-dim)' }}>
                         Requires: {unitName} (Tier {def.minUnitLevel})
