@@ -53,6 +53,7 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
   - Must not block solo player progression
 - [ ] **Alliance contracts** — clans post bounties/missions, individuals or other clans accept them, game handles tracking and payment on completion
 
+
 ## Admin / Infrastructure
 
 - [ ] **API Key Authentication**

@@ -374,6 +374,9 @@ export class BattleService {
         // stats might not be valid JSON
       }
 
+      const isAttacker = log.attacker_id === playerId;
+      const xpGained = isAttacker ? parsedStats.attackerXP : parsedStats.defenderXP;
+
       return {
         id: log.id,
         attacker: {
@@ -389,8 +392,9 @@ export class BattleService {
         winner: log.winner,
         type: log.type,
         goldStolen: parsedStats.goldStolen?.toString() ?? '0',
+        xpGained: xpGained ?? 0,
         timestamp: log.timestamp,
-        isAttacker: log.attacker_id === playerId,
+        isAttacker,
       };
     });
 
