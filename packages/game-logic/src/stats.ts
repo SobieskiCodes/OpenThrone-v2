@@ -124,7 +124,6 @@ export interface StatCalcInput {
   items: PlayerItemInput[];
   battleUpgrades: PlayerBattleUpgradeInput[];
   bonusPoints: PlayerBonusInput[];
-  structureUpgrades: StructureUpgradeInput[];
 }
 
 // ─── Calculate one army stat ────────────────────────────────────────────
@@ -224,23 +223,10 @@ function calculateSingleStat(
     bonusPercent += profPoints.level;
   }
 
-  // Structure upgrade bonus percentage
-  if (statType === 'OFFENSE') {
-    const offUpgrade = input.structureUpgrades.find((su) => su.upgradeType === 'OFFENSE');
-    const offDef = getOffensiveUpgradeByLevel(offUpgrade?.level ?? 1);
-    bonusPercent += offDef?.offenseBonusPercentage ?? 0;
-  } else if (statType === 'DEFENSE') {
-    // Fort defense bonus
+  // Fort defense bonus (DEFENSE only)
+  if (statType === 'DEFENSE') {
     const fort = getFortificationByLevel(input.fortLevel);
     bonusPercent += fort?.defenseBonusPercentage ?? 0;
-  } else if (statType === 'SPY') {
-    const spyUpgrade = input.structureUpgrades.find((su) => su.upgradeType === 'SPY');
-    const spyDef = getSpyUpgradeByLevel(spyUpgrade?.level ?? 1);
-    bonusPercent += spyDef?.offenseBonusPercentage ?? 0;
-  } else if (statType === 'SENTRY') {
-    const senUpgrade = input.structureUpgrades.find((su) => su.upgradeType === 'SENTRY');
-    const senDef = getSentryUpgradeByLevel(senUpgrade?.level ?? 1);
-    bonusPercent += senDef?.defenseBonusPercentage ?? 0;
   }
 
   const subtotal = unitStat + itemStat + battleUpgradeStat;
@@ -369,33 +355,12 @@ function calculateDetailedSingleStat(
     bonusPercent += profPoints.level;
   }
 
-  // Structure upgrade bonus percentage
-  if (statType === 'OFFENSE') {
-    const offUpgrade = input.structureUpgrades.find((su) => su.upgradeType === 'OFFENSE');
-    const offDef = getOffensiveUpgradeByLevel(offUpgrade?.level ?? 1);
-    if (offDef && offDef.offenseBonusPercentage > 0) {
-      bonusLines.push({ label: `Siege (${offDef.name})`, percent: offDef.offenseBonusPercentage });
-      bonusPercent += offDef.offenseBonusPercentage;
-    }
-  } else if (statType === 'DEFENSE') {
+  // Fort defense bonus (DEFENSE only)
+  if (statType === 'DEFENSE') {
     const fort = getFortificationByLevel(input.fortLevel);
     if (fort && fort.defenseBonusPercentage > 0) {
       bonusLines.push({ label: `Fort (${fort.name})`, percent: fort.defenseBonusPercentage });
       bonusPercent += fort.defenseBonusPercentage;
-    }
-  } else if (statType === 'SPY') {
-    const spyUpgrade = input.structureUpgrades.find((su) => su.upgradeType === 'SPY');
-    const spyDef = getSpyUpgradeByLevel(spyUpgrade?.level ?? 1);
-    if (spyDef && spyDef.offenseBonusPercentage > 0) {
-      bonusLines.push({ label: `Spy Upgrade (${spyDef.name})`, percent: spyDef.offenseBonusPercentage });
-      bonusPercent += spyDef.offenseBonusPercentage;
-    }
-  } else if (statType === 'SENTRY') {
-    const senUpgrade = input.structureUpgrades.find((su) => su.upgradeType === 'SENTRY');
-    const senDef = getSentryUpgradeByLevel(senUpgrade?.level ?? 1);
-    if (senDef && senDef.defenseBonusPercentage > 0) {
-      bonusLines.push({ label: `Sentry Upgrade (${senDef.name})`, percent: senDef.defenseBonusPercentage });
-      bonusPercent += senDef.defenseBonusPercentage;
     }
   }
 

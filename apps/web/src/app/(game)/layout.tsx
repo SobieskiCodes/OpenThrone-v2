@@ -59,7 +59,6 @@ const navItems = [
     children: [
       { label: 'Bank', href: '/structures/bank' },
       { label: 'Buildings', href: '/structures/buildings' },
-      { label: 'Upgrades', href: '/structures/upgrades' },
       { label: 'Repair', href: '/structures/repair' },
     ],
   },

@@ -20,7 +20,7 @@ export class ArmoryService {
   ) {}
 
   async getArmoryStatus(playerId: string) {
-    const [economy, items, player, playerBuildings, structureUpgrades, bonusPoints, units, battleUpgrades, fortification] =
+    const [economy, items, player, playerBuildings, bonusPoints, units, battleUpgrades, fortification] =
       await Promise.all([
         this.prisma.playerEconomy.findUnique({
           where: { player_id: playerId },
@@ -30,11 +30,7 @@ export class ArmoryService {
           where: { id: playerId },
           select: { race: true, player_class: true },
         }),
-        this.prisma.playerBuilding.findMany({ where: { player_id: playerId } }),
-        this.prisma.playerStructureUpgrade.findMany({
-          where: { player_id: playerId },
-        }),
-        this.prisma.playerBonusPoint.findMany({
+        this.prisma.playerBuilding.findMany({ where: { player_id: playerId } }),        this.prisma.playerBonusPoint.findMany({
           where: { player_id: playerId },
         }),
         this.prisma.playerUnit.findMany({ where: { player_id: playerId } }),
@@ -62,9 +58,7 @@ export class ArmoryService {
       units: units.map((u) => ({ unitType: u.unit_type, level: u.level, quantity: u.quantity })),
       items: items.map((i) => ({ itemType: i.item_type, usage: i.usage, level: i.level, quantity: i.quantity })),
       battleUpgrades: battleUpgrades.map((b) => ({ upgradeType: b.upgrade_type, level: b.level, quantity: b.quantity })),
-      bonusPoints: bonusPoints.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),
-      structureUpgrades: structureUpgrades.map((su) => ({ upgradeType: su.upgrade_type, level: su.level })),
-    };
+      bonusPoints: bonusPoints.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),    };
     const stats = calculateFullStats(statsInput);
 
     return {
@@ -223,14 +217,12 @@ export class ArmoryService {
       });
 
       // Fetch updated items and recalculate stats
-      const [updatedItems, updatedUnits, updatedBattleUpgrades, updatedBonusPoints, updatedStructureUpgrades, updatedFort] =
+      const [updatedItems, updatedUnits, updatedBattleUpgrades, updatedBonusPoints, updatedFort] =
         await Promise.all([
           tx.playerItem.findMany({ where: { player_id: playerId } }),
           tx.playerUnit.findMany({ where: { player_id: playerId } }),
           tx.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
-          tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
-          tx.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
-          tx.playerFortification.findUnique({ where: { player_id: playerId } }),
+          tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),          tx.playerFortification.findUnique({ where: { player_id: playerId } }),
         ]);
 
       const updatedStatsInput = {
@@ -240,9 +232,7 @@ export class ArmoryService {
         units: updatedUnits.map((u) => ({ unitType: u.unit_type, level: u.level, quantity: u.quantity })),
         items: updatedItems.map((i) => ({ itemType: i.item_type, usage: i.usage, level: i.level, quantity: i.quantity })),
         battleUpgrades: updatedBattleUpgrades.map((b) => ({ upgradeType: b.upgrade_type, level: b.level, quantity: b.quantity })),
-        bonusPoints: updatedBonusPoints.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),
-        structureUpgrades: updatedStructureUpgrades.map((su) => ({ upgradeType: su.upgrade_type, level: su.level })),
-      };
+        bonusPoints: updatedBonusPoints.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),      };
       const updatedStats = calculateFullStats(updatedStatsInput);
 
       return {
@@ -368,14 +358,12 @@ export class ArmoryService {
       });
 
       // Fetch updated items and recalculate stats
-      const [updatedItems, updatedUnits, updatedBattleUpgrades, updatedBonusPoints, updatedStructureUpgrades, updatedFort] =
+      const [updatedItems, updatedUnits, updatedBattleUpgrades, updatedBonusPoints, updatedFort] =
         await Promise.all([
           tx.playerItem.findMany({ where: { player_id: playerId } }),
           tx.playerUnit.findMany({ where: { player_id: playerId } }),
           tx.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
-          tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),
-          tx.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
-          tx.playerFortification.findUnique({ where: { player_id: playerId } }),
+          tx.playerBonusPoint.findMany({ where: { player_id: playerId } }),          tx.playerFortification.findUnique({ where: { player_id: playerId } }),
         ]);
 
       const updatedStatsInput = {
@@ -385,9 +373,7 @@ export class ArmoryService {
         units: updatedUnits.map((u) => ({ unitType: u.unit_type, level: u.level, quantity: u.quantity })),
         items: updatedItems.map((i) => ({ itemType: i.item_type, usage: i.usage, level: i.level, quantity: i.quantity })),
         battleUpgrades: updatedBattleUpgrades.map((b) => ({ upgradeType: b.upgrade_type, level: b.level, quantity: b.quantity })),
-        bonusPoints: updatedBonusPoints.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),
-        structureUpgrades: updatedStructureUpgrades.map((su) => ({ upgradeType: su.upgrade_type, level: su.level })),
-      };
+        bonusPoints: updatedBonusPoints.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),      };
       const updatedStats = calculateFullStats(updatedStatsInput);
 
       return {

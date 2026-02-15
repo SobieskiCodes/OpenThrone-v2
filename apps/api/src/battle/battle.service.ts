@@ -1200,7 +1200,6 @@ export class BattleService {
         items: true,
         battle_upgrades: true,
         bonus_points: true,
-        structure_upgrades: true,
       },
     });
   }
@@ -1234,10 +1233,6 @@ export class BattleService {
         bonusType: bp.bonus_type,
         level: bp.level,
       })),
-      structureUpgrades: player.structure_upgrades.map((su) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
-      })),
     };
 
     const fullStats = calculateFullStats(statsInput);
@@ -1256,7 +1251,6 @@ export class BattleService {
       items: statsInput.items,
       battleUpgrades: statsInput.battleUpgrades,
       bonusPoints: statsInput.bonusPoints,
-      structureUpgrades: statsInput.structureUpgrades,
       offense: fullStats.offense.total,
       defense: fullStats.defense.total,
       spy: fullStats.spy.total,
@@ -1321,7 +1315,6 @@ export class BattleService {
         items: true,
         battle_upgrades: true,
         bonus_points: true,
-        structure_upgrades: true,
         fortification: true,
       },
     });
@@ -1351,10 +1344,6 @@ export class BattleService {
       bonusPoints: player.bonus_points.map((bp: any) => ({
         bonusType: bp.bonus_type,
         level: bp.level,
-      })),
-      structureUpgrades: player.structure_upgrades.map((su: any) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
       })),
     };
 

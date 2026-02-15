@@ -19,9 +19,6 @@ import {
   calculateCitizensPerDayBreakdown,
   computeArmoryResaleValue,
   computeBattleUpgradeResaleValue,
-  OffensiveUpgrades,
-  SpyUpgrades,
-  SentryUpgrades,
   canUpgradeBuilding,
   getBuildingLevel,
 } from '@openthrone/game-logic';
@@ -59,7 +56,6 @@ export class PlayerService {
         units: true,
         items: true,
         battle_upgrades: true,
-        structure_upgrades: true,
         fortification: true,
         bonus_points: true,
         stats: true,
@@ -121,10 +117,6 @@ export class PlayerService {
         level: bu.level,
         quantity: bu.quantity,
       })),
-      structureUpgrades: player.structure_upgrades.map((su) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
-      })),
       fortification: player.fortification
         ? {
             fortLevel: player.fortification.fort_level,
@@ -161,7 +153,6 @@ export class PlayerService {
     player: {
       economy: { gold: bigint } | null;
       fortification: { fort_level: number } | null;
-      structure_upgrades: { upgrade_type: string; level: number }[];
       buildings: { building_type: string; level: number }[];
     },
     playerLevel: number,
@@ -183,26 +174,6 @@ export class PlayerService {
       if (nextDef && playerLevel >= nextDef.playerLevelRequirement) {
         count++;
       }
-    }
-
-    // Count legacy structure upgrades (OFFENSE/SPY/SENTRY) that can be upgraded
-    const getLevel = (type: string) =>
-      player.structure_upgrades.find((s) => s.upgrade_type === type)?.level ?? 1;
-
-    const legacyCategories: Array<{
-      defs: Array<{ level: number; cost: number; fortLevelRequirement?: number; [k: string]: any }>;
-      currentLevel: number;
-    }> = [
-      { defs: OffensiveUpgrades, currentLevel: getLevel('OFFENSE') },
-      { defs: SpyUpgrades, currentLevel: getLevel('SPY') },
-      { defs: SentryUpgrades, currentLevel: getLevel('SENTRY') },
-    ];
-
-    for (const cat of legacyCategories) {
-      const nextDef = cat.defs.find((d) => d.level === cat.currentLevel + 1);
-      if (!nextDef) continue;
-      const requiredFort = nextDef.fortLevelRequirement ?? 0;
-      if (fortLevel >= requiredFort) count++;
     }
 
     return count;
@@ -435,7 +406,6 @@ export class PlayerService {
         units: true,
         items: true,
         battle_upgrades: true,
-        structure_upgrades: true,
         fortification: true,
         bonus_points: true,
         stats: true,
@@ -470,10 +440,6 @@ export class PlayerService {
       bonusPoints: player.bonus_points.map((bp) => ({
         bonusType: bp.bonus_type,
         level: bp.level,
-      })),
-      structureUpgrades: player.structure_upgrades.map((su) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
       })),
     };
 

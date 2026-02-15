@@ -259,7 +259,6 @@ export class BotSchedulerService {
         items: true,
         battle_upgrades: true,
         bonus_points: true,
-        structure_upgrades: true,
         fortification: true,
       },
     });
@@ -273,7 +272,6 @@ export class BotSchedulerService {
       items: player.items.map((i) => ({ itemType: i.item_type, usage: i.usage, level: i.level, quantity: i.quantity })),
       battleUpgrades: player.battle_upgrades.map((b) => ({ upgradeType: b.upgrade_type, level: b.level, quantity: b.quantity })),
       bonusPoints: player.bonus_points.map((bp) => ({ bonusType: bp.bonus_type, level: bp.level })),
-      structureUpgrades: player.structure_upgrades.map((su) => ({ upgradeType: su.upgrade_type, level: su.level })),
     });
 
     await this.prisma.playerStats.update({

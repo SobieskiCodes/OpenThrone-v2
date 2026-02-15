@@ -20,7 +20,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
-import { StructureUpgradeType } from '@openthrone/shared';
+import { BuildingType } from '@openthrone/shared';
 
 interface StockItem {
   unitType: string;
@@ -66,7 +66,7 @@ export default function MercenaryCampPage() {
 
   const upgradeMutation = useMutation({
     mutationFn: () =>
-      api.post('/structures/upgrade', { upgradeType: StructureUpgradeType.MERCENARY_CAMP }),
+      api.post('/structures/buildings/upgrade', { buildingType: BuildingType.MERCENARY_CAMP }),
     onSuccess: (data: any) => {
       setError(null);
       setSuccess(`Camp upgraded to level ${data.newLevel}!`);

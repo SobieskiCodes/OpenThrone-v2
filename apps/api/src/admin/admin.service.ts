@@ -90,7 +90,6 @@ export class AdminService {
         units: true,
         items: true,
         battle_upgrades: true,
-        structure_upgrades: true,
         fortification: true,
         bonus_points: true,
         permission_grants: true,
@@ -147,10 +146,6 @@ export class AdminService {
         upgradeType: bu.upgrade_type,
         level: bu.level,
         quantity: bu.quantity,
-      })),
-      structureUpgrades: player.structure_upgrades.map((su) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
       })),
       fortification: player.fortification
         ? {
@@ -375,8 +370,6 @@ export class AdminService {
       'bot_action_logs',
       'bot_configs',
       'player_buildings',
-      'structure_upgrades',
-      'battle_upgrades',
       'spy_reports',
       'bank_history',
       'recruitment_links',

@@ -480,11 +480,12 @@ export class BotService {
       where: { id: playerId },
       include: {
         economy: true,
+        buildings: true,
+        structure_upgrades: true,
         units: true,
         items: true,
         stats: true,
         fortification: true,
-        structure_upgrades: true,
         bonus_points: true,
         bot_config: true,
       },
@@ -496,10 +497,12 @@ export class BotService {
       player.units
         .filter((u) => u.unit_type === type)
         .reduce((sum, u) => sum + u.quantity, 0);
-
+    
     const getUpgradeLevel = (type: string) =>
-      player.structure_upgrades.find((u) => u.upgrade_type === type)?.level ?? 0;
-
+      player.structure_upgrades?.find((u) => u.upgrade_type === type)?.level ?? 0;
+    
+    const getBuildingLevel = (type: string) =>
+      player.buildings?.find((b) => b.building_type === type)?.level ?? 0;
     const fortDef = getFortificationByLevel(player.fortification?.fort_level ?? 1);
 
     // Check today's action logs to see what the bot already did
@@ -533,12 +536,12 @@ export class BotService {
       fortLevel: player.fortification?.fort_level ?? 1,
       fortHP: player.fortification?.hitpoints ?? 50,
       fortMaxHP: fortDef?.hitpoints ?? 50,
-      houseLevel: getUpgradeLevel('HOUSE'),
-      economyLevel: getUpgradeLevel('ECONOMY'),
+      houseLevel: getBuildingLevel('HOUSING'),
+      economyLevel: getBuildingLevel('MINE'),
       offenseUpgradeLevel: getUpgradeLevel('OFFENSE'),
       spyUpgradeLevel: getUpgradeLevel('SPY'),
       sentryUpgradeLevel: getUpgradeLevel('SENTRY'),
-      armoryLevel: getUpgradeLevel('ARMORY'),
+      armoryLevel: getBuildingLevel('ARMORY'),
       level: getLevelForXP(player.stats?.experience ?? 0),
       experience: player.stats?.experience ?? 0,
       offense: player.stats?.offense ?? 0,

@@ -7,12 +7,6 @@ import {
   Fortifications,
   getFortificationByLevel,
   getNextFortification,
-  OffensiveUpgrades,
-  getOffensiveUpgradeByLevel,
-  SpyUpgrades,
-  getSpyUpgradeByLevel,
-  SentryUpgrades,
-  getSentryUpgradeByLevel,
   BattleUpgrades,
   getBattleUpgradesByType,
   getUnitByTypeAndLevel,
@@ -224,11 +218,10 @@ export class StructuresService {
   // ─── Legacy Structures Status (includes buildings data) ──────────────
 
   async getStructuresStatus(playerId: string) {
-    const [economy, fort, structureUpgrades, battleUpgrades, stats, units, buildings] =
+    const [economy, fort, battleUpgrades, stats, units, buildings] =
       await Promise.all([
         this.prisma.playerEconomy.findUnique({ where: { player_id: playerId } }),
         this.prisma.playerFortification.findUnique({ where: { player_id: playerId } }),
-        this.prisma.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
         this.prisma.playerBattleUpgrade.findMany({ where: { player_id: playerId } }),
         this.prisma.playerStats.findUnique({ where: { player_id: playerId } }),
         this.prisma.playerUnit.findMany({ where: { player_id: playerId } }),
@@ -241,11 +234,6 @@ export class StructuresService {
     const fortHitpoints = fort?.hitpoints ?? 50;
     const fortDef = getFortificationByLevel(fortLevel);
     const playerLevel = getLevelForXP(stats?.experience ?? 0);
-
-    const getStructureLevel = (type: string) => {
-      const entry = structureUpgrades.find((u) => u.upgrade_type === type);
-      return entry?.level ?? 1;
-    };
 
     const getBuildingLevelForPlayer = (type: string): number => {
       const entry = buildings.find((b) => b.building_type === type);
@@ -265,11 +253,6 @@ export class StructuresService {
         goldPerTurn: fortDef?.goldPerTurn ?? 1000,
         defenseBonusPercentage: fortDef?.defenseBonusPercentage ?? 5,
       },
-      upgrades: {
-        offense: getStructureLevel(StructureUpgradeType.OFFENSE),
-        spy: getStructureLevel(StructureUpgradeType.SPY),
-        sentry: getStructureLevel(StructureUpgradeType.SENTRY),
-      },
       buildings: Object.values(BuildingType).map((type) => ({
         buildingType: type,
         level: getBuildingLevelForPlayer(type),
@@ -286,16 +269,13 @@ export class StructuresService {
       })),
       definitions: {
         fortifications: Fortifications,
-        offense: OffensiveUpgrades,
-        spy: SpyUpgrades,
-        sentry: SentryUpgrades,
         battle: BattleUpgrades,
         buildings: Buildings,
       },
     };
   }
 
-  // ─── Legacy upgrade (OFFENSE/SPY/SENTRY stay; others delegate to upgradeBuilding) ──
+  // ─── Legacy upgrade (delegates to buildings system) ──
 
   async upgrade(playerId: string, dto: PurchaseStructureUpgradeDto) {
     // Map old structure types to new building types
@@ -313,124 +293,7 @@ export class StructuresService {
       return this.upgradeBuilding(playerId, { buildingType: mappedBuildingType });
     }
 
-    // OFFENSE, SPY, SENTRY stay as legacy structure upgrades (proficiency bonuses)
-    const result = await this.prisma.$transaction(async (tx) => {
-      const [economy, fort, structureUpgrades] = await Promise.all([
-        tx.playerEconomy.findUnique({ where: { player_id: playerId } }),
-        tx.playerFortification.findUnique({ where: { player_id: playerId } }),
-        tx.playerStructureUpgrade.findMany({ where: { player_id: playerId } }),
-      ]);
-
-      if (!economy) throw new BadRequestException('Player economy not found');
-
-      const gold = BigInt(economy.gold);
-      const fortLevel = fort?.fort_level ?? 1;
-
-      switch (dto.upgradeType) {
-        case StructureUpgradeType.OFFENSE:
-        case StructureUpgradeType.SPY:
-        case StructureUpgradeType.SENTRY:
-          return this.handleStructureUpgrade(
-            tx, playerId, gold, fortLevel, dto.upgradeType, structureUpgrades,
-          );
-
-        default:
-          throw new BadRequestException(`Unknown upgrade type: ${dto.upgradeType}`);
-      }
-    });
-
-    this.eventEmitter.emit(
-      'structure.upgraded',
-      new StructureUpgradedEvent(
-        playerId,
-        dto.upgradeType,
-        result.newLevel,
-        BigInt(result.goldSpent),
-      ),
-    );
-
-    return { gold: result.newGold, upgradeType: dto.upgradeType, newLevel: result.newLevel };
-  }
-
-  private async handleStructureUpgrade(
-    tx: any,
-    playerId: string,
-    gold: bigint,
-    fortLevel: number,
-    upgradeType: StructureUpgradeType,
-    structureUpgrades: Array<{ upgrade_type: string; level: number }>,
-  ) {
-    const current = structureUpgrades.find((u) => u.upgrade_type === upgradeType);
-    const currentLevel = current?.level ?? 1;
-
-    const { nextDef, nextLevel } = this.getNextStructureDef(upgradeType, currentLevel);
-    if (!nextDef) {
-      throw new BadRequestException(`${upgradeType} upgrade is already at maximum level`);
-    }
-
-    const requiredFortLevel = nextDef.fortLevelRequirement ?? nextDef.fortLevel ?? 0;
-    if (fortLevel < requiredFortLevel) {
-      throw new BadRequestException(
-        `${nextDef.name} requires fort level ${requiredFortLevel} (you have fort level ${fortLevel})`,
-      );
-    }
-
-    // Apply PRICES bonus discount
-    const bonusPoints = await tx.playerBonusPoint.findMany({ where: { player_id: playerId } });
-    const pricesBonus = bonusPoints.find((bp: any) => bp.bonus_type === 'PRICES');
-    const pricesBonusPercent = pricesBonus?.level ?? 0;
-    const discountedCost = nextDef.cost - Math.ceil((pricesBonusPercent / 100) * nextDef.cost);
-
-    if (gold < BigInt(discountedCost)) {
-      throw new BadRequestException(
-        `Not enough gold. Required: ${discountedCost}, Available: ${gold}`,
-      );
-    }
-
-    const newGold = gold - BigInt(discountedCost);
-    await tx.playerEconomy.update({
-      where: { player_id: playerId },
-      data: { gold: newGold },
-    });
-
-    await tx.playerStructureUpgrade.upsert({
-      where: {
-        player_id_upgrade_type: {
-          player_id: playerId,
-          upgrade_type: upgradeType,
-        },
-      },
-      update: { level: nextLevel },
-      create: { player_id: playerId, upgrade_type: upgradeType, level: nextLevel },
-    });
-
-    await this.createBankHistory(tx, playerId, BigInt(discountedCost), 'STRUCTURE_UPGRADE', {
-      upgradeType,
-      fromLevel: currentLevel,
-      toLevel: nextLevel,
-      name: nextDef.name,
-    });
-
-    return { newGold: newGold.toString(), newLevel: nextLevel, goldSpent: discountedCost };
-  }
-
-  private getNextStructureDef(upgradeType: StructureUpgradeType, currentLevel: number) {
-    const nextLevel = currentLevel + 1;
-    let nextDef: any;
-
-    switch (upgradeType) {
-      case StructureUpgradeType.OFFENSE:
-        nextDef = getOffensiveUpgradeByLevel(nextLevel);
-        break;
-      case StructureUpgradeType.SPY:
-        nextDef = getSpyUpgradeByLevel(nextLevel);
-        break;
-      case StructureUpgradeType.SENTRY:
-        nextDef = getSentryUpgradeByLevel(nextLevel);
-        break;
-    }
-
-    return { nextDef, nextLevel };
+    throw new BadRequestException(`Unknown upgrade type: ${dto.upgradeType}`);
   }
 
   // ─── Fort Repair ────────────────────────────────────────────────────
