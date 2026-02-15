@@ -22,20 +22,7 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 ## UX / Performance
 
-- [x] **Cache Sync: Return Updated State in Mutation Responses** — **Done**
-  - ✓ Phase 1: Combat (attack, spy)
-  - ✓ Phase 2: Training & Economy (train, bank)
-  - ✓ Phase 3: Armory & Structures (buy/sell upgrades, buildings)
-  - ✓ Phase 4: Recruitment (auto-recruit)
-  - **Result**: Instant feedback after all mutations, eliminates 10-15s stale data delay across entire app
-
-
 ## Leaderboard
-
-- [x] Show rank movement arrows (up/down since last daily reset) — **Done**
-- [x] Daily snapshots at reset time to support delta tracking — **Done: RankingSnapshot table + daily tick**
-- [x] Show your rank at top of each category — **Done**
-- [x] Highlight your row in the rankings table — **Done**
 
 ## Chat
 
