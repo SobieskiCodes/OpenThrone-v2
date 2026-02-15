@@ -365,45 +365,93 @@ export class AdminService {
     // WARNING: This deletes ALL data and reseeds the database
     // Only admins can call this
 
-    // Get all table names except migrations
-    const tables = [
-      'bot_action_logs',
-      'bot_configs',
-      'player_buildings',
-      'spy_reports',
-      'bank_history',
-      'recruitment_links',
-      'battle_history',
-      'chat_messages',
-      'mail_messages',
-      'activity_log',
-      'player_alliances',
-      'alliances',
-      'player_items',
-      'player_units',
-      'bonus_points',
-      'job_logs',
-      'permission_grants',
-      'player_stats',
-      'player_fortifications',
-      'player_economy',
-      'players',
-      'blog_posts',
-    ];
+    // Detect database type
+    const dbUrl = process.env.DATABASE_URL || '';
+    const isPostgres = dbUrl.includes('postgresql') || dbUrl.includes('postgres');
+    const isSQLite = dbUrl.includes('sqlite') || dbUrl.includes('file:');
 
-    // Delete all records from all tables
-    await this.prisma.$transaction(async (tx) => {
-      for (const table of tables) {
-        await tx.$executeRawUnsafe(`DELETE FROM "${table}"`);
+    if (isPostgres) {
+      // PostgreSQL: Use TRUNCATE CASCADE (fast and handles foreign keys)
+      await this.prisma.$executeRawUnsafe(`
+        TRUNCATE TABLE
+          "ActivityLog", "BotActionLog", "JobLog",
+          "MailRecipient", "Mail",
+          "ChatMessageReadStatus", "ChatMessageReaction", "ChatMessage", "ChatRoomParticipant", "ChatRoom",
+          "PostReadStatus", "BlogPost",
+          "AttackLogAcl", "AttackLog",
+          "AllianceIntel",
+          "AllianceMembership", "AllianceRole", "Alliance",
+          "Social",
+          "RecruitHistory",
+          "BankHistory",
+          "MercenaryDailyPurchase",
+          "PlayerCumulativeStats", "RankingSnapshot", "PlayerStats",
+          "PlayerBonusPoint", "PlayerBuilding", "PlayerFortification",
+          "PlayerStructureUpgrade", "PlayerBattleUpgrade",
+          "PlayerItem", "PlayerUnit",
+          "PermissionGrant", "PasswordReset", "AccountStatusHistory",
+          "PlayerEconomy",
+          "BotConfig",
+          "Player"
+        RESTART IDENTITY CASCADE
+      `);
+    } else if (isSQLite) {
+      // SQLite: Disable foreign keys, delete, re-enable
+      await this.prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF');
+
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.activityLog.deleteMany();
+          await tx.botActionLog.deleteMany();
+          await tx.jobLog.deleteMany();
+          await tx.mailRecipient.deleteMany();
+          await tx.mail.deleteMany();
+          await tx.chatMessageReadStatus.deleteMany();
+          await tx.chatMessageReaction.deleteMany();
+          await tx.chatMessage.deleteMany();
+          await tx.chatRoomParticipant.deleteMany();
+          await tx.chatRoom.deleteMany();
+          await tx.postReadStatus.deleteMany();
+          await tx.blogPost.deleteMany();
+          await tx.attackLogAcl.deleteMany();
+          await tx.attackLog.deleteMany();
+          await tx.allianceIntel.deleteMany();
+          await tx.allianceMembership.deleteMany();
+          await tx.allianceRole.deleteMany();
+          await tx.alliance.deleteMany();
+          await tx.social.deleteMany();
+          await tx.recruitHistory.deleteMany();
+          await tx.bankHistory.deleteMany();
+          await tx.mercenaryDailyPurchase.deleteMany();
+          await tx.playerCumulativeStats.deleteMany();
+          await tx.rankingSnapshot.deleteMany();
+          await tx.playerStats.deleteMany();
+          await tx.playerBonusPoint.deleteMany();
+          await tx.playerBuilding.deleteMany();
+          await tx.playerFortification.deleteMany();
+          await tx.playerStructureUpgrade.deleteMany();
+          await tx.playerBattleUpgrade.deleteMany();
+          await tx.playerItem.deleteMany();
+          await tx.playerUnit.deleteMany();
+          await tx.permissionGrant.deleteMany();
+          await tx.passwordReset.deleteMany();
+          await tx.accountStatusHistory.deleteMany();
+          await tx.playerEconomy.deleteMany();
+          await tx.botConfig.deleteMany();
+          await tx.player.deleteMany();
+        });
+      } finally {
+        await this.prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON');
       }
-    });
+    }
 
-    // Run seed data (this would need to import and call the seed script)
-    // For now, return success - you'll need to manually run seed or
-    // trigger it via a separate endpoint/job
+    // Automatically reseed the database
+    const { seedDatabase } = await import('@openthrone/db');
+    await seedDatabase(this.prisma);
+
     return {
       success: true,
-      message: 'Database reset complete. Run seed script manually or generate bots from /admin/bots.',
+      message: 'Database reset and reseeded! You can now log in with testplayer1@openthrone.dev / password123 (admin account).',
     };
   }
 }
