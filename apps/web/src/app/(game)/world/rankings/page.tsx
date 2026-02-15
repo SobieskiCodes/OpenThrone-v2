@@ -156,7 +156,8 @@ function formatScore(score: number, category: string, subType: string): string {
 // ─── Rank Change Indicator ──────────────────────────────────────────────
 
 function RankChangeIndicator({ change }: { change?: number }) {
-  if (!change || change === 0) return null;
+  // If change is undefined (new player, no snapshot yet), don't show anything
+  if (change === undefined) return null;
 
   if (change > 0) {
     return (
@@ -169,11 +170,22 @@ function RankChangeIndicator({ change }: { change?: number }) {
     );
   }
 
+  if (change < 0) {
+    return (
+      <Tooltip label={`Down ${Math.abs(change)} ${Math.abs(change) === 1 ? 'spot' : 'spots'}`}>
+        <Group gap={4} style={{ color: 'var(--ot-danger)' }}>
+          <IconTrendingDown size={14} />
+          <Text size="xs" fw={600}>{change}</Text>
+        </Group>
+      </Tooltip>
+    );
+  }
+
+  // change === 0: No movement (held position)
   return (
-    <Tooltip label={`Down ${Math.abs(change)} ${Math.abs(change) === 1 ? 'spot' : 'spots'}`}>
-      <Group gap={4} style={{ color: 'var(--ot-danger)' }}>
-        <IconTrendingDown size={14} />
-        <Text size="xs" fw={600}>{change}</Text>
+    <Tooltip label="No change">
+      <Group gap={4} style={{ color: 'var(--ot-text-dim)' }}>
+        <IconMinus size={14} />
       </Group>
     </Tooltip>
   );
