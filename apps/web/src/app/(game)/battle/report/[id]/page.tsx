@@ -131,9 +131,14 @@ function SpyReport({ report }: { report: ReportData }) {
             <Title order={2}>Spy Report</Title>
             <Badge variant="light" color="violet" size="lg">{missionLabel}</Badge>
           </Group>
-          <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-            {formatDate(report.timestamp)}
-          </Text>
+          <Group gap="sm">
+            <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+              {formatDate(report.timestamp)}
+            </Text>
+            <Button variant="light" size="sm" onClick={() => router.push('/battle/players')}>
+              Back to Battle
+            </Button>
+          </Group>
         </Group>
 
         {/* Players */}
@@ -369,12 +374,6 @@ function SpyReport({ report }: { report: ReportData }) {
           </OTCard>
         )}
 
-        {/* Back Link */}
-        <Group justify="center">
-          <Button variant="light" onClick={() => router.push('/battle/history')}>
-            Back to Battle History
-          </Button>
-        </Group>
       </Stack>
     </Container>
   );
@@ -525,11 +524,26 @@ function AttackReport({ report }: { report: ReportData }) {
     <Container size="lg">
       <Stack gap="md">
         {/* Header */}
-        <Group justify="space-between" align="center">
+        <Group justify="space-between" align="center" wrap="wrap">
           <Title order={2}>Battle Report</Title>
-          <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-            {formatDate(report.timestamp)}
-          </Text>
+          <Group gap="sm">
+            <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+              {formatDate(report.timestamp)}
+            </Text>
+            <Button variant="light" size="sm" onClick={() => router.push('/battle/players')}>
+              Back to Battle
+            </Button>
+            {report.isAttacker && (
+              <Button
+                color="red"
+                size="sm"
+                variant="filled"
+                onClick={() => router.push(`/profile/${report.defender.id}`)}
+              >
+                Attack {report.defender.displayName} Again
+              </Button>
+            )}
+          </Group>
         </Group>
 
         {/* Combat Overview */}
@@ -871,25 +885,6 @@ function AttackReport({ report }: { report: ReportData }) {
           </OTCard>
         </SimpleGrid>
 
-        {/* Actions */}
-        <Group justify="center" gap="sm">
-          <Button variant="light" onClick={() => router.push('/battle/history')}>
-            Back to History
-          </Button>
-          {report.isAttacker && (
-            <Button
-              color="red"
-              variant="light"
-              leftSection={'\u2694'}
-              onClick={() => {
-                const targetId = report.defender.id;
-                router.push(`/profile/${targetId}`);
-              }}
-            >
-              Attack {report.defender.displayName} Again
-            </Button>
-          )}
-        </Group>
       </Stack>
     </Container>
   );
