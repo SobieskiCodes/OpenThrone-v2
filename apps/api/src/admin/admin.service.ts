@@ -372,27 +372,28 @@ export class AdminService {
 
     if (isPostgres) {
       // PostgreSQL: Use TRUNCATE CASCADE (fast and handles foreign keys)
+      // Note: Prisma creates tables in snake_case
       await this.prisma.$executeRawUnsafe(`
         TRUNCATE TABLE
-          "ActivityLog", "BotActionLog", "JobLog",
-          "MailRecipient", "Mail",
-          "ChatMessageReadStatus", "ChatMessageReaction", "ChatMessage", "ChatRoomParticipant", "ChatRoom",
-          "PostReadStatus", "BlogPost",
-          "AttackLogAcl", "AttackLog",
-          "AllianceIntel",
-          "AllianceMembership", "AllianceRole", "Alliance",
-          "Social",
-          "RecruitHistory",
-          "BankHistory",
-          "MercenaryDailyPurchase",
-          "PlayerCumulativeStats", "RankingSnapshot", "PlayerStats",
-          "PlayerBonusPoint", "PlayerBuilding", "PlayerFortification",
-          "PlayerStructureUpgrade", "PlayerBattleUpgrade",
-          "PlayerItem", "PlayerUnit",
-          "PermissionGrant", "PasswordReset", "AccountStatusHistory",
-          "PlayerEconomy",
-          "BotConfig",
-          "Player"
+          activity_log, bot_action_logs, job_logs,
+          mail_recipients, mail,
+          chat_message_read_status, chat_message_reactions, chat_messages, chat_room_participants, chat_rooms,
+          post_read_status, blog_posts,
+          attack_log_acl, attack_log,
+          alliance_intel,
+          alliance_memberships, alliance_roles, alliances,
+          social,
+          recruit_history,
+          bank_history,
+          mercenary_daily_purchases,
+          player_cumulative_stats, ranking_snapshots, player_stats,
+          player_bonus_points, player_buildings, player_fortifications,
+          player_structure_upgrades, player_battle_upgrades,
+          player_items, player_units,
+          permission_grants, password_resets, account_status_history,
+          player_economy,
+          bot_configs,
+          players
         RESTART IDENTITY CASCADE
       `);
     } else if (isSQLite) {
