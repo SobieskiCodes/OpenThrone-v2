@@ -18,6 +18,8 @@ import { OTCard } from '@/components/ui';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { updatePlayerCache } from '@/lib/cache-sync';
+import type { PlayerStateSnapshot } from '@openthrone/shared';
 
 interface RecruitmentStatus {
   recruitLink: string;
@@ -46,9 +48,14 @@ export default function RecruitmentPage() {
   });
 
   const autoRecruit = useMutation({
-    mutationFn: () => api.post<{ citizensGained: number; message: string }>('/recruitment/auto-recruit'),
-    onSuccess: (result: any) => {
+    mutationFn: () => api.post<{ citizensGained: number; message: string; playerState: PlayerStateSnapshot }>('/recruitment/auto-recruit'),
+    onSuccess: (result) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, result.playerState);
+
+      // Still invalidate recruitment queries
       queryClient.invalidateQueries({ queryKey: ['recruitment'] });
+
       notifications.show({
         title: 'Auto-Recruit',
         message: result.message,
