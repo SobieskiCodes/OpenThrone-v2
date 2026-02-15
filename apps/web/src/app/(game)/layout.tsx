@@ -51,6 +51,7 @@ const navItems = [
     children: [
       { label: 'Attack', href: '/battle/players' },
       { label: 'War History', href: '/battle/history' },
+      { label: 'Mercenaries', href: '/structures/mercenary' },
     ],
   },
   {
