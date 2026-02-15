@@ -19,8 +19,9 @@ import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
+import { updatePlayerCache } from '@/lib/cache-sync';
 import { toLocale } from '@openthrone/game-logic';
-import type { UnitDefinition } from '@openthrone/shared';
+import type { UnitDefinition, PlayerStateSnapshot } from '@openthrone/shared';
 import { UnitType } from '@openthrone/shared';
 
 interface UnitEntry {
@@ -80,12 +81,16 @@ export default function TrainingPage() {
 
   const trainMutation = useMutation({
     mutationFn: (units: Array<{ unitType: string; level: number; quantity: number }>) =>
-      api.post('/training/train', { units }),
-    onSuccess: () => {
+      api.post<{ playerState: PlayerStateSnapshot }>('/training/train', { units }),
+    onSuccess: (data) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, data.playerState);
+
+      // Still invalidate training queries
+      queryClient.invalidateQueries({ queryKey: ['training'] });
+
       setTrainQty({});
       setBusyKey(null);
-      queryClient.invalidateQueries({ queryKey: ['training'] });
-      queryClient.invalidateQueries({ queryKey: ['player'] });
       notifications.show({ title: 'Trained', message: 'Units trained successfully!', color: 'green' });
     },
     onError: (err: Error) => {
@@ -96,12 +101,16 @@ export default function TrainingPage() {
 
   const untrainMutation = useMutation({
     mutationFn: (units: Array<{ unitType: string; level: number; quantity: number }>) =>
-      api.post('/training/untrain', { units }),
-    onSuccess: () => {
+      api.post<{ playerState: PlayerStateSnapshot }>('/training/untrain', { units }),
+    onSuccess: (data) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, data.playerState);
+
+      // Still invalidate training queries
+      queryClient.invalidateQueries({ queryKey: ['training'] });
+
       setUntrainQty({});
       setBusyKey(null);
-      queryClient.invalidateQueries({ queryKey: ['training'] });
-      queryClient.invalidateQueries({ queryKey: ['player'] });
       notifications.show({ title: 'Untrained', message: 'Units untrained! 75% gold refunded.', color: 'green' });
     },
     onError: (err: Error) => {

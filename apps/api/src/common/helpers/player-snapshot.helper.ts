@@ -1,5 +1,5 @@
 import { PrismaService } from '../../prisma/prisma.service';
-import { PlayerStateSnapshot } from '@openthrone/shared';
+import { PlayerStateSnapshot, UnitType } from '@openthrone/shared';
 import { getLevelForXP } from '@openthrone/game-logic';
 
 export async function buildPlayerSnapshot(
@@ -7,26 +7,26 @@ export async function buildPlayerSnapshot(
   playerId: string,
   options?: { includeUnits?: boolean },
 ): Promise<PlayerStateSnapshot> {
-  // Always include units if requested
-  const selectClause = {
-    attack_turns: true,
-    citizens: true,
-    economy: {
-      select: {
-        gold: true,
-        gold_in_bank: true,
+  // Always fetch units to calculate citizens
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: {
+      economy: {
+        select: {
+          gold: true,
+          gold_in_bank: true,
+          attack_turns: true,
+        },
       },
-    },
-    stats: {
-      select: {
-        experience: true,
-        offense: true,
-        defense: true,
-        spy: true,
-        sentry: true,
+      stats: {
+        select: {
+          experience: true,
+          offense: true,
+          defense: true,
+          spy: true,
+          sentry: true,
+        },
       },
-    },
-    ...(options?.includeUnits && {
       units: {
         select: {
           unit_type: true,
@@ -34,17 +34,17 @@ export async function buildPlayerSnapshot(
           quantity: true,
         },
       },
-    }),
-  };
-
-  const player = await prisma.player.findUnique({
-    where: { id: playerId },
-    select: selectClause,
+    },
   });
 
   if (!player || !player.economy || !player.stats) {
     throw new Error(`Player ${playerId} not found or missing economy/stats`);
   }
+
+  // Calculate citizens from CITIZEN type units
+  const citizens = player.units
+    .filter((u) => u.unit_type === 'CITIZEN')
+    .reduce((sum, u) => sum + u.quantity, 0);
 
   return {
     gold: player.economy.gold.toString(),
@@ -55,11 +55,11 @@ export async function buildPlayerSnapshot(
     defense: player.stats.defense,
     spy: player.stats.spy,
     sentry: player.stats.sentry,
-    attackTurns: player.attack_turns,
-    citizens: player.citizens,
-    updatedUnits: options?.includeUnits && 'units' in player
-      ? (player as any).units.map((u: any) => ({
-          unitType: u.unit_type,
+    attackTurns: player.economy.attack_turns,
+    citizens,
+    updatedUnits: options?.includeUnits
+      ? player.units.map((u) => ({
+          unitType: u.unit_type as UnitType,
           level: u.level,
           quantity: u.quantity,
         }))
