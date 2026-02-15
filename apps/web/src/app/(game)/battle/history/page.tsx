@@ -25,6 +25,7 @@ interface BattleLogEntry {
   winner: string;
   type: string;
   goldStolen: string;
+  xpGained: number;
   timestamp: string | null;
   isAttacker: boolean;
 }
@@ -141,12 +142,13 @@ export default function BattleHistoryPage() {
                     <Table.Th ta="center">Type</Table.Th>
                     <Table.Th ta="center">Result</Table.Th>
                     <Table.Th ta="right">Gold</Table.Th>
+                    <Table.Th ta="right">XP</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {historyData?.data.length === 0 && (
                     <Table.Tr>
-                      <Table.Td colSpan={5}>
+                      <Table.Td colSpan={6}>
                         <Text ta="center" style={{ color: 'var(--ot-text-dim)' }}>
                           No battle history yet.
                         </Text>
@@ -204,6 +206,11 @@ export default function BattleHistoryPage() {
                         </Table.Td>
                         <Table.Td ta="right">
                           {getGoldDisplay(log, didWin)}
+                        </Table.Td>
+                        <Table.Td ta="right">
+                          <Text size="sm" fw={500} style={{ color: 'var(--ot-accent)' }}>
+                            +{log.xpGained.toLocaleString()} XP
+                          </Text>
                         </Table.Td>
                       </Table.Tr>
                     );
