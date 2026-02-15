@@ -79,4 +79,4 @@ https://github.com/Rihoj/dtg-recruit
 spy calcs: 
 https://discord.com/channels/1210025164985864234/1450488850001694750/1466066344331186239
 
-barracks is cit per tick - maybe?
+barracks is citizen per tick - maybe?
