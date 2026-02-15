@@ -26,7 +26,7 @@ import {
 import { OTCard, PlayerHoverCard } from '@/components/ui';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRouter } from 'next/navigation';
@@ -136,25 +136,62 @@ interface AttackResult {
   attackerWins: boolean;
 }
 
+// Helper to load battle filters from localStorage
+function loadBattleFilters() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = localStorage.getItem('battleFilters');
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Helper to save battle filters to localStorage
+function saveBattleFilters(filters: {
+  search: string;
+  raceFilter: string;
+  classFilter: string;
+  botFilter: string;
+  sort: string;
+  order: string;
+  inRange: boolean;
+}) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('battleFilters', JSON.stringify(filters));
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
 export default function PlayersPage() {
   const { api, isReady } = useApi();
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  // Player list state
-  const [search, setSearch] = useState('');
-  const [raceFilter, setRaceFilter] = useState('');
-  const [classFilter, setClassFilter] = useState('');
-  const [botFilter, setBotFilter] = useState('all');
-  const [sort, setSort] = useState('rank');
-  const [order, setOrder] = useState('asc');
-  const [inRange, setInRange] = useState(true);
+  // Load saved filters or use defaults
+  const savedFilters = loadBattleFilters();
+
+  // Player list state (initialized from localStorage)
+  const [search, setSearch] = useState(savedFilters?.search ?? '');
+  const [raceFilter, setRaceFilter] = useState(savedFilters?.raceFilter ?? '');
+  const [classFilter, setClassFilter] = useState(savedFilters?.classFilter ?? '');
+  const [botFilter, setBotFilter] = useState(savedFilters?.botFilter ?? 'all');
+  const [sort, setSort] = useState(savedFilters?.sort ?? 'rank');
+  const [order, setOrder] = useState(savedFilters?.order ?? 'asc');
+  const [inRange, setInRange] = useState(savedFilters?.inRange ?? true);
   const [playerPage, setPlayerPage] = useState(1);
 
   // Attack modal state
   const [attackTarget, setAttackTarget] = useState<PlayerEntry | null>(null);
   const [attackTurns, setAttackTurns] = useState(1);
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    saveBattleFilters({ search, raceFilter, classFilter, botFilter, sort, order, inRange });
+  }, [search, raceFilter, classFilter, botFilter, sort, order, inRange]);
 
   const attackMutation = useMutation({
     mutationFn: ({ defenderId, turns }: { defenderId: string; turns: number }) =>
