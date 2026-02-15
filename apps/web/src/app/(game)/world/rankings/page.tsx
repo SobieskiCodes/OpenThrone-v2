@@ -292,17 +292,15 @@ export default function RankingsPage() {
               label={
                 <Stack gap={2}>
                   <Text size="xs" fw={700}>Overall Rank Formula</Text>
-                  <Text size="xs">Offense: 1.0x weight</Text>
-                  <Text size="xs">Defense: 1.0x weight</Text>
-                  <Text size="xs">Spy: 1.25x weight</Text>
-                  <Text size="xs">Sentry: 1.25x weight</Text>
-                  <Text size="xs">Fort Level: exponential bonus</Text>
-                  <Text size="xs">XP: small bonus</Text>
-                  <Text size="xs">Net Worth: log scale bonus</Text>
+                  <Text size="xs" fw={600}>Combat (~85%):</Text>
+                  <Text size="xs">  • Offense + Defense</Text>
+                  <Text size="xs" fw={600}>Economy (~15%):</Text>
+                  <Text size="xs">  • Net worth × log scale</Text>
+                  <Text size="xs" c="dimmed" fs="italic" mt={4}>Net worth = gold + bank + armory (75%) + battle upgrades (75%)</Text>
                 </Stack>
               }
               multiline
-              w={220}
+              w={280}
             >
               <Text size="xs" style={{ color: 'var(--ot-text-dim)', cursor: 'help', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
                 How is this calculated?

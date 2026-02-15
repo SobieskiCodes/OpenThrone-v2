@@ -23,8 +23,8 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 ## Leaderboard
 
-- [ ] Show rank movement arrows (up/down since last daily reset)
-- [ ] Daily snapshots at reset time to support delta tracking
+- [ ] Show rank movement arrows (up/down since last daily reset) — **API done, UI pending**
+- [x] Daily snapshots at reset time to support delta tracking — **Done: RankingSnapshot table + daily tick**
 - [ ] Jump to your rank/section
 - [ ] Leaderboard should show your rank in each item you select.
 
