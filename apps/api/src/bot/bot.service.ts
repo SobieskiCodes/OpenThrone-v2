@@ -67,7 +67,14 @@ export class BotService {
     const xpForLevel = (level: number): number => {
       const levels = Object.keys(LEVEL_XP).map(Number).sort((a, b) => a - b);
       for (let i = levels.length - 1; i >= 0; i--) {
-        if (levels[i]! <= level) return LEVEL_XP[levels[i]!]! + rand(0, 3000);
+        if (levels[i]! <= level) {
+          const currentLevelXP = LEVEL_XP[levels[i]!]!;
+          const nextLevel = levels[i + 1];
+          const nextLevelXP = nextLevel ? LEVEL_XP[nextLevel]! : currentLevelXP + 10000;
+          // Stay safely within this level's range
+          const maxBonus = Math.min(3000, Math.floor((nextLevelXP - currentLevelXP) * 0.8));
+          return currentLevelXP + rand(0, maxBonus);
+        }
       }
       return rand(0, 3999);
     };
