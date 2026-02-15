@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { calculateGoldPerTurn, calculateRankScore, computeArmoryValue, getBuildingLevel } from '@openthrone/game-logic';
+import { calculateGoldPerTurn, calculateRankScore, computeArmoryResaleValue, computeBattleUpgradeResaleValue, getBuildingLevel } from '@openthrone/game-logic';
 import { TurnTickEvent, RankingsRecalculatedEvent } from '@openthrone/events';
 import { BankAccountType, BankTransferHistoryType, BuildingType } from '@openthrone/shared';
 
@@ -152,20 +152,27 @@ export class TurnTickService {
       include: {
         stats: true,
         economy: { select: { gold: true, gold_in_bank: true } },
-        fortification: true,
         items: { select: { item_type: true, usage: true, level: true, quantity: true } },
+        battle_upgrades: { select: { upgrade_type: true, level: true, quantity: true } },
       },
     });
 
     const scored = players
       .filter((p) => p.stats)
       .map((p) => {
-        const armory = computeArmoryValue(
+        const armoryResale = computeArmoryResaleValue(
           (p.items ?? []).map((i) => ({
             itemType: i.item_type,
             usage: i.usage,
             level: i.level,
             quantity: i.quantity,
+          })),
+        );
+        const battleUpgradeResale = computeBattleUpgradeResaleValue(
+          (p.battle_upgrades ?? []).map((bu) => ({
+            upgradeType: bu.upgrade_type,
+            level: bu.level,
+            quantity: bu.quantity,
           })),
         );
         const gold = Number(p.economy?.gold ?? 0);
@@ -176,11 +183,7 @@ export class TurnTickService {
           score: calculateRankScore({
             offense: p.stats!.offense,
             defense: p.stats!.defense,
-            spy: p.stats!.spy,
-            sentry: p.stats!.sentry,
-            fortLevel: p.fortification?.fort_level ?? 1,
-            experience: p.stats!.experience,
-            netWorth: gold + bank + armory,
+            netWorth: gold + bank + armoryResale + battleUpgradeResale,
           }),
         };
       })

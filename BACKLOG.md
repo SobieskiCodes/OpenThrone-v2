@@ -7,21 +7,12 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 ## Combat / Balance
 
 - [ ] Casualties feel too high at 10x turns — needs tuning
-- [ ] XP gained per battle is too generous — flatten the curve
 - [ ] Spies should have a chance to fail based on a ratio (e.g., if defender has < 2x spy defense, attacker still has some failure chance) — needs design pass
 - [ ] Sabotage destroying 3–5 items is negligible mid-game (less than a turn of gold) — should be percentage-based instead of flat count
 
 ## Profiles
 
-- [ ] Show recent attack/defense history on profiles — public action log
-  - Only show attacker identity if the attack was visible (failed spy = anonymous)
-  - Ties into core value: **actions are public**
-- [ ] Profile should be the "story" of a player — battles, reputation, alliances
-
 ## Battle
-
-- [ ] "Return to Players" button on battle log page
-- [ ] Battle report should link back to attack list easily
 
 ## Navigation / Notifications
 

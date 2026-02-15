@@ -145,3 +145,14 @@ export function computeArmoryValue(
     return sum + (def?.cost ?? 0) * item.quantity;
   }, 0);
 }
+
+/**
+ * Computes armory resale value (75% refund on items).
+ * Used for net worth calculations.
+ */
+export function computeArmoryResaleValue(
+  items: Array<{ itemType: string; usage: string; level: number; quantity: number }>,
+): number {
+  const fullValue = computeArmoryValue(items);
+  return Math.floor(fullValue * 0.75);
+}

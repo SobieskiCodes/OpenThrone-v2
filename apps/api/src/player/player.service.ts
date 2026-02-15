@@ -17,7 +17,8 @@ import {
   calculateFullDetailedBreakdown,
   calculateGoldPerTurnBreakdown,
   calculateCitizensPerDayBreakdown,
-  computeArmoryValue,
+  computeArmoryResaleValue,
+  computeBattleUpgradeResaleValue,
   OffensiveUpgrades,
   SpyUpgrades,
   SentryUpgrades,
@@ -537,10 +538,10 @@ export class PlayerService {
     const mySentry = stats.sentry.total;
     const overallRank = player.stats?.rank ?? 0;
 
-    // Compute net worth for this player
+    // Compute net worth for this player (at 75% resale value)
     const myGold = Number(player.economy?.gold ?? 0);
     const myBank = Number(player.economy?.gold_in_bank ?? 0);
-    const myArmory = computeArmoryValue(
+    const myArmoryResale = computeArmoryResaleValue(
       player.items.map((i) => ({
         itemType: i.item_type,
         usage: i.usage,
@@ -548,7 +549,14 @@ export class PlayerService {
         quantity: i.quantity,
       })),
     );
-    const myNetWorth = myGold + myBank + myArmory;
+    const myBattleUpgradeResale = computeBattleUpgradeResaleValue(
+      player.battle_upgrades.map((bu) => ({
+        upgradeType: bu.upgrade_type,
+        level: bu.level,
+        quantity: bu.quantity,
+      })),
+    );
+    const myNetWorth = myGold + myBank + myArmoryResale + myBattleUpgradeResale;
 
     // Compute net worth for all active players to get rank position
     const allPlayers = await this.prisma.player.findMany({
@@ -557,6 +565,7 @@ export class PlayerService {
         id: true,
         economy: { select: { gold: true, gold_in_bank: true } },
         items: { select: { item_type: true, usage: true, level: true, quantity: true } },
+        battle_upgrades: { select: { upgrade_type: true, level: true, quantity: true } },
       },
     });
 
@@ -565,7 +574,7 @@ export class PlayerService {
       if (p.id === playerId) continue;
       const g = Number(p.economy?.gold ?? 0);
       const b = Number(p.economy?.gold_in_bank ?? 0);
-      const a = computeArmoryValue(
+      const aResale = computeArmoryResaleValue(
         p.items.map((i) => ({
           itemType: i.item_type,
           usage: i.usage,
@@ -573,7 +582,14 @@ export class PlayerService {
           quantity: i.quantity,
         })),
       );
-      if (g + b + a > myNetWorth) netWorthRank++;
+      const buResale = computeBattleUpgradeResaleValue(
+        p.battle_upgrades.map((bu) => ({
+          upgradeType: bu.upgrade_type,
+          level: bu.level,
+          quantity: bu.quantity,
+        })),
+      );
+      if (g + b + aResale + buResale > myNetWorth) netWorthRank++;
     }
 
     const [offenseRank, defenseRank, spyRank, sentryRank] = await Promise.all([

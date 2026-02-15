@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getLevelForXP, computeArmoryValue, calculateRankScore } from '@openthrone/game-logic';
+import { getLevelForXP, computeArmoryResaleValue, computeBattleUpgradeResaleValue, calculateRankScore } from '@openthrone/game-logic';
 
 export type RankingCategory = 'global' | 'combat' | 'spy' | 'economy' | 'army' | 'social';
 export type RankingPeriod = 'allTime' | 'today';
@@ -98,22 +98,29 @@ export class RankingsService {
         race: true,
         player_class: true,
         is_bot: true,
-        stats: { select: { offense: true, defense: true, spy: true, sentry: true, experience: true } },
+        stats: { select: { offense: true, defense: true, experience: true } },
         economy: { select: { gold: true, gold_in_bank: true } },
-        fortification: { select: { fort_level: true } },
         items: { select: { item_type: true, usage: true, level: true, quantity: true } },
+        battle_upgrades: { select: { upgrade_type: true, level: true, quantity: true } },
       },
     });
 
     const ranked = players
       .filter((p) => p.stats)
       .map((p) => {
-        const armory = computeArmoryValue(
+        const armoryResale = computeArmoryResaleValue(
           (p.items ?? []).map((i) => ({
             itemType: i.item_type,
             usage: i.usage,
             level: i.level,
             quantity: i.quantity,
+          })),
+        );
+        const battleUpgradeResale = computeBattleUpgradeResaleValue(
+          (p.battle_upgrades ?? []).map((bu) => ({
+            upgradeType: bu.upgrade_type,
+            level: bu.level,
+            quantity: bu.quantity,
           })),
         );
         const gold = Number(p.economy?.gold ?? 0);
@@ -122,11 +129,7 @@ export class RankingsService {
         const score = calculateRankScore({
           offense: p.stats!.offense,
           defense: p.stats!.defense,
-          spy: p.stats!.spy,
-          sentry: p.stats!.sentry,
-          fortLevel: p.fortification?.fort_level ?? 1,
-          experience: p.stats!.experience,
-          netWorth: gold + bank + armory,
+          netWorth: gold + bank + armoryResale + battleUpgradeResale,
         });
 
         return {
@@ -264,19 +267,27 @@ export class RankingsService {
         economy: { select: { gold: true, gold_in_bank: true } },
         stats: { select: { experience: true } },
         items: { select: { item_type: true, usage: true, level: true, quantity: true } },
+        battle_upgrades: { select: { upgrade_type: true, level: true, quantity: true } },
       },
     });
 
-    // Compute net worth per player: gold + bank + armory value
+    // Compute net worth per player: gold + bank + armory resale + battle upgrade resale (75% value)
     const ranked = players.map((p) => {
       const gold = Number(p.economy?.gold ?? 0);
       const bank = Number(p.economy?.gold_in_bank ?? 0);
-      const armory = computeArmoryValue(
+      const armoryResale = computeArmoryResaleValue(
         (p.items ?? []).map((i) => ({
           itemType: i.item_type,
           usage: i.usage,
           level: i.level,
           quantity: i.quantity,
+        })),
+      );
+      const battleUpgradeResale = computeBattleUpgradeResaleValue(
+        (p.battle_upgrades ?? []).map((bu) => ({
+          upgradeType: bu.upgrade_type,
+          level: bu.level,
+          quantity: bu.quantity,
         })),
       );
       return {
@@ -285,7 +296,7 @@ export class RankingsService {
         race: p.race,
         class: p.player_class,
         level: getLevelForXP(p.stats?.experience ?? 0),
-        score: gold + bank + armory,
+        score: gold + bank + armoryResale + battleUpgradeResale,
         isBot: p.is_bot,
       };
     });
