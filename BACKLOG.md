@@ -23,10 +23,10 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 ## Leaderboard
 
-- [ ] Show rank movement arrows (up/down since last daily reset) — **API done, UI pending**
+- [x] Show rank movement arrows (up/down since last daily reset) — **Done**
 - [x] Daily snapshots at reset time to support delta tracking — **Done: RankingSnapshot table + daily tick**
-- [ ] Jump to your rank/section
-- [ ] Leaderboard should show your rank in each item you select.
+- [x] Show your rank at top of each category — **Done**
+- [x] Highlight your row in the rankings table — **Done**
 
 ## Chat
 
@@ -64,7 +64,10 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 - [ ] Specialization trees (warlord / economist / spymaster)
 - [ ] "Business mode"
 
+## Proficiencies
 
+- [ ] They need a limit, I propose 25 but am open to 50.
+--  my concern with this one is 50% reduction in armory prices is huge (100% even more so:P)
 
 ## ADD to todo
 i might consider something like a retail bonus later it would only show up in the alliance feed for ~10m with a "retaliate" button which has some type of bonus to it - either reward or damage

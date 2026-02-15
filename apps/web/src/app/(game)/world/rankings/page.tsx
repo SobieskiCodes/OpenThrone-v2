@@ -15,10 +15,12 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { OTCard, PlayerHoverCard } from '@/components/ui';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
+import { useSession } from 'next-auth/react';
+import { IconTrendingUp, IconTrendingDown, IconMinus } from '@tabler/icons-react';
 
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -47,6 +49,7 @@ interface RankEntry {
   level: number;
   isBot: boolean;
   score: number | null;
+  rankChange?: number; // Positive = moved up, negative = moved down, 0 or undefined = no change
 }
 
 interface RankingsResponse {
@@ -148,10 +151,37 @@ function formatScore(score: number, category: string, subType: string): string {
   return toLocale(score);
 }
 
+// ─── Rank Change Indicator ──────────────────────────────────────────────
+
+function RankChangeIndicator({ change }: { change?: number }) {
+  if (!change || change === 0) return null;
+
+  if (change > 0) {
+    return (
+      <Tooltip label={`Up ${change} ${change === 1 ? 'spot' : 'spots'}`}>
+        <Group gap={4} style={{ color: 'var(--ot-success)' }}>
+          <IconTrendingUp size={14} />
+          <Text size="xs" fw={600}>+{change}</Text>
+        </Group>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Tooltip label={`Down ${Math.abs(change)} ${Math.abs(change) === 1 ? 'spot' : 'spots'}`}>
+      <Group gap={4} style={{ color: 'var(--ot-danger)' }}>
+        <IconTrendingDown size={14} />
+        <Text size="xs" fw={600}>{change}</Text>
+      </Group>
+    </Tooltip>
+  );
+}
+
 // ─── Component ──────────────────────────────────────────────────────────
 
 export default function RankingsPage() {
   const { api, isReady } = useApi();
+  const { data: session } = useSession();
   const [period, setPeriod] = useState<Period>('allTime');
   const [categoryValue, setCategoryValue] = useState('global');
   const [subTypeValue, setSubTypeValue] = useState('overall_power');
@@ -162,6 +192,12 @@ export default function RankingsPage() {
 
   // Hide score for global category (offense/defense expose raw combat stats)
   const showScore = categoryValue !== 'global';
+
+  // Get current user ID
+  const currentUserId = (session?.user as any)?.id;
+
+  // Find current user's rank in the data
+  const myRank = data?.data.find((entry) => entry.id === currentUserId);
 
   const { data, isLoading } = useQuery<RankingsResponse>({
     queryKey: ['rankings', categoryValue, subTypeValue, period, page],
@@ -280,14 +316,15 @@ export default function RankingsPage() {
         </Group>
 
         {/* Rankings title */}
-        <Group gap="sm" align="center">
-          <Title order={3} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>{subType.icon}</span>
-            <span style={{ textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              {subType.label} Rankings
-            </span>
-          </Title>
-          {subTypeValue === 'overall_power' && (
+        <Group gap="sm" align="center" justify="space-between" wrap="wrap">
+          <Group gap="sm" align="center">
+            <Title order={3} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>{subType.icon}</span>
+              <span style={{ textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                {subType.label} Rankings
+              </span>
+            </Title>
+            {subTypeValue === 'overall_power' && (
             <Tooltip
               label={
                 <Stack gap={2}>
@@ -307,6 +344,27 @@ export default function RankingsPage() {
               </Text>
             </Tooltip>
           )}
+          </Group>
+
+          {/* Current user's rank */}
+          {myRank && (
+            <Badge
+              size="lg"
+              variant="light"
+              style={{
+                background: 'var(--ot-gold)',
+                color: '#000',
+                fontWeight: 700,
+              }}
+            >
+              Your Rank: #{myRank.rank}
+              {myRank.rankChange && myRank.rankChange !== 0 && (
+                <span style={{ marginLeft: 6 }}>
+                  {myRank.rankChange > 0 ? '▲' : '▼'} {Math.abs(myRank.rankChange)}
+                </span>
+              )}
+            </Badge>
+          )}
         </Group>
 
         {/* Rankings table */}
@@ -323,6 +381,7 @@ export default function RankingsPage() {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th ta="center" w={60}>Rank</Table.Th>
+                    {period === 'allTime' && <Table.Th ta="center" w={80}>Change</Table.Th>}
                     <Table.Th>Player</Table.Th>
                     <Table.Th ta="center">Level</Table.Th>
                     {showScore && <Table.Th ta="right">Score</Table.Th>}
@@ -331,7 +390,7 @@ export default function RankingsPage() {
                 <Table.Tbody>
                   {data.data.length === 0 ? (
                     <Table.Tr>
-                      <Table.Td colSpan={showScore ? 4 : 3} ta="center">
+                      <Table.Td colSpan={period === 'allTime' ? (showScore ? 5 : 4) : (showScore ? 4 : 3)} ta="center">
                         <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} py="xl">
                           No data yet{period === 'today' ? ' for today' : ''}. Start playing to appear on the leaderboard!
                         </Text>
@@ -340,8 +399,19 @@ export default function RankingsPage() {
                   ) : (
                     data.data.map((entry) => {
                       const medal = getMedal(entry.rank);
+                      const isCurrentUser = entry.id === currentUserId;
                       return (
-                        <Table.Tr key={entry.id}>
+                        <Table.Tr
+                          key={entry.id}
+                          style={
+                            isCurrentUser
+                              ? {
+                                  backgroundColor: 'rgba(255, 215, 0, 0.08)',
+                                  outline: '2px solid var(--ot-gold)',
+                                }
+                              : undefined
+                          }
+                        >
                           <Table.Td ta="center">
                             {medal ? (
                               <Text size="lg" component="span">{medal}</Text>
@@ -351,6 +421,11 @@ export default function RankingsPage() {
                               </Text>
                             )}
                           </Table.Td>
+                          {period === 'allTime' && (
+                            <Table.Td ta="center">
+                              <RankChangeIndicator change={entry.rankChange} />
+                            </Table.Td>
+                          )}
                           <Table.Td>
                             <PlayerHoverCard
                               id={entry.id}
