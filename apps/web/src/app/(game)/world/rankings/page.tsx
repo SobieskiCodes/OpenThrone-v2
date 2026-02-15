@@ -14,6 +14,7 @@ import {
   UnstyledButton,
   Tooltip,
   Badge,
+  Button,
 } from '@mantine/core';
 import { OTCard, PlayerHoverCard } from '@/components/ui';
 import { useState, useEffect } from 'react';
@@ -21,7 +22,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
 import { useSession } from 'next-auth/react';
-import { IconTrendingUp, IconTrendingDown, IconMinus } from '@tabler/icons-react';
+import { IconTrendingUp, IconTrendingDown, IconMinus, IconTarget } from '@tabler/icons-react';
 
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -209,6 +210,26 @@ export default function RankingsPage() {
   // Find current user's rank in the data
   const myRank = data?.data.find((entry) => entry.id === currentUserId);
 
+  // Fetch user's full rank info (to know what page they're on)
+  const { data: myFullRank } = useQuery<RankEntry | null>({
+    queryKey: ['my-rank', categoryValue, subTypeValue, period],
+    queryFn: async () => {
+      if (!currentUserId) return null;
+      // Fetch all data to find user's rank
+      const allData = await api.get<RankingsResponse>(
+        `/battle/rankings/detailed?category=${categoryValue}&subType=${subTypeValue}&period=${period}&page=1&limit=1000`,
+      );
+      return allData.data.find((entry) => entry.id === currentUserId) || null;
+    },
+    enabled: isReady && !!currentUserId,
+  });
+
+  const handleJumpToMyRank = () => {
+    if (!myFullRank) return;
+    const myPage = Math.ceil(myFullRank.rank / 25);
+    setPage(myPage);
+  };
+
   const handleCategoryChange = (val: string) => {
     const cat = CATEGORIES.find((c) => c.value === val);
     setCategoryValue(val);
@@ -348,23 +369,36 @@ export default function RankingsPage() {
           </Group>
 
           {/* Current user's rank */}
-          {myRank && (
-            <Badge
-              size="lg"
-              variant="light"
-              style={{
-                background: 'var(--ot-gold)',
-                color: '#000',
-                fontWeight: 700,
-              }}
-            >
-              Your Rank: #{myRank.rank}
-              {myRank.rankChange && myRank.rankChange !== 0 && (
-                <span style={{ marginLeft: 6 }}>
-                  {myRank.rankChange > 0 ? '▲' : '▼'} {Math.abs(myRank.rankChange)}
-                </span>
+          {(myRank || myFullRank) && (
+            <Group gap="xs">
+              {!myRank && myFullRank && (
+                <Button
+                  size="sm"
+                  variant="light"
+                  leftSection={<IconTarget size={16} />}
+                  onClick={handleJumpToMyRank}
+                  style={{ color: 'var(--ot-gold)' }}
+                >
+                  Jump to My Rank
+                </Button>
               )}
-            </Badge>
+              <Badge
+                size="lg"
+                variant="light"
+                style={{
+                  background: 'var(--ot-gold)',
+                  color: '#000',
+                  fontWeight: 700,
+                }}
+              >
+                Your Rank: #{(myRank || myFullRank)!.rank}
+                {(myRank || myFullRank)!.rankChange && (myRank || myFullRank)!.rankChange !== 0 && (
+                  <span style={{ marginLeft: 6 }}>
+                    {(myRank || myFullRank)!.rankChange! > 0 ? '▲' : '▼'} {Math.abs((myRank || myFullRank)!.rankChange!)}
+                  </span>
+                )}
+              </Badge>
+            </Group>
           )}
         </Group>
 
