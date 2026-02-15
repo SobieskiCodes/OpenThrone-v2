@@ -547,4 +547,164 @@ export class RankingsService {
       },
     });
   }
+
+  /** Get current user's rank for a specific category */
+  async getMyRank(
+    playerId: string,
+    category: RankingCategory,
+    subType: string,
+    period: RankingPeriod,
+  ): Promise<RankEntry | null> {
+    // For global rankings
+    if (category === 'global') {
+      return this.getMyGlobalRank(playerId, subType);
+    }
+
+    // For other categories, fetch a page that would likely contain the user
+    // then search through multiple pages if needed
+    let page = 1;
+    const limit = 100;
+
+    while (page <= 10) { // Max 10 pages (top 1000 players)
+      const result = await this.getRankings(category, subType, period, page, limit);
+      const myEntry = result.data.find((entry) => entry.id === playerId);
+
+      if (myEntry) {
+        return myEntry;
+      }
+
+      // If we've reached the last page, stop
+      if (page >= result.pagination.totalPages) {
+        break;
+      }
+
+      page++;
+    }
+
+    return null;
+  }
+
+  private async getMyGlobalRank(playerId: string, subType: string): Promise<RankEntry | null> {
+    const player = await this.prisma.player.findUnique({
+      where: { id: playerId },
+      select: {
+        id: true,
+        display_name: true,
+        race: true,
+        player_class: true,
+        is_bot: true,
+        stats: { select: { offense: true, defense: true, experience: true, previous_rank: true } },
+        economy: { select: { gold: true, gold_in_bank: true } },
+        items: { select: { item_type: true, usage: true, level: true, quantity: true } },
+        battle_upgrades: { select: { upgrade_type: true, level: true, quantity: true } },
+      },
+    });
+
+    if (!player || !player.stats) {
+      return null;
+    }
+
+    let myScore: number;
+    let rank: number;
+
+    if (subType === 'overall_power') {
+      // Calculate player's overall power score
+      const armoryResale = computeArmoryResaleValue(
+        (player.items ?? []).map((i) => ({
+          itemType: i.item_type,
+          usage: i.usage,
+          level: i.level,
+          quantity: i.quantity,
+        })),
+      );
+      const battleUpgradeResale = computeBattleUpgradeResaleValue(
+        (player.battle_upgrades ?? []).map((bu) => ({
+          upgradeType: bu.upgrade_type,
+          level: bu.level,
+          quantity: bu.quantity,
+        })),
+      );
+      const gold = Number(player.economy?.gold ?? 0);
+      const bank = Number(player.economy?.gold_in_bank ?? 0);
+
+      myScore = calculateRankScore({
+        offense: player.stats.offense,
+        defense: player.stats.defense,
+        netWorth: gold + bank + armoryResale + battleUpgradeResale,
+      });
+
+      // Count how many players have a higher score
+      const allPlayers = await this.prisma.player.findMany({
+        where: { status: 'ACTIVE' },
+        select: {
+          stats: { select: { offense: true, defense: true } },
+          economy: { select: { gold: true, gold_in_bank: true } },
+          items: { select: { item_type: true, usage: true, level: true, quantity: true } },
+          battle_upgrades: { select: { upgrade_type: true, level: true, quantity: true } },
+        },
+      });
+
+      let higherCount = 0;
+      for (const p of allPlayers) {
+        if (!p.stats) continue;
+        const pArmory = computeArmoryResaleValue((p.items ?? []).map((i) => ({ itemType: i.item_type, usage: i.usage, level: i.level, quantity: i.quantity })));
+        const pBattleUpgrade = computeBattleUpgradeResaleValue((p.battle_upgrades ?? []).map((bu) => ({ upgradeType: bu.upgrade_type, level: bu.level, quantity: bu.quantity })));
+        const pGold = Number(p.economy?.gold ?? 0);
+        const pBank = Number(p.economy?.gold_in_bank ?? 0);
+        const pScore = calculateRankScore({
+          offense: p.stats.offense,
+          defense: p.stats.defense,
+          netWorth: pGold + pBank + pArmory + pBattleUpgrade,
+        });
+        if (pScore > myScore) {
+          higherCount++;
+        }
+      }
+
+      rank = higherCount + 1;
+    } else if (subType === 'offense') {
+      myScore = player.stats.offense;
+      const higherCount = await this.prisma.playerStats.count({
+        where: {
+          player: { status: 'ACTIVE' },
+          offense: { gt: myScore },
+        },
+      });
+      rank = higherCount + 1;
+    } else if (subType === 'defense') {
+      myScore = player.stats.defense;
+      const higherCount = await this.prisma.playerStats.count({
+        where: {
+          player: { status: 'ACTIVE' },
+          defense: { gt: myScore },
+        },
+      });
+      rank = higherCount + 1;
+    } else if (subType === 'level') {
+      myScore = getLevelForXP(player.stats.experience);
+      const higherCount = await this.prisma.playerStats.count({
+        where: {
+          player: { status: 'ACTIVE' },
+          experience: { gt: player.stats.experience },
+        },
+      });
+      rank = higherCount + 1;
+    } else {
+      return null;
+    }
+
+    const rankChange = player.stats.previous_rank > 0 ? player.stats.previous_rank - rank : 0;
+
+    return {
+      rank,
+      id: player.id,
+      displayName: player.display_name,
+      race: player.race,
+      class: player.player_class,
+      level: getLevelForXP(player.stats.experience),
+      score: myScore,
+      isBot: player.is_bot,
+      rankChange,
+    };
+  }
 }

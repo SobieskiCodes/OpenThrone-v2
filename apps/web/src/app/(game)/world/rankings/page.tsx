@@ -214,15 +214,22 @@ export default function RankingsPage() {
   const { data: myFullRank } = useQuery<RankEntry | null>({
     queryKey: ['my-rank', categoryValue, subTypeValue, period],
     queryFn: async () => {
-      if (!currentUserId) return null;
-      // Fetch all data to find user's rank
-      const allData = await api.get<RankingsResponse>(
-        `/battle/rankings/detailed?category=${categoryValue}&subType=${subTypeValue}&period=${period}&page=1&limit=1000`,
+      if (!currentUserId) {
+        console.log('[Rankings] No currentUserId, skipping full rank fetch');
+        return null;
+      }
+      console.log('[Rankings] Fetching my rank');
+      // Use dedicated endpoint to get just current user's rank
+      const myEntry = await api.get<RankEntry | null>(
+        `/battle/rankings/my-rank?category=${categoryValue}&subType=${subTypeValue}&period=${period}`,
       );
-      return allData.data.find((entry) => entry.id === currentUserId) || null;
+      console.log('[Rankings] My full rank:', myEntry);
+      return myEntry;
     },
     enabled: isReady && !!currentUserId,
   });
+
+  console.log('[Rankings] myRank:', myRank, 'myFullRank:', myFullRank, 'currentUserId:', currentUserId);
 
   const handleJumpToMyRank = () => {
     if (!myFullRank) return;
@@ -371,17 +378,16 @@ export default function RankingsPage() {
           {/* Current user's rank */}
           {(myRank || myFullRank) && (
             <Group gap="xs">
-              {!myRank && myFullRank && (
-                <Button
-                  size="sm"
-                  variant="light"
-                  leftSection={<IconTarget size={16} />}
-                  onClick={handleJumpToMyRank}
-                  style={{ color: 'var(--ot-gold)' }}
-                >
-                  Jump to My Rank
-                </Button>
-              )}
+              <Button
+                size="sm"
+                variant="light"
+                leftSection={<IconTarget size={16} />}
+                onClick={handleJumpToMyRank}
+                disabled={!!myRank}
+                style={{ color: 'var(--ot-gold)' }}
+              >
+                {myRank ? 'You\'re Here' : 'Jump to My Rank'}
+              </Button>
               <Badge
                 size="lg"
                 variant="light"

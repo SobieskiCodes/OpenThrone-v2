@@ -50,6 +50,19 @@ export class BattleController {
     );
   }
 
+  @Get('rankings/my-rank')
+  async getMyRank(
+    @CurrentPlayer() player: any,
+    @Query(new ZodValidationPipe(detailedRankingsQuerySchema)) query: DetailedRankingsQueryDto,
+  ) {
+    return this.rankingsService.getMyRank(
+      player.id,
+      query.category as RankingCategory,
+      query.subType,
+      query.period as RankingPeriod,
+    );
+  }
+
   @Get('rankings')
   async getRankings(
     @CurrentPlayer() player: any,
