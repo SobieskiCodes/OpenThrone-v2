@@ -36,6 +36,7 @@ import type {
   BuyMercenaryDto,
   UpgradeBuildingDto,
 } from '@openthrone/shared';
+import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
 
 @Injectable()
 export class StructuresService {
@@ -207,11 +208,15 @@ export class StructuresService {
       ),
     );
 
+    // Build player state snapshot for cache sync
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+
     return {
       gold: result.newGold,
       buildingType,
       newLevel: result.newLevel,
       name: result.name,
+      playerState,
     };
   }
 
@@ -493,7 +498,10 @@ export class StructuresService {
       ),
     );
 
-    return result;
+    // Build player state snapshot for cache sync
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+
+    return { ...result, playerState };
   }
 
   async sellBattleUpgrade(playerId: string, dto: SellBattleUpgradeDto) {
@@ -568,7 +576,10 @@ export class StructuresService {
       };
     });
 
-    return result;
+    // Build player state snapshot for cache sync
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+
+    return { ...result, playerState };
   }
 
   private battleUpgradeTypeToUnitType(upgradeType: string): string {

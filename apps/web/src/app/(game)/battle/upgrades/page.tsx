@@ -19,8 +19,9 @@ import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
+import { updatePlayerCache } from '@/lib/cache-sync';
 import { toLocale, getUnitByTypeAndLevel } from '@openthrone/game-logic';
-import type { BattleUpgradeDefinition } from '@openthrone/shared';
+import type { BattleUpgradeDefinition, PlayerStateSnapshot } from '@openthrone/shared';
 import { BattleUpgradeType, UnitType } from '@openthrone/shared';
 
 interface OwnedBattleUpgrade {
@@ -68,12 +69,16 @@ export default function BattleUpgradesPage() {
 
   const buyMutation = useMutation({
     mutationFn: (data: { upgradeType: string; level: number; quantity: number }) =>
-      api.post('/structures/battle-upgrade', data),
-    onSuccess: () => {
+      api.post<{ playerState: PlayerStateSnapshot }>('/structures/battle-upgrade', data),
+    onSuccess: (response) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, response.playerState);
+
+      // Still invalidate structures queries
+      queryClient.invalidateQueries({ queryKey: ['structures'] });
+
       setQuantities({});
       setBusyKey(null);
-      queryClient.invalidateQueries({ queryKey: ['structures'] });
-      queryClient.invalidateQueries({ queryKey: ['player'] });
       notifications.show({ title: 'Purchased', message: 'Battle upgrade bought!', color: 'green' });
     },
     onError: (err: Error) => {
@@ -84,12 +89,16 @@ export default function BattleUpgradesPage() {
 
   const sellMutation = useMutation({
     mutationFn: (data: { upgradeType: string; level: number; quantity: number }) =>
-      api.post('/structures/sell-battle-upgrade', data),
-    onSuccess: () => {
+      api.post<{ playerState: PlayerStateSnapshot }>('/structures/sell-battle-upgrade', data),
+    onSuccess: (response) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, response.playerState);
+
+      // Still invalidate structures queries
+      queryClient.invalidateQueries({ queryKey: ['structures'] });
+
       setQuantities({});
       setBusyKey(null);
-      queryClient.invalidateQueries({ queryKey: ['structures'] });
-      queryClient.invalidateQueries({ queryKey: ['player'] });
       notifications.show({ title: 'Sold', message: 'Battle upgrade sold! 75% gold refunded.', color: 'green' });
     },
     onError: (err: Error) => {
