@@ -13,6 +13,7 @@ import {
   SegmentedControl,
   UnstyledButton,
   Tooltip,
+  Badge,
 } from '@mantine/core';
 import { OTCard, PlayerHoverCard } from '@/components/ui';
 import { useState, useEffect } from 'react';
@@ -196,9 +197,6 @@ export default function RankingsPage() {
   // Get current user ID
   const currentUserId = (session?.user as any)?.id;
 
-  // Find current user's rank in the data
-  const myRank = data?.data.find((entry) => entry.id === currentUserId);
-
   const { data, isLoading } = useQuery<RankingsResponse>({
     queryKey: ['rankings', categoryValue, subTypeValue, period, page],
     queryFn: () =>
@@ -207,6 +205,9 @@ export default function RankingsPage() {
       ),
     enabled: isReady,
   });
+
+  // Find current user's rank in the data
+  const myRank = data?.data.find((entry) => entry.id === currentUserId);
 
   const handleCategoryChange = (val: string) => {
     const cat = CATEGORIES.find((c) => c.value === val);
