@@ -20,6 +20,20 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 ## Dashboard
 
+## UX / Performance
+
+- [ ] **Cache Sync: Return Updated State in Mutation Responses** — See `CACHE_SYNC_PLAN.md`
+  - **Problem**: After attacks/training/recruiting, dashboard shows stale data for 10-15s until cache expires
+  - **Solution**: Have mutation endpoints return full updated player state (`PlayerStateSnapshot`)
+  - **Impact**: Instant feedback after every action, no manual refresh needed
+  - **Security**: Safe - server is still source of truth, validates all actions against DB
+  - **Implementation**:
+    - Phase 1: Combat (attack, spy) — highest UX impact
+    - Phase 2: Training & Economy (train, bank)
+    - Phase 3: Armory & Structures (buy, upgrade)
+    - Phase 4: Recruitment & misc
+  - **Benefits**: Single request vs 5+ refetches, faster on slow networks, deterministic (no optimistic update bugs)
+
 
 ## Leaderboard
 
