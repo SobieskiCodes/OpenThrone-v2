@@ -28,6 +28,7 @@ import type {
   SpyMissionDto,
 } from '@openthrone/shared';
 import type { FullPlayerData, CombatProfile } from '@openthrone/game-logic';
+import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
 import {
   AttackExecutedEvent,
   SpyMissionExecutedEvent,
@@ -712,6 +713,11 @@ export class BattleService {
       );
     }
 
+    // Build player state snapshot AFTER transaction (for instant cache update)
+    const playerState = await buildPlayerSnapshot(this.prisma, attackerId, {
+      includeUnits: true, // Include units since casualties happened
+    });
+
     return {
       id: log.id,
       attackerWins: result.attackerWins,
@@ -722,6 +728,7 @@ export class BattleService {
       defenderCasualties: scaledDefenderCasualties,
       attackerXP: scaledAttackerXP,
       defenderXP: scaledDefenderXP,
+      playerState, // Fresh state for cache update
     };
   }
 
@@ -867,7 +874,8 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'intel', result.success, attackLog.id),
       );
 
-      return { ...result, missionType: 'intel', intelData, attackLogId: attackLog.id };
+      const playerState1 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'intel', intelData, attackLogId: attackLog.id, playerState: playerState1 };
     }
 
     if (dto.type === 'ASSASSINATE') {
@@ -916,7 +924,8 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'assassinate', result.success, assassinateLog.id),
       );
 
-      return { ...result, missionType: 'assassinate' };
+      const playerState2 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'assassinate', playerState: playerState2 };
     }
 
     if (dto.type === 'INFILTRATE') {
@@ -971,7 +980,8 @@ export class BattleService {
         );
       }
 
-      return { ...result, missionType: 'infiltrate' };
+      const playerState3 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'infiltrate', playerState: playerState3 };
     }
 
     if (dto.type === 'STEAL_GOLD') {
@@ -1034,7 +1044,8 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'steal_gold', result.success, stealLog.id),
       );
 
-      return { ...result, missionType: 'steal_gold', goldStolen: result.goldStolen.toString() };
+      const playerState4 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'steal_gold', goldStolen: result.goldStolen.toString(), playerState: playerState4 };
     }
 
     if (dto.type === 'SABOTAGE') {
@@ -1102,7 +1113,8 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'sabotage', result.success, sabotageLog.id),
       );
 
-      return { ...result, missionType: 'sabotage', destroyedItems };
+      const playerState5 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'sabotage', destroyedItems, playerState: playerState5 };
     }
 
     throw new BadRequestException('Invalid spy mission type');

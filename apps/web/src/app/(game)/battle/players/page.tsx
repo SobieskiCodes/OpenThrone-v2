@@ -30,6 +30,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRouter } from 'next/navigation';
+import { updatePlayerCache } from '@/lib/cache-sync';
+import type { PlayerStateSnapshot } from '@openthrone/shared';
 
 interface AllianceIntelEntry {
   spiedByName: string;
@@ -134,6 +136,7 @@ function RankBadge({ rank }: { rank: number }) {
 interface AttackResult {
   id: number;
   attackerWins: boolean;
+  playerState: PlayerStateSnapshot;
 }
 
 // Helper to load battle filters from localStorage
@@ -197,6 +200,12 @@ export default function PlayersPage() {
     mutationFn: ({ defenderId, turns }: { defenderId: string; turns: number }) =>
       api.post(`/battle/attack/${defenderId}`, { turns }) as Promise<AttackResult>,
     onSuccess: (data: AttackResult) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, data.playerState);
+
+      // Still invalidate battle queries (history, rankings, etc.)
+      queryClient.invalidateQueries({ queryKey: ['battle'] });
+
       closeConfirm();
       notifications.show({
         title: data.attackerWins ? 'Victory!' : 'Defeat!',
@@ -205,7 +214,6 @@ export default function PlayersPage() {
           : `Your attack on ${attackTarget?.displayName ?? 'the enemy'} was repelled.`,
         color: data.attackerWins ? 'green' : 'red',
       });
-      queryClient.invalidateQueries({ queryKey: ['battle'] });
       router.push(`/battle/report/${data.id}`);
     },
     onError: (err: Error) => {
