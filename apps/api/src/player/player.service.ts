@@ -31,9 +31,18 @@ export class PlayerService {
   constructor(private readonly prisma: PrismaService) {}
 
   async searchPlayers(search: string) {
+    // Build where clause compatible with both SQLite and PostgreSQL
+    // PostgreSQL supports mode: 'insensitive', SQLite doesn't
+    const isPostgres = process.env.DATABASE_URL?.includes('postgresql');
+    const containsClause: any = { contains: search };
+    if (isPostgres) {
+      containsClause.mode = 'insensitive';
+    }
+
     const where: any = {
-      display_name: { contains: search, mode: 'insensitive' },
+      display_name: containsClause,
     };
+
     const players = await this.prisma.player.findMany({
       where,
       select: {

@@ -27,9 +27,16 @@ export class AdminService {
     const where: any = {};
 
     if (search) {
+      // Build contains clause compatible with both SQLite and PostgreSQL
+      const isPostgres = process.env.DATABASE_URL?.includes('postgresql');
+      const containsClause: any = { contains: search };
+      if (isPostgres) {
+        containsClause.mode = 'insensitive';
+      }
+
       where.OR = [
-        { display_name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
+        { display_name: containsClause },
+        { email: containsClause },
       ];
     }
     if (status) {
