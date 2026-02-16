@@ -13,7 +13,8 @@
     "db:populate": "turbo db:populate",
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "sim:bots": "tsx scripts/simulate-bots.ts"
   },
   "devDependencies": {
     "turbo": "^2.4.0",
