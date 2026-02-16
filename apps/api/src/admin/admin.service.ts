@@ -387,7 +387,7 @@ export class AdminService {
           bank_history,
           mercenary_daily_purchases,
           player_cumulative_stats, ranking_snapshots, player_stats,
-          player_bonus_points, player_buildings, player_fortifications,
+          player_bonus_points, player_buildings, player_fortification,
           player_structure_upgrades, player_battle_upgrades,
           player_items, player_units,
           permission_grants, password_resets, account_status_history,

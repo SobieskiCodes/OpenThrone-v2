@@ -56,6 +56,7 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
   - Use case: External scripts, admin tools, data analysis, testing
   - DB model: `ApiKey` (id, name, key_hash, player_id, permissions[], enabled, created_at, last_used, expires_at)
 
+
 ## Future Ideas
 - [ ] Specialization trees (warlord / economist / spymaster)
 - [ ] "Business mode"
