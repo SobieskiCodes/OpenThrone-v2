@@ -14,9 +14,11 @@
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
     "clean": "turbo clean",
-    "sim:bots": "tsx scripts/simulate-bots.ts"
+    "sim:bots": "tsx scripts/simulate-bots.ts",
+    "seed:snapshots": "tsx scripts/seed-bot-snapshots.ts"
   },
   "devDependencies": {
+    "tsx": "^4.19.0",
     "turbo": "^2.4.0",
     "typescript": "^5.8.0"
   },

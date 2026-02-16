@@ -11,6 +11,7 @@ import { BotBrainService } from './bot-brain.service';
 import { BotExecutorService } from './bot-executor.service';
 import { BotSchedulerService } from './bot-scheduler.service';
 import { BotSnapshotService } from './bot-snapshot.service';
+import { BotSimulationService } from './bot-simulation.service';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { BotSnapshotService } from './bot-snapshot.service';
     BotExecutorService,
     BotSchedulerService,
     BotSnapshotService,
+    BotSimulationService,
   ],
   exports: [BotService],
 })
