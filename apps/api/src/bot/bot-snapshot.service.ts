@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { BotSnapshot } from '@prisma/client';
+import { getLevelForXP } from '@openthrone/game-logic';
 
 @Injectable()
 export class BotSnapshotService {
@@ -11,8 +11,10 @@ export class BotSnapshotService {
   /**
    * Capture a snapshot of the bot's current state.
    * This should be called daily to track long-term progression.
+   * @param botConfigId The bot config ID
+   * @param snapshotDate Optional date for the snapshot (defaults to now)
    */
-  async captureSnapshot(botConfigId: number): Promise<BotSnapshot> {
+  async captureSnapshot(botConfigId: number, snapshotDate?: Date) {
     const bot = await this.prisma.botConfig.findUnique({
       where: { id: botConfigId },
       include: {
@@ -81,7 +83,7 @@ export class BotSnapshotService {
     const snapshot = await this.prisma.botSnapshot.create({
       data: {
         bot_config_id: botConfigId,
-        snapshot_date: new Date(),
+        snapshot_date: snapshotDate || new Date(),
 
         // Economy
         gold: player.economy?.gold ?? BigInt(0),
@@ -89,7 +91,7 @@ export class BotSnapshotService {
         attack_turns: player.economy?.attack_turns ?? 0,
 
         // Stats
-        level: player.stats?.rank ?? 0,
+        level: getLevelForXP(player.stats?.experience ?? 0),
         experience: BigInt(player.stats?.experience ?? 0),
         offense: player.stats?.offense ?? 0,
         defense: player.stats?.defense ?? 0,
@@ -141,9 +143,7 @@ export class BotSnapshotService {
   /**
    * Get the most recent snapshot for a bot.
    */
-  async getLatestSnapshot(
-    botConfigId: number,
-  ): Promise<BotSnapshot | null> {
+  async getLatestSnapshot(botConfigId: number) {
     return this.prisma.botSnapshot.findFirst({
       where: { bot_config_id: botConfigId },
       orderBy: { snapshot_date: 'desc' },
@@ -157,7 +157,7 @@ export class BotSnapshotService {
     botConfigId: number,
     startDate: Date,
     endDate: Date = new Date(),
-  ): Promise<BotSnapshot[]> {
+  ) {
     return this.prisma.botSnapshot.findMany({
       where: {
         bot_config_id: botConfigId,
@@ -176,7 +176,7 @@ export class BotSnapshotService {
   async getRecentSnapshots(
     botConfigId: number,
     days: number,
-  ): Promise<BotSnapshot[]> {
+  ) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     return this.getSnapshotHistory(botConfigId, startDate);
