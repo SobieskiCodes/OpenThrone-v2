@@ -10,6 +10,7 @@ import { BotService } from './bot.service';
 import { BotBrainService } from './bot-brain.service';
 import { BotExecutorService } from './bot-executor.service';
 import { BotSchedulerService } from './bot-scheduler.service';
+import { BotSnapshotService } from './bot-snapshot.service';
 
 @Module({
   imports: [
@@ -21,7 +22,13 @@ import { BotSchedulerService } from './bot-scheduler.service';
     RecruitmentModule,
   ],
   controllers: [BotController],
-  providers: [BotService, BotBrainService, BotExecutorService, BotSchedulerService],
+  providers: [
+    BotService,
+    BotBrainService,
+    BotExecutorService,
+    BotSchedulerService,
+    BotSnapshotService,
+  ],
   exports: [BotService],
 })
 export class BotModule {}

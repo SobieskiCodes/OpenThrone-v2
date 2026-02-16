@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BotService } from './bot.service';
 import { BotBrainService } from './bot-brain.service';
 import { BotExecutorService } from './bot-executor.service';
+import { BotSnapshotService } from './bot-snapshot.service';
 import {
   BotSessionStartedEvent,
   BotSessionCompletedEvent,
@@ -25,6 +26,7 @@ export class BotSchedulerService {
     private readonly botService: BotService,
     private readonly botBrain: BotBrainService,
     private readonly botExecutor: BotExecutorService,
+    private readonly snapshotService: BotSnapshotService,
   ) {}
 
   /**
@@ -35,6 +37,37 @@ export class BotSchedulerService {
   async handleCron() {
     if (!this.config.get('ENABLE_BOT_SCHEDULER')) return;
     await this.runAllBots();
+  }
+
+  /**
+   * Capture daily snapshots for all active bots (runs at 1:00 AM).
+   * This tracks long-term bot progression for analytics.
+   */
+  @Cron('0 0 1 * * *')
+  async captureDailySnapshots() {
+    if (!this.config.get('ENABLE_BOT_SCHEDULER')) return;
+
+    this.logger.log('Starting daily snapshot capture...');
+    const startTime = Date.now();
+
+    const bots = await this.prisma.botConfig.findMany({
+      where: { is_active: true },
+    });
+
+    let captured = 0;
+    for (const bot of bots) {
+      try {
+        await this.snapshotService.captureSnapshot(bot.id);
+        captured++;
+      } catch (err) {
+        this.logger.error(`Failed to capture snapshot for bot ${bot.id}: ${err}`);
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    this.logger.log(
+      `Daily snapshot capture complete: ${captured}/${bots.length} bots in ${duration}ms`,
+    );
   }
 
   /**
@@ -242,6 +275,13 @@ export class BotSchedulerService {
       where: { id: playerId },
       data: { last_active: new Date() },
     });
+
+    // Update snapshot metrics
+    await this.snapshotService.updateSessionMetrics(
+      configId,
+      actionsPerformed,
+      actions.length - actionsPerformed, // failed actions
+    );
 
     this.eventEmitter.emit(
       'bot.session_completed',

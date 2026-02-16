@@ -643,6 +643,7 @@ model BotConfig {
 
   player      Player         @relation(fields: [player_id], references: [id])
   action_logs BotActionLog[]
+  snapshots   BotSnapshot[]
 
   @@index([is_active])
   @@map("bot_configs")
@@ -665,6 +666,63 @@ model BotActionLog {
   @@index([bot_config_id, created_at])
   @@index([session_id])
   @@map("bot_action_logs")
+}
+
+model BotSnapshot {
+  id               Int      @id @default(autoincrement())
+  bot_config_id    Int
+  snapshot_date    DateTime @default(now())
+
+  // Economy
+  gold             BigInt
+  gold_in_bank     BigInt
+  attack_turns     Int
+
+  // Stats
+  level            Int
+  experience       BigInt
+  offense          Int
+  defense          Int
+  spy              Int
+  sentry           Int
+
+  // Population
+  citizens         Int
+  workers          Int
+  offense_units    Int
+  defense_units    Int
+  spy_units        Int
+  sentry_units     Int
+  total_population Int
+
+  // Fort
+  fort_level       Int
+  fort_hp          Int
+  fort_max_hp      Int
+
+  // Combat metrics (since last snapshot)
+  attacks_won      Int    @default(0)
+  attacks_lost     Int    @default(0)
+  gold_stolen      BigInt @default(0)
+  gold_lost        BigInt @default(0)
+
+  // Equipment counts by tier
+  weapons_t1       Int    @default(0)
+  weapons_t2       Int    @default(0)
+  weapons_t3       Int    @default(0)
+  armor_t1         Int    @default(0)
+  armor_t2         Int    @default(0)
+  armor_t3         Int    @default(0)
+
+  // Session metrics (since last snapshot)
+  sessions_run     Int    @default(0)
+  actions_performed Int   @default(0)
+  actions_failed   Int    @default(0)
+
+  bot_config       BotConfig @relation(fields: [bot_config_id], references: [id])
+
+  @@index([bot_config_id, snapshot_date])
+  @@map("bot_snapshots")
 }
 
 model AllianceIntel {
