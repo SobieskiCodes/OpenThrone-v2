@@ -80,3 +80,13 @@ spy calcs:
 https://discord.com/channels/1210025164985864234/1450488850001694750/1466066344331186239
 
 barracks is citizen per tick - maybe?
+
+should level play a small role in over all power? it coulda kinda discourage level holding
+
+mercenaries takes you to the old building buy page, not mercenaries for sale lmao
+
+Should we add a player compare rankings thing
+
+Fort repair button on dashboard
+
+Upgrade button in armory, higher tier items should take equip precendence
