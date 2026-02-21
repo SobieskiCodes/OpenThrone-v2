@@ -634,6 +634,7 @@ export class StructuresService {
       return {
         unitType: ut,
         unitName: unitDef?.name ?? ut,
+        bonus: unitDef?.bonus ?? 0,
         available: Math.max(0, total - purchased),
         total,
         purchased,

@@ -14,6 +14,8 @@ import {
   SimpleGrid,
   NumberInput,
   Progress,
+  Table,
+  ThemeIcon,
 } from '@mantine/core';
 import { OTCard } from '@/components/ui';
 import { useState } from 'react';
@@ -21,10 +23,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
 import { BuildingType } from '@openthrone/shared';
+import { IconSword, IconShield, IconEye, IconLock, IconClock } from '@tabler/icons-react';
 
 interface StockItem {
   unitType: string;
   unitName: string;
+  bonus: number;
   available: number;
   total: number;
   purchased: number;
@@ -159,148 +163,169 @@ export default function MercenaryCampPage() {
           </Group>
         </OTCard>
 
-        {/* Upgrade card */}
+        {/* Upgrade notice */}
         {mercStatus.nextUpgrade && (
-          <Paper withBorder p="md">
-            <Title order={4} mb="sm">Next Upgrade</Title>
-            <Stack gap="sm">
-              <Group justify="space-between">
-                <Text size="sm">Name:</Text>
-                <Text size="sm" fw={700}>{mercStatus.nextUpgrade.name}</Text>
-              </Group>
-              <Group justify="space-between">
-                <Text size="sm">Daily Stock:</Text>
-                <Text size="sm" fw={700} c="green">
-                  {mercStatus.stock.reduce((s, i) => s + i.total, 0)} → {mercStatus.nextUpgrade.dailyStock}
-                </Text>
-              </Group>
-              <Group justify="space-between">
-                <Text size="sm">Cost:</Text>
-                <Text size="sm" fw={700}>{toLocale(mercStatus.nextUpgrade.cost)}</Text>
-              </Group>
-              <Group justify="space-between">
-                <Text size="sm">Requires:</Text>
-                <Badge
-                  color={fortLevel >= mercStatus.nextUpgrade.fortLevel ? 'green' : 'red'}
-                  size="sm"
-                  variant="light"
-                >
-                  Fort Level {mercStatus.nextUpgrade.fortLevel}
-                </Badge>
-              </Group>
-              <Button
-                color="blue"
-                disabled={
-                  fortLevel < mercStatus.nextUpgrade.fortLevel ||
-                  gold < mercStatus.nextUpgrade.cost
-                }
-                loading={upgradeMutation.isPending}
-                onClick={() => {
-                  setError(null);
-                  setSuccess(null);
-                  upgradeMutation.mutate();
-                }}
-              >
-                Upgrade Camp ({toLocale(mercStatus.nextUpgrade.cost)} gold)
-              </Button>
-            </Stack>
-          </Paper>
+          <Alert color="blue" title="Upgrade Available">
+            <Text size="sm">
+              Upgrade to <strong>{mercStatus.nextUpgrade.name}</strong> for <strong>{mercStatus.nextUpgrade.dailyMercStock} daily mercenaries</strong> (currently {mercStatus.stock.reduce((s, i) => s + i.total, 0)}).
+              Visit the <strong>Buildings</strong> page to upgrade.
+            </Text>
+          </Alert>
         )}
 
-        {/* Stock grid */}
-        {mercStatus.campLevel > 1 && (
+        {/* Stock table */}
+        {mercStatus.campLevel >= 1 && (
           <>
-            <Title order={3}>Available Mercenaries</Title>
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-              {mercStatus.stock.map((item) => (
-                <OTCard key={item.unitType}>
-                  <Stack gap="sm">
-                    <Group justify="space-between">
-                      <Text fw={700} size="lg">{item.unitName}</Text>
-                      <Badge
-                        variant="light"
-                        color={item.unitType === 'OFFENSE' || item.unitType === 'DEFENSE' ? 'blue' : 'grape'}
-                        size="sm"
-                      >
-                        {item.unitType}
-                      </Badge>
-                    </Group>
+            <OTCard>
+              <Stack gap="md">
+                <Group justify="space-between" align="center">
+                  <Title order={3}>Available Mercenaries</Title>
+                  <Group gap="xs">
+                    <ThemeIcon size="sm" variant="light" color="gray">
+                      <IconClock size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" c="var(--ot-text-dim)">Resets at midnight UTC</Text>
+                  </Group>
+                </Group>
 
-                    <Group justify="space-between">
-                      <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
-                        Available: {item.available} / {item.total}
-                      </Text>
-                    </Group>
-
-                    <Progress
-                      value={item.total > 0 ? ((item.total - item.available) / item.total) * 100 : 0}
-                      color={item.available > 0 ? 'green' : 'red'}
-                      size="sm"
-                    />
-
-                    <Group justify="space-between" wrap="nowrap">
-                      <Stack gap={2}>
-                        <Text size="sm" fw={600}>{toLocale(item.cost)} gold each</Text>
-                        <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
-                          1.5x premium (base: {toLocale(item.baseCost)})
-                        </Text>
-                      </Stack>
-                    </Group>
-
-                    <Group gap="sm" align="flex-end">
-                      <NumberInput
-                        label="Quantity"
-                        min={1}
-                        max={item.available}
-                        value={quantities[item.unitType] ?? ''}
-                        onChange={(val) =>
-                          setQuantities((prev) => ({
-                            ...prev,
-                            [item.unitType]: typeof val === 'number' ? val : 0,
-                          }))
+                <Table highlightOnHover striped>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Unit</Table.Th>
+                      <Table.Th>Stats</Table.Th>
+                      <Table.Th>Price</Table.Th>
+                      <Table.Th>Available</Table.Th>
+                      <Table.Th style={{ width: 200 }}>Hire</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {mercStatus.stock.map((item) => {
+                      const getStatIcon = () => {
+                        switch (item.unitType) {
+                          case 'OFFENSE': return <IconSword size={16} />;
+                          case 'DEFENSE': return <IconShield size={16} />;
+                          case 'SPY': return <IconEye size={16} />;
+                          case 'SENTRY': return <IconLock size={16} />;
+                          default: return null;
                         }
-                        style={{ flex: 1 }}
-                        size="sm"
-                        disabled={item.available <= 0}
-                      />
-                      <Button
-                        size="sm"
-                        color="yellow"
-                        disabled={
-                          item.available <= 0 ||
-                          !quantities[item.unitType] ||
-                          (quantities[item.unitType] ?? 0) <= 0 ||
-                          gold < item.cost * (quantities[item.unitType] ?? 0)
+                      };
+
+                      const getStatColor = () => {
+                        switch (item.unitType) {
+                          case 'OFFENSE': return 'red';
+                          case 'DEFENSE': return 'blue';
+                          case 'SPY': return 'grape';
+                          case 'SENTRY': return 'cyan';
+                          default: return 'gray';
                         }
-                        loading={buyMutation.isPending}
-                        onClick={() => handleHire(item.unitType)}
-                      >
-                        Hire
-                      </Button>
-                    </Group>
+                      };
 
-                    {(quantities[item.unitType] ?? 0) > 0 && (
-                      <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
-                        Total: {toLocale(item.cost * (quantities[item.unitType] ?? 0))} gold
-                      </Text>
-                    )}
-                  </Stack>
-                </OTCard>
-              ))}
-            </SimpleGrid>
+                      return (
+                        <Table.Tr key={item.unitType} style={{ opacity: item.available > 0 ? 1 : 0.5 }}>
+                          <Table.Td>
+                            <Stack gap={4}>
+                              <Text fw={600} size="sm">{item.unitName}</Text>
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              variant="light"
+                              color={getStatColor()}
+                              leftSection={getStatIcon()}
+                              size="md"
+                            >
+                              {item.bonus}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" fw={600}>💰 {toLocale(item.cost)}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Stack gap={4}>
+                              <Text
+                                size="sm"
+                                c={item.available > 0 ? 'var(--ot-success)' : 'var(--ot-danger)'}
+                                fw={600}
+                              >
+                                {item.available} / {item.total}
+                              </Text>
+                              <Progress
+                                value={item.total > 0 ? ((item.total - item.available) / item.total) * 100 : 0}
+                                size="xs"
+                                color={item.available > 0 ? 'green' : 'red'}
+                              />
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap="xs" wrap="nowrap">
+                              <NumberInput
+                                min={1}
+                                max={item.available}
+                                value={quantities[item.unitType] ?? ''}
+                                onChange={(val) =>
+                                  setQuantities((prev) => ({
+                                    ...prev,
+                                    [item.unitType]: typeof val === 'number' ? val : 0,
+                                  }))
+                                }
+                                size="xs"
+                                disabled={item.available <= 0}
+                                style={{ width: 70 }}
+                                hideControls
+                              />
+                              <Button
+                                size="xs"
+                                color="var(--ot-accent)"
+                                disabled={
+                                  item.available <= 0 ||
+                                  !quantities[item.unitType] ||
+                                  (quantities[item.unitType] ?? 0) <= 0 ||
+                                  gold < item.cost * (quantities[item.unitType] ?? 0)
+                                }
+                                loading={buyMutation.isPending}
+                                onClick={() => handleHire(item.unitType)}
+                              >
+                                Hire
+                              </Button>
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      );
+                    })}
+                  </Table.Tbody>
+                </Table>
+              </Stack>
+            </OTCard>
 
-            <Text size="sm" ta="center" style={{ color: 'var(--ot-text-dim)' }}>
-              Stock resets daily at midnight
-            </Text>
+            <OTCard>
+              <Stack gap="xs">
+                <Text fw={600} size="sm">Mercenary System</Text>
+                <Text size="sm" c="var(--ot-text-dim)">
+                  • <strong>Pre-Trained Units:</strong> No citizens required - just gold!
+                </Text>
+                <Text size="sm" c="var(--ot-text-dim)">
+                  • <strong>Daily Stock:</strong> Random allocation refreshes at midnight UTC
+                </Text>
+                <Text size="sm" c="var(--ot-text-dim)">
+                  • <strong>Camp Upgrades:</strong> Higher levels = more daily mercenaries
+                </Text>
+                <Text size="xs" c="var(--ot-text-dim)" pl="md">
+                  - Level 1: 20/day | Level 2: 30/day | Level 3+: 40/day
+                </Text>
+                <Text size="sm" c="var(--ot-text-dim)">
+                  • <strong>Fair Distribution:</strong> 30% offense, 30% defense, 20% spy, 20% sentry
+                </Text>
+              </Stack>
+            </OTCard>
           </>
         )}
 
-        {mercStatus.campLevel <= 1 && (
-          <Paper withBorder p="lg" ta="center">
-            <Text size="lg" style={{ color: 'var(--ot-text-dim)' }}>
-              Build a Mercenary Camp to hire pre-trained soldiers for gold — no citizens required!
+        {mercStatus.campLevel < 1 && (
+          <Alert color="yellow" title="Mercenary Camp Required">
+            <Text size="sm">
+              Build a Mercenary Camp from the <strong>Buildings</strong> page to hire pre-trained soldiers for gold — no citizens required!
             </Text>
-          </Paper>
+          </Alert>
         )}
       </Stack>
     </Container>
