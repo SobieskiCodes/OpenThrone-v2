@@ -7,21 +7,12 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 ## Combat / Balance
 
 - [ ] Casualties feel too high at 10x turns — needs tuning
-- [ ] XP gained per battle is too generous — flatten the curve
 - [ ] Spies should have a chance to fail based on a ratio (e.g., if defender has < 2x spy defense, attacker still has some failure chance) — needs design pass
 - [ ] Sabotage destroying 3–5 items is negligible mid-game (less than a turn of gold) — should be percentage-based instead of flat count
 
 ## Profiles
 
-- [ ] Show recent attack/defense history on profiles — public action log
-  - Only show attacker identity if the attack was visible (failed spy = anonymous)
-  - Ties into core value: **actions are public**
-- [ ] Profile should be the "story" of a player — battles, reputation, alliances
-
 ## Battle
-
-- [ ] "Return to Players" button on battle log page
-- [ ] Battle report should link back to attack list easily
 
 ## Navigation / Notifications
 
@@ -29,13 +20,9 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 
 ## Dashboard
 
+## UX / Performance
 
 ## Leaderboard
-
-- [ ] Show rank movement arrows (up/down since last daily reset)
-- [ ] Daily snapshots at reset time to support delta tracking
-- [ ] Jump to your rank/section
-- [ ] Leaderboard should show your rank in each item you select.
 
 ## Chat
 
@@ -69,11 +56,15 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
   - Use case: External scripts, admin tools, data analysis, testing
   - DB model: `ApiKey` (id, name, key_hash, player_id, permissions[], enabled, created_at, last_used, expires_at)
 
+
 ## Future Ideas
 - [ ] Specialization trees (warlord / economist / spymaster)
 - [ ] "Business mode"
 
+## Proficiencies
 
+- [ ] They need a limit, I propose 25 but am open to 50.
+--  my concern with this one is 50% reduction in armory prices is huge (100% even more so:P)
 
 ## ADD to todo
 i might consider something like a retail bonus later it would only show up in the alliance feed for ~10m with a "retaliate" button which has some type of bonus to it - either reward or damage
@@ -88,4 +79,14 @@ https://github.com/Rihoj/dtg-recruit
 spy calcs: 
 https://discord.com/channels/1210025164985864234/1450488850001694750/1466066344331186239
 
-barracks is cit per tick - maybe?
+barracks is citizen per tick - maybe?
+
+should level play a small role in over all power? it coulda kinda discourage level holding
+
+mercenaries takes you to the old building buy page, not mercenaries for sale lmao
+
+Should we add a player compare rankings thing
+
+Fort repair button on dashboard
+
+Upgrade button in armory, higher tier items should take equip precendence

@@ -19,7 +19,9 @@ import { OTCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
+import { updatePlayerCache } from '@/lib/cache-sync';
 import { toLocale } from '@openthrone/game-logic';
+import type { PlayerStateSnapshot } from '@openthrone/shared';
 
 interface BankStatus {
   gold: string;
@@ -73,13 +75,17 @@ export default function BankPage() {
   });
 
   const depositMutation = useMutation({
-    mutationFn: (amount: string) => api.post('/bank/deposit', { amount }),
-    onSuccess: () => {
+    mutationFn: (amount: string) => api.post<{ playerState: PlayerStateSnapshot }>('/bank/deposit', { amount }),
+    onSuccess: (data) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, data.playerState);
+
+      // Still invalidate bank queries
+      queryClient.invalidateQueries({ queryKey: ['bank'] });
+
       setError(null);
       setSuccess('Deposit successful!');
       setDepositAmount('');
-      queryClient.invalidateQueries({ queryKey: ['bank'] });
-      queryClient.invalidateQueries({ queryKey: ['player'] });
     },
     onError: (err: Error) => {
       setSuccess(null);
@@ -88,13 +94,17 @@ export default function BankPage() {
   });
 
   const withdrawMutation = useMutation({
-    mutationFn: (amount: string) => api.post('/bank/withdraw', { amount }),
-    onSuccess: () => {
+    mutationFn: (amount: string) => api.post<{ playerState: PlayerStateSnapshot }>('/bank/withdraw', { amount }),
+    onSuccess: (data) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, data.playerState);
+
+      // Still invalidate bank queries
+      queryClient.invalidateQueries({ queryKey: ['bank'] });
+
       setError(null);
       setSuccess('Withdrawal successful!');
       setWithdrawAmount('');
-      queryClient.invalidateQueries({ queryKey: ['bank'] });
-      queryClient.invalidateQueries({ queryKey: ['player'] });
     },
     onError: (err: Error) => {
       setSuccess(null);

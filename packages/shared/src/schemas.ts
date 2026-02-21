@@ -350,8 +350,8 @@ export const updateBotSchema = z.object({
 
 export const generateBotsSchema = z.object({
   count: z.number().int().min(1).max(50).default(10),
-  minLevel: z.number().int().min(1).max(100).default(5),
-  maxLevel: z.number().int().min(1).max(100).default(60),
+  minLevel: z.number().int().min(1).max(1000).default(5),
+  maxLevel: z.number().int().min(1).max(1000).default(60),
 });
 
 export const botActionLogsQuerySchema = z.object({

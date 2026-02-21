@@ -13,6 +13,7 @@ import {
   BankTransferHistoryType,
 } from '@openthrone/shared';
 import type { TrainUnitsDto, UntrainUnitsDto, ConvertUnitsDto } from '@openthrone/shared';
+import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
 
 @Injectable()
 export class TrainingService {
@@ -265,7 +266,12 @@ export class TrainingService {
       new UnitsTrainedEvent(playerId, dto.units, BigInt(result.goldSpent)),
     );
 
-    return result;
+    // Build player state snapshot for cache sync
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId, {
+      includeUnits: true,
+    });
+
+    return { ...result, playerState };
   }
 
   async untrain(playerId: string, dto: UntrainUnitsDto) {
@@ -385,7 +391,12 @@ export class TrainingService {
       new UnitsUntrainedEvent(playerId, dto.units, dto.units.reduce((s, u) => s + u.quantity, 0)),
     );
 
-    return result;
+    // Build player state snapshot for cache sync
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId, {
+      includeUnits: true,
+    });
+
+    return { ...result, playerState };
   }
 
   async convert(playerId: string, dto: ConvertUnitsDto) {

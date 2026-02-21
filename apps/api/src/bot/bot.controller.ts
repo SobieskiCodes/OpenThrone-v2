@@ -20,8 +20,12 @@ import {
   UpdateBotDto,
   GenerateBotsDto,
 } from '@openthrone/shared';
+import { getLevelForXP } from '@openthrone/game-logic';
 import { BotService } from './bot.service';
 import { BotSchedulerService } from './bot-scheduler.service';
+import { BotSnapshotService } from './bot-snapshot.service';
+import { BotSimulationService } from './bot-simulation.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('admin/bots')
 @UseGuards(RolesGuard)
@@ -30,6 +34,9 @@ export class BotController {
   constructor(
     private readonly botService: BotService,
     private readonly botScheduler: BotSchedulerService,
+    private readonly snapshotService: BotSnapshotService,
+    private readonly simulationService: BotSimulationService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ── Static routes FIRST (before :id) ──────────────────────────────
@@ -45,6 +52,174 @@ export class BotController {
     };
   }
 
+  @Get('analytics/global')
+  async getGlobalAnalytics(@Query('period') period?: string) {
+    // Parse time period
+    const now = new Date();
+    const startDate = new Date();
+
+    switch (period) {
+      case '7d':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case '3m':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case '6m':
+        startDate.setMonth(now.getMonth() - 6);
+        break;
+      case '1y':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'all':
+      default:
+        startDate.setFullYear(2020, 0, 1);
+        break;
+    }
+
+    // Get all active bots with their snapshots
+    const bots = await this.prisma.botConfig.findMany({
+      where: { is_active: true },
+      include: {
+        player: {
+          select: {
+            display_name: true,
+            stats: {
+              select: { rank: true, experience: true, offense: true, defense: true },
+            },
+            economy: {
+              select: { gold: true, gold_in_bank: true },
+            },
+          },
+        },
+        snapshots: {
+          where: {
+            snapshot_date: {
+              gte: startDate,
+              lte: now,
+            },
+          },
+          orderBy: { snapshot_date: 'asc' },
+        },
+      },
+    });
+
+    // Group by strategy for comparison
+    const strategyData: Record<string, any[]> = {};
+    const botData: any[] = [];
+
+    for (const bot of bots) {
+      if (!strategyData[bot.strategy]) {
+        strategyData[bot.strategy] = [];
+      }
+
+      const latestSnapshot = bot.snapshots[bot.snapshots.length - 1];
+
+      botData.push({
+        id: bot.id,
+        name: bot.player.display_name,
+        strategy: bot.strategy,
+        level: getLevelForXP(bot.player.stats?.experience ?? 0),
+        gold: bot.player.economy?.gold.toString() ?? '0',
+        offense: bot.player.stats?.offense ?? 0,
+        defense: bot.player.stats?.defense ?? 0,
+        snapshots: bot.snapshots.map((s) => ({
+          date: s.snapshot_date,
+          gold: Number(s.gold),
+          level: s.level,
+          totalPopulation: s.total_population,
+          attacksWon: s.attacks_won,
+          attacksLost: s.attacks_lost,
+        })),
+      });
+
+      // Aggregate strategy data
+      for (const snapshot of bot.snapshots) {
+        const dateKey = snapshot.snapshot_date.toISOString().split('T')[0]!;
+        let existing = strategyData[bot.strategy]!.find(
+          (d: any) => d.date === dateKey,
+        );
+        if (!existing) {
+          existing = {
+            date: dateKey,
+            gold: 0,
+            population: 0,
+            bots: 0,
+          };
+          strategyData[bot.strategy]!.push(existing);
+        }
+        existing.gold += Number(snapshot.gold);
+        existing.population += snapshot.total_population;
+        existing.bots++;
+      }
+    }
+
+    // Average strategy data
+    for (const strategy in strategyData) {
+      if (strategyData[strategy]) {
+        strategyData[strategy] = strategyData[strategy]!.map((d: any) => ({
+          date: d.date,
+          gold: Math.floor(d.gold / d.bots),
+          population: Math.floor(d.population / d.bots),
+        }));
+      }
+    }
+
+    // Calculate global stats
+    const totalGold = bots.reduce(
+      (sum: number, b: any) => sum + Number(b.player.economy?.gold ?? 0) + Number(b.player.economy?.gold_in_bank ?? 0),
+      0,
+    );
+    const totalPopulation = bots.reduce((sum: number, b: any) => {
+      const latest = b.snapshots[b.snapshots.length - 1];
+      return sum + (latest?.total_population ?? 0);
+    }, 0);
+
+    // Top performers
+    const topByGold = [...bots]
+      .sort((a, b) => {
+        const aGold = Number(a.player.economy?.gold ?? 0) + Number(a.player.economy?.gold_in_bank ?? 0);
+        const bGold = Number(b.player.economy?.gold ?? 0) + Number(b.player.economy?.gold_in_bank ?? 0);
+        return bGold - aGold;
+      })
+      .slice(0, 5)
+      .map((b) => ({
+        name: b.player.display_name,
+        strategy: b.strategy,
+        gold: (Number(b.player.economy?.gold ?? 0) + Number(b.player.economy?.gold_in_bank ?? 0)).toLocaleString(),
+      }));
+
+    const topByLevel = [...bots]
+      .map((b) => ({
+        ...b,
+        calculatedLevel: getLevelForXP(b.player.stats?.experience ?? 0),
+      }))
+      .sort((a, b) => b.calculatedLevel - a.calculatedLevel)
+      .slice(0, 5)
+      .map((b) => ({
+        name: b.player.display_name,
+        strategy: b.strategy,
+        level: b.calculatedLevel,
+      }));
+
+    return {
+      summary: {
+        totalBots: bots.length,
+        totalGold,
+        totalPopulation,
+      },
+      topPerformers: {
+        byGold: topByGold,
+        byLevel: topByLevel,
+      },
+      strategyComparison: strategyData,
+      bots: botData,
+    };
+  }
+
   @Post('generate')
   async generateBots(
     @Body(new ZodValidationPipe(generateBotsSchema)) dto: GenerateBotsDto,
@@ -55,6 +230,37 @@ export class BotController {
   @Post('run-all')
   async runAllBots() {
     return this.botScheduler.runAllBots();
+  }
+
+  @Post('simulation/start')
+  async startSimulation(
+    @Body() body: { days?: number; sessionsPerDay?: number },
+  ) {
+    const days = body.days ?? 180;
+    const sessionsPerDay = body.sessionsPerDay ?? 5;
+
+    // Run simulation in background (don't block request)
+    this.simulationService.runSimulation(days, sessionsPerDay).catch((err) => {
+      console.error('Simulation error:', err);
+    });
+
+    return {
+      message: 'Simulation started',
+      days,
+      sessionsPerDay,
+    };
+  }
+
+  @Get('simulation/status')
+  async getSimulationStatus() {
+    const status = this.simulationService.getSimulationStatus();
+    return status || { status: 'idle' };
+  }
+
+  @Post('simulation/cancel')
+  async cancelSimulation() {
+    this.simulationService.cancelSimulation();
+    return { message: 'Cancellation requested' };
   }
 
   // ── CRUD routes ───────────────────────────────────────────────────
@@ -76,9 +282,127 @@ export class BotController {
 
   // ── Parameterized routes ──────────────────────────────────────────
 
+  @Get(':id/analytics')
+  async getBotAnalytics(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('period') period?: string,
+  ) {
+    // Parse time period
+    const now = new Date();
+    const startDate = new Date();
+
+    switch (period) {
+      case '7d':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case '3m':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case '6m':
+        startDate.setMonth(now.getMonth() - 6);
+        break;
+      case '1y':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'all':
+      default:
+        startDate.setFullYear(2020, 0, 1); // Far in the past
+        break;
+    }
+
+    const snapshots = await this.snapshotService.getSnapshotHistory(
+      id,
+      startDate,
+      now,
+    );
+
+    // Calculate summary metrics
+    const summary = this.calculateSummaryMetrics(snapshots);
+
+    return {
+      snapshots: snapshots.map((s) => ({
+        date: s.snapshot_date,
+        gold: s.gold.toString(),
+        goldInBank: s.gold_in_bank.toString(),
+        attackTurns: s.attack_turns,
+        level: s.level,
+        experience: s.experience.toString(),
+        offense: s.offense,
+        defense: s.defense,
+        spy: s.spy,
+        sentry: s.sentry,
+        citizens: s.citizens,
+        workers: s.workers,
+        offenseUnits: s.offense_units,
+        defenseUnits: s.defense_units,
+        spyUnits: s.spy_units,
+        sentryUnits: s.sentry_units,
+        totalPopulation: s.total_population,
+        fortLevel: s.fort_level,
+        fortHP: s.fort_hp,
+        attacksWon: s.attacks_won,
+        attacksLost: s.attacks_lost,
+        goldStolen: s.gold_stolen.toString(),
+        goldLost: s.gold_lost.toString(),
+        sessionsRun: s.sessions_run,
+        actionsPerformed: s.actions_performed,
+        actionsFailed: s.actions_failed,
+      })),
+      summary,
+    };
+  }
+
   @Get(':id')
   async getBot(@Param('id', ParseIntPipe) id: number) {
     return this.botService.getBot(id);
+  }
+
+  private calculateSummaryMetrics(snapshots: any[]) {
+    if (snapshots.length === 0) {
+      return {
+        goldGrowthRate: 0,
+        xpGrowthRate: 0,
+        avgActionsPerSession: 0,
+        combatWinRate: 0,
+        actionSuccessRate: 0,
+      };
+    }
+
+    const first = snapshots[0];
+    const last = snapshots[snapshots.length - 1];
+    const daysDiff = Math.max(
+      1,
+      (new Date(last.snapshot_date).getTime() -
+        new Date(first.snapshot_date).getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
+
+    const goldDiff = Number(last.gold) - Number(first.gold);
+    const xpDiff = Number(last.experience) - Number(first.experience);
+
+    const totalWins = snapshots.reduce((sum, s) => sum + s.attacks_won, 0);
+    const totalLosses = snapshots.reduce((sum, s) => sum + s.attacks_lost, 0);
+    const totalSessions = snapshots.reduce((sum, s) => sum + s.sessions_run, 0);
+    const totalActions = snapshots.reduce((sum, s) => sum + s.actions_performed, 0);
+    const totalFailed = snapshots.reduce((sum, s) => sum + s.actions_failed, 0);
+
+    return {
+      goldGrowthRate: Math.round(goldDiff / daysDiff),
+      xpGrowthRate: Math.round(xpDiff / daysDiff),
+      avgActionsPerSession:
+        totalSessions > 0 ? Math.round((totalActions / totalSessions) * 10) / 10 : 0,
+      combatWinRate:
+        totalWins + totalLosses > 0
+          ? Math.round((totalWins / (totalWins + totalLosses)) * 100) / 100
+          : 0,
+      actionSuccessRate:
+        totalActions + totalFailed > 0
+          ? Math.round((totalActions / (totalActions + totalFailed)) * 100) / 100
+          : 0,
+    };
   }
 
   @Patch(':id')

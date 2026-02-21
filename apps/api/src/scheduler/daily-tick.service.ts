@@ -6,6 +6,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   getBuildingLevel,
   calculateAutoRecruitCitizens,
+  calculateRankScore,
+  computeArmoryResaleValue,
+  computeBattleUpgradeResaleValue,
 } from '@openthrone/game-logic';
 import { DailyTickEvent } from '@openthrone/events';
 import { BankAccountType, BankTransferHistoryType, BuildingType } from '@openthrone/shared';
@@ -154,6 +157,10 @@ export class DailyTickService {
       });
       this.logger.log('Reset daily ranking counters');
 
+      // ─── Snapshot Rankings ───────────────────────────────────
+      await this.snapshotRankings();
+      this.logger.log('Snapshotted daily rankings');
+
       // ─── DB Cleanup (20+ days old) ───────────────────────────
       const cutoffDate = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
 
@@ -232,5 +239,139 @@ export class DailyTickService {
     );
 
     return { playersProcessed, durationMs: Date.now() - startTime };
+  }
+
+  /**
+   * Snapshot current rankings for all players (called at midnight UTC).
+   * Updates PlayerStats.previous_rank and creates RankingSnapshot records.
+   */
+  private async snapshotRankings() {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0); // Normalize to midnight UTC
+
+    // Fetch all active players with their current stats
+    const players = await this.prisma.player.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        stats: true,
+        economy: { select: { gold: true, gold_in_bank: true } },
+        items: { select: { item_type: true, usage: true, level: true, quantity: true } },
+        battle_upgrades: { select: { upgrade_type: true, level: true, quantity: true } },
+      },
+    });
+
+    // Prepare snapshot records
+    const snapshots: Array<{
+      player_id: string;
+      category: string;
+      rank: number;
+      score: number;
+      snapshot_date: Date;
+    }> = [];
+
+    for (const player of players) {
+      if (!player.stats) continue;
+
+      // Calculate net worth for this player
+      const gold = Number(player.economy?.gold ?? 0);
+      const bank = Number(player.economy?.gold_in_bank ?? 0);
+      const armoryResale = computeArmoryResaleValue(
+        (player.items ?? []).map((i) => ({
+          itemType: i.item_type,
+          usage: i.usage,
+          level: i.level,
+          quantity: i.quantity,
+        })),
+      );
+      const battleUpgradeResale = computeBattleUpgradeResaleValue(
+        (player.battle_upgrades ?? []).map((bu) => ({
+          upgradeType: bu.upgrade_type,
+          level: bu.level,
+          quantity: bu.quantity,
+        })),
+      );
+      const netWorth = gold + bank + armoryResale + battleUpgradeResale;
+
+      // Snapshot all categories
+      snapshots.push(
+        {
+          player_id: player.id,
+          category: 'overall',
+          rank: player.stats.rank,
+          score: calculateRankScore({
+            offense: player.stats.offense,
+            defense: player.stats.defense,
+            netWorth,
+          }),
+          snapshot_date: today,
+        },
+        {
+          player_id: player.id,
+          category: 'offense',
+          rank: 0, // Will be calculated below
+          score: player.stats.offense,
+          snapshot_date: today,
+        },
+        {
+          player_id: player.id,
+          category: 'defense',
+          rank: 0, // Will be calculated below
+          score: player.stats.defense,
+          snapshot_date: today,
+        },
+        {
+          player_id: player.id,
+          category: 'spy',
+          rank: 0, // Will be calculated below
+          score: player.stats.spy,
+          snapshot_date: today,
+        },
+        {
+          player_id: player.id,
+          category: 'sentry',
+          rank: 0, // Will be calculated below
+          score: player.stats.sentry,
+          snapshot_date: today,
+        },
+        {
+          player_id: player.id,
+          category: 'netWorth',
+          rank: 0, // Will be calculated below
+          score: netWorth,
+          snapshot_date: today,
+        },
+      );
+    }
+
+    // Calculate ranks for each category (descending order by score)
+    const categories = ['overall', 'offense', 'defense', 'spy', 'sentry', 'netWorth'];
+    for (const category of categories) {
+      const categorySnapshots = snapshots
+        .filter((s) => s.category === category)
+        .sort((a, b) => b.score - a.score);
+
+      for (let i = 0; i < categorySnapshots.length; i++) {
+        categorySnapshots[i]!.rank = i + 1;
+      }
+    }
+
+    // Delete old snapshots for today (in case we're re-running)
+    await this.prisma.rankingSnapshot.deleteMany({
+      where: { snapshot_date: today },
+    });
+
+    // Insert all snapshots
+    await this.prisma.rankingSnapshot.createMany({
+      data: snapshots,
+    });
+
+    // Update PlayerStats.previous_rank to current rank (for movement arrows)
+    for (const player of players) {
+      if (!player.stats) continue;
+      await this.prisma.playerStats.update({
+        where: { id: player.stats.id },
+        data: { previous_rank: player.stats.rank },
+      });
+    }
   }
 }

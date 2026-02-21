@@ -26,10 +26,12 @@ import {
 import { OTCard, PlayerHoverCard } from '@/components/ui';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRouter } from 'next/navigation';
+import { updatePlayerCache } from '@/lib/cache-sync';
+import type { PlayerStateSnapshot } from '@openthrone/shared';
 
 interface AllianceIntelEntry {
   spiedByName: string;
@@ -134,6 +136,36 @@ function RankBadge({ rank }: { rank: number }) {
 interface AttackResult {
   id: number;
   attackerWins: boolean;
+  playerState: PlayerStateSnapshot;
+}
+
+// Helper to load battle filters from localStorage
+function loadBattleFilters() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = localStorage.getItem('battleFilters');
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Helper to save battle filters to localStorage
+function saveBattleFilters(filters: {
+  search: string;
+  raceFilter: string;
+  classFilter: string;
+  botFilter: string;
+  sort: string;
+  order: string;
+  inRange: boolean;
+}) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('battleFilters', JSON.stringify(filters));
+  } catch {
+    // Ignore localStorage errors
+  }
 }
 
 export default function PlayersPage() {
@@ -141,7 +173,7 @@ export default function PlayersPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  // Player list state
+  // Player list state (use server defaults, then load from localStorage on mount)
   const [search, setSearch] = useState('');
   const [raceFilter, setRaceFilter] = useState('');
   const [classFilter, setClassFilter] = useState('');
@@ -151,15 +183,40 @@ export default function PlayersPage() {
   const [inRange, setInRange] = useState(true);
   const [playerPage, setPlayerPage] = useState(1);
 
+  // Load saved filters from localStorage after mount (client-only)
+  useEffect(() => {
+    const saved = loadBattleFilters();
+    if (saved) {
+      if (saved.search !== undefined) setSearch(saved.search);
+      if (saved.raceFilter !== undefined) setRaceFilter(saved.raceFilter);
+      if (saved.classFilter !== undefined) setClassFilter(saved.classFilter);
+      if (saved.botFilter !== undefined) setBotFilter(saved.botFilter);
+      if (saved.sort !== undefined) setSort(saved.sort);
+      if (saved.order !== undefined) setOrder(saved.order);
+      if (saved.inRange !== undefined) setInRange(saved.inRange);
+    }
+  }, []);
+
   // Attack modal state
   const [attackTarget, setAttackTarget] = useState<PlayerEntry | null>(null);
   const [attackTurns, setAttackTurns] = useState(1);
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
 
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    saveBattleFilters({ search, raceFilter, classFilter, botFilter, sort, order, inRange });
+  }, [search, raceFilter, classFilter, botFilter, sort, order, inRange]);
+
   const attackMutation = useMutation({
     mutationFn: ({ defenderId, turns }: { defenderId: string; turns: number }) =>
       api.post(`/battle/attack/${defenderId}`, { turns }) as Promise<AttackResult>,
     onSuccess: (data: AttackResult) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, data.playerState);
+
+      // Still invalidate battle queries (history, rankings, etc.)
+      queryClient.invalidateQueries({ queryKey: ['battle'] });
+
       closeConfirm();
       notifications.show({
         title: data.attackerWins ? 'Victory!' : 'Defeat!',
@@ -168,7 +225,6 @@ export default function PlayersPage() {
           : `Your attack on ${attackTarget?.displayName ?? 'the enemy'} was repelled.`,
         color: data.attackerWins ? 'green' : 'red',
       });
-      queryClient.invalidateQueries({ queryKey: ['battle'] });
       router.push(`/battle/report/${data.id}`);
     },
     onError: (err: Error) => {

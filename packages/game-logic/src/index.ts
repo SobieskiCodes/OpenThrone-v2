@@ -36,11 +36,14 @@ export {
   getItemsByUsage,
   getItemsByUsageAndType,
   computeArmoryValue,
+  computeArmoryResaleValue,
 } from './items';
 
 export {
   BattleUpgrades,
   getBattleUpgradesByType,
+  getBattleUpgradeByTypeAndLevel,
+  computeBattleUpgradeResaleValue,
 } from './battle-upgrades';
 
 export {

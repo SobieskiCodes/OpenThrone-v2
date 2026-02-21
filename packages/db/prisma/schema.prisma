@@ -80,6 +80,8 @@ model Player {
   activities_performed ActivityLog[] @relation("activity_actor")
   activities_targeted  ActivityLog[] @relation("activity_target")
 
+  ranking_snapshots RankingSnapshot[]
+
   is_bot     Boolean @default(false)
   bot_config BotConfig?
 
@@ -196,23 +198,40 @@ model PlayerBonusPoint {
 }
 
 model PlayerStats {
-  id           Int      @id @default(autoincrement())
-  player_id    String   @unique
-  experience   Int      @default(0)
-  rank         Int      @default(0)
-  offense      Int      @default(0)
-  defense      Int      @default(0)
-  spy          Int      @default(0)
-  sentry       Int      @default(0)
-  killing_str  Int      @default(1)
-  defense_str  Int      @default(1)
-  spying_str   Int      @default(1)
-  sentry_str   Int      @default(1)
-  updated_at   DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  player_id     String   @unique
+  experience    Int      @default(0)
+  rank          Int      @default(0)
+  previous_rank Int      @default(0) // Rank from last daily snapshot (for movement arrows)
+  offense       Int      @default(0)
+  defense       Int      @default(0)
+  spy           Int      @default(0)
+  sentry        Int      @default(0)
+  killing_str   Int      @default(1)
+  defense_str   Int      @default(1)
+  spying_str    Int      @default(1)
+  sentry_str    Int      @default(1)
+  updated_at    DateTime @updatedAt
 
   player Player @relation(fields: [player_id], references: [id])
 
   @@map("player_stats")
+}
+
+model RankingSnapshot {
+  id            Int      @id @default(autoincrement())
+  player_id     String
+  category      String   // 'overall', 'offense', 'defense', 'spy', 'sentry', 'netWorth'
+  rank          Int
+  score         Int      // Stat value or calculated score
+  snapshot_date DateTime @default(now()) // Snapshots at midnight UTC (date only, stored as ISO string)
+
+  player Player @relation(fields: [player_id], references: [id])
+
+  @@unique([player_id, category, snapshot_date])
+  @@index([snapshot_date])
+  @@index([player_id])
+  @@map("ranking_snapshots")
 }
 
 model PlayerCumulativeStats {
@@ -624,6 +643,7 @@ model BotConfig {
 
   player      Player         @relation(fields: [player_id], references: [id])
   action_logs BotActionLog[]
+  snapshots   BotSnapshot[]
 
   @@index([is_active])
   @@map("bot_configs")
@@ -646,6 +666,63 @@ model BotActionLog {
   @@index([bot_config_id, created_at])
   @@index([session_id])
   @@map("bot_action_logs")
+}
+
+model BotSnapshot {
+  id               Int      @id @default(autoincrement())
+  bot_config_id    Int
+  snapshot_date    DateTime @default(now())
+
+  // Economy
+  gold             BigInt
+  gold_in_bank     BigInt
+  attack_turns     Int
+
+  // Stats
+  level            Int
+  experience       BigInt
+  offense          Int
+  defense          Int
+  spy              Int
+  sentry           Int
+
+  // Population
+  citizens         Int
+  workers          Int
+  offense_units    Int
+  defense_units    Int
+  spy_units        Int
+  sentry_units     Int
+  total_population Int
+
+  // Fort
+  fort_level       Int
+  fort_hp          Int
+  fort_max_hp      Int
+
+  // Combat metrics (since last snapshot)
+  attacks_won      Int    @default(0)
+  attacks_lost     Int    @default(0)
+  gold_stolen      BigInt @default(0)
+  gold_lost        BigInt @default(0)
+
+  // Equipment counts by tier
+  weapons_t1       Int    @default(0)
+  weapons_t2       Int    @default(0)
+  weapons_t3       Int    @default(0)
+  armor_t1         Int    @default(0)
+  armor_t2         Int    @default(0)
+  armor_t3         Int    @default(0)
+
+  // Session metrics (since last snapshot)
+  sessions_run     Int    @default(0)
+  actions_performed Int   @default(0)
+  actions_failed   Int    @default(0)
+
+  bot_config       BotConfig @relation(fields: [bot_config_id], references: [id])
+
+  @@index([bot_config_id, snapshot_date])
+  @@map("bot_snapshots")
 }
 
 model AllianceIntel {

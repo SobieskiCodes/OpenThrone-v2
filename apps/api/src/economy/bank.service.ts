@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { GoldDepositedEvent, GoldWithdrawnEvent } from '@openthrone/events';
 import { getBuildingLevel } from '@openthrone/game-logic';
 import { BankAccountType, BankTransferHistoryType, BuildingType } from '@openthrone/shared';
+import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
 
 @Injectable()
 export class BankService {
@@ -91,7 +92,10 @@ export class BankService {
       ),
     );
 
-    return result;
+    // Build player state snapshot for cache sync
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+
+    return { ...result, playerState };
   }
 
   async withdraw(playerId: string, amount: string) {
@@ -150,7 +154,10 @@ export class BankService {
       ),
     );
 
-    return result;
+    // Build player state snapshot for cache sync
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+
+    return { ...result, playerState };
   }
 
   async getDepositsRemaining(playerId: string) {

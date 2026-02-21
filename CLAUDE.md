@@ -198,6 +198,27 @@ Full details in [DEPLOY.md](./DEPLOY.md). Key points:
 - **`AUTH_TRUST_HOST=true`**: Required for NextAuth v5 behind Nginx.
 - **PM2 fork mode only**: Next.js crashes in cluster mode.
 
+### Production Debugging (CRITICAL)
+
+**PM2 runs as the `deploy` user, NOT `root`!**
+
+When SSH'd to production:
+```bash
+# ❌ WRONG - checks root's PM2 (always empty)
+pm2 list
+pm2 logs api
+
+# ✅ CORRECT - checks deploy user's PM2 (actual running processes)
+su - deploy -c "pm2 list"
+su - deploy -c "pm2 logs api --lines 50 --nostream"
+su - deploy -c "pm2 logs api --err --lines 50 --nostream"
+```
+
+**Database table names:**
+- PostgreSQL: `snake_case` (activity_log, bot_action_logs, etc.)
+- Use raw SQL with lowercase names for TRUNCATE/raw queries
+- Prisma models are PascalCase but translate to snake_case in DB
+
 ## Never Do This
 
 - **Never call the API directly from frontend pages** — always go through `api-client.ts`.

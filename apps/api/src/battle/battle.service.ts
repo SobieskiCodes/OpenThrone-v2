@@ -28,6 +28,7 @@ import type {
   SpyMissionDto,
 } from '@openthrone/shared';
 import type { FullPlayerData, CombatProfile } from '@openthrone/game-logic';
+import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
 import {
   AttackExecutedEvent,
   SpyMissionExecutedEvent,
@@ -54,7 +55,13 @@ export class BattleService {
     };
 
     if (search) {
-      where.display_name = { contains: search, mode: 'insensitive' };
+      // Build contains clause compatible with both SQLite and PostgreSQL
+      const isPostgres = process.env.DATABASE_URL?.includes('postgresql');
+      const containsClause: any = { contains: search };
+      if (isPostgres) {
+        containsClause.mode = 'insensitive';
+      }
+      where.display_name = containsClause;
     }
     if (race) {
       where.race = race;
@@ -712,6 +719,11 @@ export class BattleService {
       );
     }
 
+    // Build player state snapshot AFTER transaction (for instant cache update)
+    const playerState = await buildPlayerSnapshot(this.prisma, attackerId, {
+      includeUnits: true, // Include units since casualties happened
+    });
+
     return {
       id: log.id,
       attackerWins: result.attackerWins,
@@ -722,6 +734,7 @@ export class BattleService {
       defenderCasualties: scaledDefenderCasualties,
       attackerXP: scaledAttackerXP,
       defenderXP: scaledDefenderXP,
+      playerState, // Fresh state for cache update
     };
   }
 
@@ -867,7 +880,8 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'intel', result.success, attackLog.id),
       );
 
-      return { ...result, missionType: 'intel', intelData, attackLogId: attackLog.id };
+      const playerState1 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'intel', intelData, attackLogId: attackLog.id, playerState: playerState1 };
     }
 
     if (dto.type === 'ASSASSINATE') {
@@ -916,7 +930,8 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'assassinate', result.success, assassinateLog.id),
       );
 
-      return { ...result, missionType: 'assassinate' };
+      const playerState2 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'assassinate', playerState: playerState2 };
     }
 
     if (dto.type === 'INFILTRATE') {
@@ -971,7 +986,8 @@ export class BattleService {
         );
       }
 
-      return { ...result, missionType: 'infiltrate' };
+      const playerState3 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'infiltrate', playerState: playerState3 };
     }
 
     if (dto.type === 'STEAL_GOLD') {
@@ -1034,7 +1050,8 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'steal_gold', result.success, stealLog.id),
       );
 
-      return { ...result, missionType: 'steal_gold', goldStolen: result.goldStolen.toString() };
+      const playerState4 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'steal_gold', goldStolen: result.goldStolen.toString(), playerState: playerState4 };
     }
 
     if (dto.type === 'SABOTAGE') {
@@ -1102,7 +1119,8 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'sabotage', result.success, sabotageLog.id),
       );
 
-      return { ...result, missionType: 'sabotage', destroyedItems };
+      const playerState5 = await buildPlayerSnapshot(this.prisma, attackerId);
+      return { ...result, missionType: 'sabotage', destroyedItems, playerState: playerState5 };
     }
 
     throw new BadRequestException('Invalid spy mission type');
@@ -1200,7 +1218,6 @@ export class BattleService {
         items: true,
         battle_upgrades: true,
         bonus_points: true,
-        structure_upgrades: true,
       },
     });
   }
@@ -1234,10 +1251,6 @@ export class BattleService {
         bonusType: bp.bonus_type,
         level: bp.level,
       })),
-      structureUpgrades: player.structure_upgrades.map((su) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
-      })),
     };
 
     const fullStats = calculateFullStats(statsInput);
@@ -1256,7 +1269,6 @@ export class BattleService {
       items: statsInput.items,
       battleUpgrades: statsInput.battleUpgrades,
       bonusPoints: statsInput.bonusPoints,
-      structureUpgrades: statsInput.structureUpgrades,
       offense: fullStats.offense.total,
       defense: fullStats.defense.total,
       spy: fullStats.spy.total,
@@ -1321,7 +1333,6 @@ export class BattleService {
         items: true,
         battle_upgrades: true,
         bonus_points: true,
-        structure_upgrades: true,
         fortification: true,
       },
     });
@@ -1351,10 +1362,6 @@ export class BattleService {
       bonusPoints: player.bonus_points.map((bp: any) => ({
         bonusType: bp.bonus_type,
         level: bp.level,
-      })),
-      structureUpgrades: player.structure_upgrades.map((su: any) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
       })),
     };
 

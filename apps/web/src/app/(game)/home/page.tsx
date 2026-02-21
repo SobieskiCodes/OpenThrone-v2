@@ -28,7 +28,8 @@ import { getRecommendedAction } from '@/lib/recommended-action';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  computeArmoryValue,
+  computeArmoryResaleValue,
+  computeBattleUpgradeResaleValue,
   getFortificationByLevel,
   getLevelForXP,
   getXPForLevel,
@@ -73,6 +74,12 @@ interface PlayerItem {
   quantity: number;
 }
 
+interface PlayerBattleUpgrade {
+  upgradeType: string;
+  level: number;
+  quantity: number;
+}
+
 interface PlayerAlliance {
   id: number;
   name: string;
@@ -104,6 +111,7 @@ interface PlayerData {
   };
   units: PlayerUnit[];
   items: PlayerItem[];
+  battleUpgrades?: PlayerBattleUpgrade[];
   availablePoints?: number;
   availableUpgrades?: number;
 }
@@ -403,7 +411,8 @@ export default function DashboardPage() {
   const totalUnits = player.units?.reduce((sum, u) => sum + u.quantity, 0) ?? 0;
   const totalItems = player.items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
 
-  const armoryValue = computeArmoryValue(player.items ?? []);
+  const armoryResaleValue = computeArmoryResaleValue(player.items ?? []);
+  const battleUpgradeResaleValue = computeBattleUpgradeResaleValue(player.battleUpgrades ?? []);
 
   const offense = breakdown?.offense.total ?? player.stats?.offense ?? 0;
   const defense = breakdown?.defense.total ?? player.stats?.defense ?? 0;
@@ -476,7 +485,7 @@ export default function DashboardPage() {
             <TooltipStat label="Gold income / turn" icon={IconCoins} value={`+${toLocale(goldPerTurn)}`} valueColor="var(--ot-success)" tooltip={breakdown?.goldPerTurn ? <GoldTooltipContent bd={breakdown.goldPerTurn} /> : 'Loading...'} tooltipWidth={220} />
             <TooltipStat label="Citizen growth / day" icon={IconUsers} value={`+${toLocale(citizensPerDay)}`} valueColor="var(--ot-race-primary)" tooltip={breakdown?.citizensPerDay ? <CitizensTooltipContent bd={breakdown.citizensPerDay} /> : 'Loading...'} tooltipWidth={220} />
             <Divider color="var(--ot-border-subtle)" />
-            <TooltipStat label="Total net worth" icon={IconChartArcs} value={toLocale(gold + goldInBank + armoryValue)} tooltip={<Stack gap={2}><Text size="xs" fw={700}>Net Worth</Text><Text size="xs">Gold: {toLocale(gold)}</Text><Text size="xs">Bank: {toLocale(goldInBank)}</Text>{armoryValue > 0 && <Text size="xs">Armory: {toLocale(armoryValue)}</Text>}<Text size="xs" fw={600}>Total: {toLocale(gold + goldInBank + armoryValue)}</Text></Stack>} tooltipWidth={200} />
+            <TooltipStat label="Total net worth" icon={IconChartArcs} value={toLocale(gold + goldInBank + armoryResaleValue + battleUpgradeResaleValue)} tooltip={<Stack gap={2}><Text size="xs" fw={700}>Net Worth (Resale Value)</Text><Text size="xs">Gold on hand: {toLocale(gold)}</Text><Text size="xs">Gold in bank: {toLocale(goldInBank)}</Text><Text size="xs">Armory (75%): {toLocale(armoryResaleValue)}</Text><Text size="xs">Battle upgrades (75%): {toLocale(battleUpgradeResaleValue)}</Text><Divider size="xs" color="var(--ot-border-subtle)" /><Text size="xs" fw={600}>Total: {toLocale(gold + goldInBank + armoryResaleValue + battleUpgradeResaleValue)}</Text></Stack>} tooltipWidth={240} />
           </Stack>
         </OTCard>
 

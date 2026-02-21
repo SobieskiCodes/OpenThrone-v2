@@ -18,7 +18,22 @@ import {
   Tabs,
   SimpleGrid,
   Paper,
+  SegmentedControl,
 } from '@mantine/core';
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { notifications } from '@mantine/notifications';
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -137,6 +152,9 @@ export default function BotDetailPage() {
   const [logPage, setLogPage] = useState(1);
   const [logFilter, setLogFilter] = useState('');
 
+  // Analytics state
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
+
   const { data: bot, isLoading } = useQuery<BotDetail>({
     queryKey: ['admin', 'bots', botId],
     queryFn: () => api.get(`/admin/bots/${botId}`),
@@ -160,6 +178,16 @@ export default function BotDetailPage() {
       p.set('limit', '25');
       if (logFilter) p.set('actionType', logFilter);
       return api.get(`/admin/bots/${botId}/logs?${p.toString()}`);
+    },
+    enabled: isReady,
+  });
+
+  const { data: analyticsData, isLoading: analyticsLoading } = useQuery<any>({
+    queryKey: ['admin', 'bots', botId, 'analytics', analyticsPeriod],
+    queryFn: () => {
+      const p = new URLSearchParams();
+      p.set('period', analyticsPeriod);
+      return api.get(`/admin/bots/${botId}/analytics?${p.toString()}`);
     },
     enabled: isReady,
   });
@@ -262,6 +290,7 @@ export default function BotDetailPage() {
         <Tabs defaultValue="config">
           <Tabs.List>
             <Tabs.Tab value="config">Config</Tabs.Tab>
+            <Tabs.Tab value="analytics">Analytics</Tabs.Tab>
             <Tabs.Tab value="logs">
               Logs
               {logsData && (
@@ -373,6 +402,274 @@ export default function BotDetailPage() {
               <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
                 Personality Seed: {bot.personalitySeed} | Created: {new Date(bot.createdAt).toLocaleString()}
               </Text>
+            </Stack>
+          </Tabs.Panel>
+
+          {/* ── Analytics Tab ─────────────────────────── */}
+          <Tabs.Panel value="analytics" pt="md">
+            <Stack gap="md">
+              <Group justify="space-between">
+                <Text size="sm" fw={600}>Bot Progression Over Time</Text>
+                <SegmentedControl
+                  data={[
+                    { label: '7D', value: '7d' },
+                    { label: '30D', value: '30d' },
+                    { label: '3M', value: '3m' },
+                    { label: '6M', value: '6m' },
+                    { label: '1Y', value: '1y' },
+                    { label: 'All', value: 'all' },
+                  ]}
+                  value={analyticsPeriod}
+                  onChange={setAnalyticsPeriod}
+                />
+              </Group>
+
+              {analyticsLoading ? (
+                <Skeleton height={400} />
+              ) : analyticsData && analyticsData.snapshots.length > 0 ? (
+                <>
+                  {/* Summary Cards */}
+                  <SimpleGrid cols={{ base: 2, sm: 5 }} spacing="xs">
+                    <Paper p="sm" withBorder>
+                      <Text size="xs" c="dimmed">Gold/Day</Text>
+                      <Text size="lg" fw={600} className="ot-stat-value">
+                        {analyticsData.summary.goldGrowthRate.toLocaleString()}
+                      </Text>
+                    </Paper>
+                    <Paper p="sm" withBorder>
+                      <Text size="xs" c="dimmed">XP/Day</Text>
+                      <Text size="lg" fw={600}>
+                        {analyticsData.summary.xpGrowthRate.toLocaleString()}
+                      </Text>
+                    </Paper>
+                    <Paper p="sm" withBorder>
+                      <Text size="xs" c="dimmed">Actions/Session</Text>
+                      <Text size="lg" fw={600}>
+                        {analyticsData.summary.avgActionsPerSession}
+                      </Text>
+                    </Paper>
+                    <Paper p="sm" withBorder>
+                      <Text size="xs" c="dimmed">Combat Win Rate</Text>
+                      <Text size="lg" fw={600}>
+                        {(analyticsData.summary.combatWinRate * 100).toFixed(0)}%
+                      </Text>
+                    </Paper>
+                    <Paper p="sm" withBorder>
+                      <Text size="xs" c="dimmed">Action Success</Text>
+                      <Text size="lg" fw={600}>
+                        {(analyticsData.summary.actionSuccessRate * 100).toFixed(0)}%
+                      </Text>
+                    </Paper>
+                  </SimpleGrid>
+
+                  {/* Gold Over Time */}
+                  <Paper p="md" withBorder>
+                    <Text size="sm" fw={600} mb="sm">Gold Over Time</Text>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={analyticsData.snapshots}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-5)" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={(val) => new Date(val).toLocaleDateString()}
+                          stroke="var(--mantine-color-dark-3)"
+                        />
+                        <YAxis stroke="var(--mantine-color-dark-3)" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--mantine-color-dark-7)',
+                            border: '1px solid var(--mantine-color-dark-5)'
+                          }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="gold"
+                          stroke="var(--ot-gold)"
+                          strokeWidth={2}
+                          name="Gold"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="goldInBank"
+                          stroke="#4c9eff"
+                          strokeWidth={2}
+                          name="Banked"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Paper>
+
+                  {/* Level & XP Progression */}
+                  <Paper p="md" withBorder>
+                    <Text size="sm" fw={600} mb="sm">Level & Experience Progression</Text>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={analyticsData.snapshots}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-5)" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={(val) => new Date(val).toLocaleDateString()}
+                          stroke="var(--mantine-color-dark-3)"
+                        />
+                        <YAxis stroke="var(--mantine-color-dark-3)" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--mantine-color-dark-7)',
+                            border: '1px solid var(--mantine-color-dark-5)'
+                          }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="level"
+                          stroke="#82ca9d"
+                          strokeWidth={2}
+                          name="Level"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Paper>
+
+                  {/* Population Growth */}
+                  <Paper p="md" withBorder>
+                    <Text size="sm" fw={600} mb="sm">Population Growth</Text>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <AreaChart data={analyticsData.snapshots}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-5)" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={(val) => new Date(val).toLocaleDateString()}
+                          stroke="var(--mantine-color-dark-3)"
+                        />
+                        <YAxis stroke="var(--mantine-color-dark-3)" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--mantine-color-dark-7)',
+                            border: '1px solid var(--mantine-color-dark-5)'
+                          }}
+                        />
+                        <Legend />
+                        <Area
+                          type="monotone"
+                          dataKey="citizens"
+                          stackId="1"
+                          stroke="#8884d8"
+                          fill="#8884d8"
+                          name="Citizens"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="workers"
+                          stackId="1"
+                          stroke="#82ca9d"
+                          fill="#82ca9d"
+                          name="Workers"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="offenseUnits"
+                          stackId="1"
+                          stroke="#ff4444"
+                          fill="#ff4444"
+                          name="Offense"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="defenseUnits"
+                          stackId="1"
+                          stroke="#4c9eff"
+                          fill="#4c9eff"
+                          name="Defense"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="spyUnits"
+                          stackId="1"
+                          stroke="#9b59b6"
+                          fill="#9b59b6"
+                          name="Spy"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="sentryUnits"
+                          stackId="1"
+                          stroke="#f39c12"
+                          fill="#f39c12"
+                          name="Sentry"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </Paper>
+
+                  {/* Combat Performance */}
+                  <Paper p="md" withBorder>
+                    <Text size="sm" fw={600} mb="sm">Combat Performance</Text>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={analyticsData.snapshots}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-5)" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={(val) => new Date(val).toLocaleDateString()}
+                          stroke="var(--mantine-color-dark-3)"
+                        />
+                        <YAxis stroke="var(--mantine-color-dark-3)" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--mantine-color-dark-7)',
+                            border: '1px solid var(--mantine-color-dark-5)'
+                          }}
+                        />
+                        <Legend />
+                        <Bar dataKey="attacksWon" fill="#82ca9d" name="Wins" />
+                        <Bar dataKey="attacksLost" fill="#ff4444" name="Losses" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Paper>
+
+                  {/* Action Success Rate */}
+                  <Paper p="md" withBorder>
+                    <Text size="sm" fw={600} mb="sm">Action Success Rate</Text>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={analyticsData.snapshots.map((s: any) => ({
+                        ...s,
+                        successRate: s.actionsPerformed + s.actionsFailed > 0
+                          ? (s.actionsPerformed / (s.actionsPerformed + s.actionsFailed)) * 100
+                          : 0
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-5)" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={(val) => new Date(val).toLocaleDateString()}
+                          stroke="var(--mantine-color-dark-3)"
+                        />
+                        <YAxis
+                          domain={[0, 100]}
+                          stroke="var(--mantine-color-dark-3)"
+                          tickFormatter={(val) => `${val}%`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--mantine-color-dark-7)',
+                            border: '1px solid var(--mantine-color-dark-5)'
+                          }}
+                          formatter={(value: any) => `${value.toFixed(1)}%`}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="successRate"
+                          stroke="#82ca9d"
+                          strokeWidth={2}
+                          name="Success Rate"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Paper>
+                </>
+              ) : (
+                <Text c="dimmed" ta="center" py="xl">
+                  No analytics data yet. Snapshots are captured daily at 1:00 AM.
+                </Text>
+              )}
             </Stack>
           </Tabs.Panel>
 

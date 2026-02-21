@@ -13,12 +13,16 @@ import {
   SegmentedControl,
   UnstyledButton,
   Tooltip,
+  Badge,
+  Button,
 } from '@mantine/core';
 import { OTCard, PlayerHoverCard } from '@/components/ui';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
+import { useSession } from 'next-auth/react';
+import { IconTrendingUp, IconTrendingDown, IconMinus, IconTarget } from '@tabler/icons-react';
 
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -47,6 +51,7 @@ interface RankEntry {
   level: number;
   isBot: boolean;
   score: number | null;
+  rankChange?: number; // Positive = moved up, negative = moved down, 0 or undefined = no change
 }
 
 interface RankingsResponse {
@@ -148,10 +153,49 @@ function formatScore(score: number, category: string, subType: string): string {
   return toLocale(score);
 }
 
+// ─── Rank Change Indicator ──────────────────────────────────────────────
+
+function RankChangeIndicator({ change }: { change?: number }) {
+  // If change is undefined (new player, no snapshot yet), don't show anything
+  if (change === undefined) return null;
+
+  if (change > 0) {
+    return (
+      <Tooltip label={`Up ${change} ${change === 1 ? 'spot' : 'spots'}`}>
+        <Group gap={4} style={{ color: 'var(--ot-success)' }}>
+          <IconTrendingUp size={14} />
+          <Text size="xs" fw={600}>+{change}</Text>
+        </Group>
+      </Tooltip>
+    );
+  }
+
+  if (change < 0) {
+    return (
+      <Tooltip label={`Down ${Math.abs(change)} ${Math.abs(change) === 1 ? 'spot' : 'spots'}`}>
+        <Group gap={4} style={{ color: 'var(--ot-danger)' }}>
+          <IconTrendingDown size={14} />
+          <Text size="xs" fw={600}>{change}</Text>
+        </Group>
+      </Tooltip>
+    );
+  }
+
+  // change === 0: No movement (held position)
+  return (
+    <Tooltip label="No change">
+      <Group gap={4} style={{ color: 'var(--ot-text-dim)' }}>
+        <IconMinus size={14} />
+      </Group>
+    </Tooltip>
+  );
+}
+
 // ─── Component ──────────────────────────────────────────────────────────
 
 export default function RankingsPage() {
   const { api, isReady } = useApi();
+  const { data: session } = useSession();
   const [period, setPeriod] = useState<Period>('allTime');
   const [categoryValue, setCategoryValue] = useState('global');
   const [subTypeValue, setSubTypeValue] = useState('overall_power');
@@ -163,6 +207,9 @@ export default function RankingsPage() {
   // Hide score for global category (offense/defense expose raw combat stats)
   const showScore = categoryValue !== 'global';
 
+  // Get current user ID
+  const currentUserId = (session?.user as any)?.id;
+
   const { data, isLoading } = useQuery<RankingsResponse>({
     queryKey: ['rankings', categoryValue, subTypeValue, period, page],
     queryFn: () =>
@@ -171,6 +218,36 @@ export default function RankingsPage() {
       ),
     enabled: isReady,
   });
+
+  // Find current user's rank in the data
+  const myRank = data?.data.find((entry) => entry.id === currentUserId);
+
+  // Fetch user's full rank info (to know what page they're on)
+  const { data: myFullRank } = useQuery<RankEntry | null>({
+    queryKey: ['my-rank', categoryValue, subTypeValue, period],
+    queryFn: async () => {
+      if (!currentUserId) {
+        console.log('[Rankings] No currentUserId, skipping full rank fetch');
+        return null;
+      }
+      console.log('[Rankings] Fetching my rank');
+      // Use dedicated endpoint to get just current user's rank
+      const myEntry = await api.get<RankEntry | null>(
+        `/battle/rankings/my-rank?category=${categoryValue}&subType=${subTypeValue}&period=${period}`,
+      );
+      console.log('[Rankings] My full rank:', myEntry);
+      return myEntry;
+    },
+    enabled: isReady && !!currentUserId,
+  });
+
+  console.log('[Rankings] myRank:', myRank, 'myFullRank:', myFullRank, 'currentUserId:', currentUserId);
+
+  const handleJumpToMyRank = () => {
+    if (!myFullRank) return;
+    const myPage = Math.ceil(myFullRank.rank / 25);
+    setPage(myPage);
+  };
 
   const handleCategoryChange = (val: string) => {
     const cat = CATEGORIES.find((c) => c.value === val);
@@ -280,34 +357,66 @@ export default function RankingsPage() {
         </Group>
 
         {/* Rankings title */}
-        <Group gap="sm" align="center">
-          <Title order={3} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>{subType.icon}</span>
-            <span style={{ textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              {subType.label} Rankings
-            </span>
-          </Title>
-          {subTypeValue === 'overall_power' && (
+        <Group gap="sm" align="center" justify="space-between" wrap="wrap">
+          <Group gap="sm" align="center">
+            <Title order={3} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>{subType.icon}</span>
+              <span style={{ textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                {subType.label} Rankings
+              </span>
+            </Title>
+            {subTypeValue === 'overall_power' && (
             <Tooltip
               label={
                 <Stack gap={2}>
                   <Text size="xs" fw={700}>Overall Rank Formula</Text>
-                  <Text size="xs">Offense: 1.0x weight</Text>
-                  <Text size="xs">Defense: 1.0x weight</Text>
-                  <Text size="xs">Spy: 1.25x weight</Text>
-                  <Text size="xs">Sentry: 1.25x weight</Text>
-                  <Text size="xs">Fort Level: exponential bonus</Text>
-                  <Text size="xs">XP: small bonus</Text>
-                  <Text size="xs">Net Worth: log scale bonus</Text>
+                  <Text size="xs" fw={600}>Combat (~85%):</Text>
+                  <Text size="xs">  • Offense + Defense</Text>
+                  <Text size="xs" fw={600}>Economy (~15%):</Text>
+                  <Text size="xs">  • Net worth × log scale</Text>
+                  <Text size="xs" c="dimmed" fs="italic" mt={4}>Net worth = gold + bank + armory (75%) + battle upgrades (75%)</Text>
                 </Stack>
               }
               multiline
-              w={220}
+              w={280}
             >
               <Text size="xs" style={{ color: 'var(--ot-text-dim)', cursor: 'help', textDecoration: 'underline', textDecorationStyle: 'dotted' as const }}>
                 How is this calculated?
               </Text>
             </Tooltip>
+          )}
+          </Group>
+
+          {/* Current user's rank */}
+          {(myRank || myFullRank) && (
+            <Group gap="xs">
+              <Button
+                size="sm"
+                variant="light"
+                leftSection={<IconTarget size={16} />}
+                onClick={handleJumpToMyRank}
+                disabled={!!myRank}
+                style={{ color: 'var(--ot-gold)' }}
+              >
+                {myRank ? 'You\'re Here' : 'Jump to My Rank'}
+              </Button>
+              <Badge
+                size="lg"
+                variant="light"
+                style={{
+                  background: 'var(--ot-gold)',
+                  color: '#000',
+                  fontWeight: 700,
+                }}
+              >
+                Your Rank: #{(myRank || myFullRank)!.rank}
+                {(myRank || myFullRank)!.rankChange !== 0 && (
+                  <span style={{ marginLeft: 6 }}>
+                    {(myRank || myFullRank)!.rankChange! > 0 ? '▲' : '▼'} {Math.abs((myRank || myFullRank)!.rankChange!)}
+                  </span>
+                )}
+              </Badge>
+            </Group>
           )}
         </Group>
 
@@ -325,6 +434,7 @@ export default function RankingsPage() {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th ta="center" w={60}>Rank</Table.Th>
+                    {period === 'allTime' && <Table.Th ta="center" w={80}>Change</Table.Th>}
                     <Table.Th>Player</Table.Th>
                     <Table.Th ta="center">Level</Table.Th>
                     {showScore && <Table.Th ta="right">Score</Table.Th>}
@@ -333,7 +443,7 @@ export default function RankingsPage() {
                 <Table.Tbody>
                   {data.data.length === 0 ? (
                     <Table.Tr>
-                      <Table.Td colSpan={showScore ? 4 : 3} ta="center">
+                      <Table.Td colSpan={period === 'allTime' ? (showScore ? 5 : 4) : (showScore ? 4 : 3)} ta="center">
                         <Text size="sm" style={{ color: 'var(--ot-text-dim)' }} py="xl">
                           No data yet{period === 'today' ? ' for today' : ''}. Start playing to appear on the leaderboard!
                         </Text>
@@ -342,8 +452,19 @@ export default function RankingsPage() {
                   ) : (
                     data.data.map((entry) => {
                       const medal = getMedal(entry.rank);
+                      const isCurrentUser = entry.id === currentUserId;
                       return (
-                        <Table.Tr key={entry.id}>
+                        <Table.Tr
+                          key={entry.id}
+                          style={
+                            isCurrentUser
+                              ? {
+                                  backgroundColor: 'rgba(255, 215, 0, 0.08)',
+                                  outline: '2px solid var(--ot-gold)',
+                                }
+                              : undefined
+                          }
+                        >
                           <Table.Td ta="center">
                             {medal ? (
                               <Text size="lg" component="span">{medal}</Text>
@@ -353,6 +474,11 @@ export default function RankingsPage() {
                               </Text>
                             )}
                           </Table.Td>
+                          {period === 'allTime' && (
+                            <Table.Td ta="center">
+                              <RankChangeIndicator change={entry.rankChange} />
+                            </Table.Td>
+                          )}
                           <Table.Td>
                             <PlayerHoverCard
                               id={entry.id}

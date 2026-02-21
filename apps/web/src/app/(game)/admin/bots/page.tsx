@@ -16,12 +16,16 @@ import {
   NumberInput,
   Paper,
   Collapse,
+  Modal,
+  Progress,
+  Divider,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface BotEntry {
   id: number;
@@ -87,6 +91,9 @@ export default function BotsPage() {
   const [genCount, setGenCount] = useState<number>(10);
   const [genMinLevel, setGenMinLevel] = useState<number>(5);
   const [genMaxLevel, setGenMaxLevel] = useState<number>(60);
+  const [showSimulation, setShowSimulation] = useState(false);
+  const [simDays, setSimDays] = useState<number>(180);
+  const [simSessionsPerDay, setSimSessionsPerDay] = useState<number>(5);
 
   const buildQuery = () => {
     const params = new URLSearchParams();
@@ -146,12 +153,72 @@ export default function BotsPage() {
     },
   });
 
+  // Simulation status polling
+  const { data: simStatus } = useQuery<any>({
+    queryKey: ['admin', 'bots', 'simulation', 'status'],
+    queryFn: () => api.get('/admin/bots/simulation/status'),
+    enabled: isReady && showSimulation,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'running' ? 1000 : false; // Poll every 1s while running
+    },
+  });
+
+  const startSimulationMutation = useMutation({
+    mutationFn: () =>
+      api.post('/admin/bots/simulation/start', {
+        days: simDays,
+        sessionsPerDay: simSessionsPerDay,
+      }),
+    onSuccess: () => {
+      notifications.show({
+        title: 'Simulation Started',
+        message: `Running ${simDays} days of simulation...`,
+        color: 'blue',
+      });
+      setShowSimulation(true);
+    },
+    onError: (err: Error) => {
+      notifications.show({ title: 'Error', message: err.message, color: 'red' });
+    },
+  });
+
+  const cancelSimulationMutation = useMutation({
+    mutationFn: () => api.post('/admin/bots/simulation/cancel', {}),
+    onSuccess: () => {
+      notifications.show({
+        title: 'Cancelling',
+        message: 'Simulation will stop after current bot...',
+        color: 'orange',
+      });
+    },
+  });
+
+  // Auto-close modal when simulation completes
+  useEffect(() => {
+    if (simStatus?.status === 'completed' || simStatus?.status === 'cancelled') {
+      const timer = setTimeout(() => {
+        setShowSimulation(false);
+        queryClient.invalidateQueries({ queryKey: ['admin', 'bots'] });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [simStatus?.status, queryClient]);
+
   return (
     <Container size="lg">
       <Stack gap="md">
         <Group justify="space-between" align="center">
           <Title order={2}>Bot Management</Title>
           <Group gap="sm">
+            <Button
+              variant="light"
+              color="blue"
+              component={Link}
+              href="/admin/bots/dashboard"
+            >
+              📊 Dashboard
+            </Button>
             <Button
               variant="light"
               color="violet"
@@ -166,6 +233,13 @@ export default function BotsPage() {
               onClick={() => setShowGenerate((v) => !v)}
             >
               Generate Bots
+            </Button>
+            <Button
+              variant="light"
+              color="orange"
+              onClick={() => setShowSimulation(true)}
+            >
+              ⚡ Fast-Forward Simulation
             </Button>
           </Group>
         </Group>
@@ -192,6 +266,44 @@ export default function BotsPage() {
               <Text size="sm" fw={600}>{stats.sessionsToday}</Text>
             </Group>
           </Group>
+        )}
+
+        {/* Simulation Status Banner */}
+        {simStatus?.status === 'running' && (
+          <Paper p="md" withBorder style={{ backgroundColor: 'var(--mantine-color-blue-9)' }}>
+            <Group justify="space-between" align="center">
+              <Group gap="md">
+                <Badge size="lg" variant="filled" color="blue">
+                  SIMULATION RUNNING
+                </Badge>
+                <Text size="sm" fw={600}>
+                  Day {simStatus.currentDay}/{simStatus.totalDays} • Bot {simStatus.currentBot}/{simStatus.totalBots}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  {simStatus.totalActions.toLocaleString()} actions • {((Date.now() - simStatus.startTime) / 1000).toFixed(0)}s elapsed
+                </Text>
+              </Group>
+              <Group gap="sm">
+                <Button
+                  variant="light"
+                  color="white"
+                  size="sm"
+                  onClick={() => setShowSimulation(true)}
+                >
+                  View Progress
+                </Button>
+                <Button
+                  variant="filled"
+                  color="red"
+                  size="sm"
+                  onClick={() => cancelSimulationMutation.mutate()}
+                  loading={cancelSimulationMutation.isPending}
+                >
+                  ⏹ Stop Simulation
+                </Button>
+              </Group>
+            </Group>
+          </Paper>
         )}
 
         <Collapse in={showGenerate}>
@@ -361,6 +473,197 @@ export default function BotsPage() {
           </>
         )}
       </Stack>
+
+      {/* Simulation Modal */}
+      <Modal
+        opened={showSimulation}
+        onClose={() => {
+          if (simStatus?.status !== 'running') {
+            setShowSimulation(false);
+          }
+        }}
+        title="⚡ Fast-Forward Bot Simulation"
+        size="lg"
+        closeOnClickOutside={simStatus?.status !== 'running'}
+        closeOnEscape={simStatus?.status !== 'running'}
+      >
+        <Stack gap="md">
+          {!simStatus || simStatus.status === 'idle' ? (
+            <>
+              <Text size="sm" c="dimmed">
+                Run bots through accelerated time to generate months of real gameplay data.
+                Each bot will perform {simSessionsPerDay} sessions per simulated day.
+              </Text>
+
+              <Divider />
+
+              <Group gap="md">
+                <NumberInput
+                  label="Days to Simulate"
+                  description="180 days = 6 months"
+                  value={simDays}
+                  onChange={(val) => setSimDays(Number(val) || 180)}
+                  min={1}
+                  max={365}
+                  w={150}
+                />
+                <NumberInput
+                  label="Sessions per Day"
+                  description="How many times each bot runs daily"
+                  value={simSessionsPerDay}
+                  onChange={(val) => setSimSessionsPerDay(Number(val) || 5)}
+                  min={1}
+                  max={10}
+                  w={150}
+                />
+              </Group>
+
+              <Divider />
+
+              <Text size="xs" c="dimmed">
+                • Simulation runs in the background (won't freeze your browser)
+                • Progress updates every second
+                • Can be cancelled at any time
+                • All bots will be reset before simulation starts
+              </Text>
+
+              <Button
+                fullWidth
+                color="orange"
+                size="lg"
+                onClick={() => startSimulationMutation.mutate()}
+                loading={startSimulationMutation.isPending}
+              >
+                Start Simulation ({simDays} days, {simSessionsPerDay} sessions/day)
+              </Button>
+            </>
+          ) : (
+            <>
+              <Badge
+                size="lg"
+                variant="filled"
+                color={
+                  simStatus.status === 'running'
+                    ? 'blue'
+                    : simStatus.status === 'completed'
+                      ? 'green'
+                      : simStatus.status === 'cancelled'
+                        ? 'orange'
+                        : 'red'
+                }
+              >
+                {simStatus.status.toUpperCase()}
+              </Badge>
+
+              {simStatus.status === 'running' && (
+                <>
+                  <Stack gap="xs">
+                    <Group justify="space-between">
+                      <Text size="sm" fw={600}>
+                        Day {simStatus.currentDay} / {simStatus.totalDays}
+                      </Text>
+                      <Text size="sm" c="dimmed">
+                        {((simStatus.currentDay / simStatus.totalDays) * 100).toFixed(1)}%
+                      </Text>
+                    </Group>
+                    <Progress
+                      value={(simStatus.currentDay / simStatus.totalDays) * 100}
+                      size="lg"
+                      color="blue"
+                      animated
+                    />
+                  </Stack>
+
+                  <Stack gap="xs">
+                    <Group justify="space-between">
+                      <Text size="sm" fw={600}>
+                        Bot {simStatus.currentBot} / {simStatus.totalBots}
+                      </Text>
+                      <Text size="sm" c="dimmed">
+                        {((simStatus.currentBot / simStatus.totalBots) * 100).toFixed(1)}%
+                      </Text>
+                    </Group>
+                    <Progress
+                      value={(simStatus.currentBot / simStatus.totalBots) * 100}
+                      size="md"
+                      color="teal"
+                    />
+                  </Stack>
+
+                  <Divider />
+
+                  <Group justify="space-between">
+                    <div>
+                      <Text size="xs" c="dimmed">
+                        Total Actions
+                      </Text>
+                      <Text size="lg" fw={700}>
+                        {simStatus.totalActions.toLocaleString()}
+                      </Text>
+                    </div>
+                    <div>
+                      <Text size="xs" c="dimmed" ta="right">
+                        Elapsed
+                      </Text>
+                      <Text size="lg" fw={700} ta="right">
+                        {((Date.now() - simStatus.startTime) / 1000).toFixed(1)}s
+                      </Text>
+                    </div>
+                  </Group>
+
+                  <Button
+                    fullWidth
+                    variant="light"
+                    color="orange"
+                    onClick={() => cancelSimulationMutation.mutate()}
+                    loading={cancelSimulationMutation.isPending}
+                  >
+                    Cancel Simulation
+                  </Button>
+                </>
+              )}
+
+              {simStatus.status === 'completed' && (
+                <>
+                  <Text size="sm" c="green">
+                    ✅ Simulation complete! {simStatus.totalActions.toLocaleString()} total actions
+                    in {((Date.now() - simStatus.startTime) / 1000).toFixed(1)}s
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Closing in 3 seconds...
+                  </Text>
+                </>
+              )}
+
+              {simStatus.status === 'cancelled' && (
+                <>
+                  <Text size="sm" c="orange">
+                    ⚠️ Simulation cancelled at day {simStatus.currentDay}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Closing in 3 seconds...
+                  </Text>
+                </>
+              )}
+
+              {simStatus.status === 'error' && (
+                <>
+                  <Text size="sm" c="red">
+                    ❌ Simulation failed: {simStatus.error}
+                  </Text>
+                  <Button
+                    fullWidth
+                    variant="light"
+                    onClick={() => setShowSimulation(false)}
+                  >
+                    Close
+                  </Button>
+                </>
+              )}
+            </>
+          )}
+        </Stack>
+      </Modal>
     </Container>
   );
 }

@@ -19,8 +19,9 @@ import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
+import { updatePlayerCache } from '@/lib/cache-sync';
 import { toLocale, getUnitByTypeAndLevel } from '@openthrone/game-logic';
-import type { BattleUpgradeDefinition } from '@openthrone/shared';
+import type { BattleUpgradeDefinition, PlayerStateSnapshot } from '@openthrone/shared';
 import { BattleUpgradeType, UnitType } from '@openthrone/shared';
 
 interface OwnedBattleUpgrade {
@@ -44,20 +45,6 @@ interface StructuresStatus {
   };
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  OFFENSE: 'Offense',
-  DEFENSE: 'Defense',
-  SPY: 'Spy',
-  SENTRY: 'Sentry',
-};
-
-const TYPE_ORDER = [
-  BattleUpgradeType.OFFENSE,
-  BattleUpgradeType.DEFENSE,
-  BattleUpgradeType.SPY,
-  BattleUpgradeType.SENTRY,
-];
-
 /** Map battle upgrade type → unit type */
 const UPGRADE_TO_UNIT: Record<string, UnitType> = {
   OFFENSE: UnitType.OFFENSE,
@@ -66,35 +53,11 @@ const UPGRADE_TO_UNIT: Record<string, UnitType> = {
   SENTRY: UnitType.SENTRY,
 };
 
-/** Descriptions for each upgrade */
-const UPGRADE_DESCRIPTIONS: Record<string, Record<number, string>> = {
-  OFFENSE: {
-    1: 'A trusty steed for your knights. Adds a combat bonus per mounted unit.',
-    2: 'A massive war elephant that crushes enemy lines.',
-    3: 'An armored chariot for your elite warriors.',
-  },
-  DEFENSE: {
-    1: 'A watchtower manned by a guard. Detects and repels attackers.',
-    2: 'A catapult that hurls stones at invaders.',
-    3: 'A massive trebuchet for devastating defensive strikes.',
-  },
-  SPY: {
-    1: 'Disguise your spy to blend in with enemy populations.',
-    2: 'An embedded informant inside enemy ranks.',
-    3: 'A coordinated network of spies across the realm.',
-  },
-  SENTRY: {
-    1: 'A trained guard dog that sniffs out intruders.',
-    2: 'An elevated watch tower for spotting spies at range.',
-    3: 'A counter-intelligence headquarters to thwart enemy espionage.',
-  },
-};
-
 export default function BattleUpgradesPage() {
   const { api, isReady } = useApi();
   const queryClient = useQueryClient();
 
-  const [selectedType, setSelectedType] = useState<string>(BattleUpgradeType.OFFENSE);
+  const [mode, setMode] = useState<'buy' | 'sell'>('buy');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
@@ -106,12 +69,16 @@ export default function BattleUpgradesPage() {
 
   const buyMutation = useMutation({
     mutationFn: (data: { upgradeType: string; level: number; quantity: number }) =>
-      api.post('/structures/battle-upgrade', data),
-    onSuccess: () => {
+      api.post<{ playerState: PlayerStateSnapshot }>('/structures/battle-upgrade', data),
+    onSuccess: (response) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, response.playerState);
+
+      // Still invalidate structures queries
+      queryClient.invalidateQueries({ queryKey: ['structures'] });
+
       setQuantities({});
       setBusyKey(null);
-      queryClient.invalidateQueries({ queryKey: ['structures'] });
-      queryClient.invalidateQueries({ queryKey: ['player'] });
       notifications.show({ title: 'Purchased', message: 'Battle upgrade bought!', color: 'green' });
     },
     onError: (err: Error) => {
@@ -122,12 +89,16 @@ export default function BattleUpgradesPage() {
 
   const sellMutation = useMutation({
     mutationFn: (data: { upgradeType: string; level: number; quantity: number }) =>
-      api.post('/structures/sell-battle-upgrade', data),
-    onSuccess: () => {
+      api.post<{ playerState: PlayerStateSnapshot }>('/structures/sell-battle-upgrade', data),
+    onSuccess: (response) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, response.playerState);
+
+      // Still invalidate structures queries
+      queryClient.invalidateQueries({ queryKey: ['structures'] });
+
       setQuantities({});
       setBusyKey(null);
-      queryClient.invalidateQueries({ queryKey: ['structures'] });
-      queryClient.invalidateQueries({ queryKey: ['player'] });
       notifications.show({ title: 'Sold', message: 'Battle upgrade sold! 75% gold refunded.', color: 'green' });
     },
     onError: (err: Error) => {
@@ -138,7 +109,7 @@ export default function BattleUpgradesPage() {
 
   if (isLoading || !status) {
     return (
-      <Container size="lg">
+      <Container size="xl">
         <Stack gap="md">
           <Skeleton height={40} width={200} />
           <Skeleton height={100} />
@@ -149,7 +120,6 @@ export default function BattleUpgradesPage() {
   }
 
   const gold = Number(status.gold);
-  const unitType = UPGRADE_TO_UNIT[selectedType] || UnitType.OFFENSE;
 
   /** Get unit count for a specific type + level */
   const getUnitCount = (uType: string, level: number): number => {
@@ -165,19 +135,11 @@ export default function BattleUpgradesPage() {
     return entry?.quantity ?? 0;
   };
 
-  /** Get total owned upgrades across all levels for a type */
-  const getTotalOwned = (type: string): number =>
-    status.battleUpgrades
-      .filter((bu) => bu.upgradeType === type)
-      .reduce((sum, bu) => sum + bu.quantity, 0);
-
   /** Get unit name for a given type + tier level */
   const getUnitName = (uType: UnitType, level: number): string => {
     const def = getUnitByTypeAndLevel(uType, level);
     return def?.name ?? `Tier ${level}`;
   };
-
-  const defs = status.definitions.battle.filter((d) => d.type === selectedType);
 
   const handleBuy = (def: BattleUpgradeDefinition, qty: number) => {
     if (qty <= 0) return;
@@ -191,139 +153,107 @@ export default function BattleUpgradesPage() {
     sellMutation.mutate({ upgradeType: def.type, level: def.level, quantity: qty });
   };
 
-  return (
-    <Container size="lg">
-      <Stack gap="md">
-        <Title order={2}>Battle Upgrades</Title>
+  const renderUpgradeSection = (
+    title: string,
+    upgradeType: BattleUpgradeType,
+    upgrades: BattleUpgradeDefinition[],
+  ) => {
+    const unitType = UPGRADE_TO_UNIT[upgradeType] || UnitType.OFFENSE;
 
-        {/* Resource + unit summary */}
-        <OTCard>
-          <Group justify="space-between" wrap="wrap" gap="md">
-            <Stack gap={4}>
-              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
-              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
-            </Stack>
-            {[2, 3, 4].map((tier) => {
-              const count = getUnitCount(unitType, tier);
-              const name = getUnitName(unitType, tier);
-              return (
-                <Stack gap={4} key={tier}>
-                  <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>{name} (T{tier})</Text>
-                  <Text fw={700} size="lg" className="ot-stat-value">{toLocale(count)}</Text>
-                </Stack>
+    return (
+      <Paper withBorder p="md" key={upgradeType}>
+        <Title order={4} mb="md">{title}</Title>
+        <Table striped>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Upgrade</Table.Th>
+              <Table.Th ta="center">Bonus</Table.Th>
+              <Table.Th ta="right">Cost</Table.Th>
+              <Table.Th ta="center">Owned / Max</Table.Th>
+              <Table.Th ta="center">Action</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {upgrades.map((def) => {
+              const key = `${def.type}_${def.level}`;
+              const owned = getOwned(def.type, def.level);
+              const maxUnits = getUnitCount(unitType, def.minUnitLevel);
+              const unitName = getUnitName(unitType, def.minUnitLevel);
+              const locked = maxUnits <= 0;
+              const qty = quantities[key] || 0;
+              const maxBuyable = Math.min(
+                maxUnits - owned,
+                def.cost > 0 ? Math.floor(gold / def.cost) : 0,
               );
-            })}
-          </Group>
-        </OTCard>
+              const isBuying = busyKey === key + '_buy';
+              const isSelling = busyKey === key + '_sell';
 
-        {/* Type tabs */}
-        <Tabs
-          value={selectedType}
-          onChange={(val) => {
-            setSelectedType(val || BattleUpgradeType.OFFENSE);
-            setQuantities({});
-          }}
-        >
-          <Tabs.List>
-            {TYPE_ORDER.map((type) => {
-              const total = getTotalOwned(type);
+              const statLabel = upgradeType === BattleUpgradeType.OFFENSE ? 'OFF'
+                : upgradeType === BattleUpgradeType.DEFENSE ? 'DEF'
+                : upgradeType === BattleUpgradeType.SPY ? 'SPY'
+                : 'SENTRY';
+
+              const description = upgradeType === BattleUpgradeType.OFFENSE
+                ? `War mount - adds ${def.bonus} to offense`
+                : upgradeType === BattleUpgradeType.DEFENSE
+                ? `Defensive structure - adds ${def.bonus} to defense`
+                : upgradeType === BattleUpgradeType.SPY
+                ? `Espionage tool - adds ${def.bonus} to spy offense`
+                : `Counter-intelligence - adds ${def.bonus} to spy defense`;
+
               return (
-                <Tabs.Tab key={type} value={type}>
-                  {TYPE_LABELS[type] || type}
-                  {total > 0 && (
-                    <Badge size="xs" variant="light" ml={6}>{toLocale(total)}</Badge>
-                  )}
-                </Tabs.Tab>
-              );
-            })}
-          </Tabs.List>
-        </Tabs>
-
-        {/* Upgrade table */}
-        <Paper withBorder p="md">
-          <Title order={4} mb="sm">
-            {TYPE_LABELS[selectedType]} Battle Upgrades
-          </Title>
-          <Text size="xs" style={{ color: 'var(--ot-text-dim)' }} mb="sm">
-            Each upgrade covers 1 unit. You can own up to as many as your unit count of the required tier.
-          </Text>
-
-          <Table striped>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Upgrade</Table.Th>
-                <Table.Th ta="center">Bonus</Table.Th>
-                <Table.Th ta="right">Cost</Table.Th>
-                <Table.Th ta="center">Requires</Table.Th>
-                <Table.Th ta="center">Owned / Max</Table.Th>
-                <Table.Th ta="right">Qty</Table.Th>
-                <Table.Th ta="center">Action</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {defs.map((def) => {
-                const key = `${def.type}_${def.level}`;
-                const owned = getOwned(def.type, def.level);
-                const maxUnits = getUnitCount(unitType, def.minUnitLevel);
-                const unitName = getUnitName(unitType, def.minUnitLevel);
-                const locked = maxUnits <= 0;
-                const qty = quantities[key] || 0;
-                const maxBuyable = Math.min(
-                  maxUnits - owned,
-                  def.cost > 0 ? Math.floor(gold / def.cost) : 0,
-                );
-                const isBuying = busyKey === key + '_buy';
-                const isSelling = busyKey === key + '_sell';
-                const desc = UPGRADE_DESCRIPTIONS[def.type]?.[def.level] || '';
-
-                return (
-                  <Table.Tr key={key} style={locked ? { opacity: 0.5 } : undefined}>
-                    <Table.Td>
-                      <Stack gap={2}>
-                        <Text fw={600} size="sm">{def.name}</Text>
-                        {desc && (
-                          <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>{desc}</Text>
-                        )}
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td ta="center">+{def.bonus}</Table.Td>
-                    <Table.Td ta="right">{toLocale(def.cost)}</Table.Td>
-                    <Table.Td ta="center">
-                      {locked ? (
-                        <Badge color="red" size="xs">
-                          Train {unitName} first!
-                        </Badge>
-                      ) : (
-                        <Text size="xs">{unitName} (T{def.minUnitLevel})</Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td ta="center">
-                      {toLocale(owned)} / {toLocale(maxUnits)}
-                    </Table.Td>
-                    <Table.Td ta="right">
-                      <NumberInput
-                        size="xs"
-                        min={0}
-                        value={qty || ''}
-                        placeholder="0"
-                        onChange={(val) =>
-                          setQuantities((prev) => ({
-                            ...prev,
-                            [key]: typeof val === 'number' ? val : 0,
-                          }))
-                        }
-                        disabled={locked}
-                        allowNegative={false}
-                        w={80}
-                        styles={{ input: { textAlign: 'right' } }}
-                      />
-                    </Table.Td>
-                    <Table.Td ta="center">
-                      <Group gap={4} wrap="nowrap" justify="center">
+                <Table.Tr key={key} style={locked ? { opacity: 0.6 } : undefined}>
+                  <Table.Td>
+                    <Stack gap={2}>
+                      <Text fw={600} size="sm">{def.name}</Text>
+                      <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
+                        {description}
+                      </Text>
+                      <Text size="xs" fw={500} style={{ color: locked ? 'var(--mantine-color-red-6)' : 'var(--ot-text-dim)' }}>
+                        Requires: {unitName} (Tier {def.minUnitLevel})
+                      </Text>
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td ta="center">
+                    <Badge size="sm" variant="light">
+                      +{def.bonus} {statLabel}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td ta="right">
+                    <Text fw={500}>{toLocale(def.cost)}</Text>
+                  </Table.Td>
+                  <Table.Td ta="center">
+                    <Text size="sm">
+                      {toLocale(owned)} / {locked ? 0 : toLocale(maxUnits)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td ta="center">
+                    {locked ? (
+                      <Badge color="red" size="sm">
+                        Train {unitName} first!
+                      </Badge>
+                    ) : mode === 'buy' ? (
+                      <Group gap="xs" wrap="nowrap" justify="center">
+                        <NumberInput
+                          size="xs"
+                          min={0}
+                          max={maxBuyable}
+                          value={qty || ''}
+                          placeholder="0"
+                          onChange={(val) =>
+                            setQuantities((prev) => ({
+                              ...prev,
+                              [key]: typeof val === 'number' ? val : 0,
+                            }))
+                          }
+                          allowNegative={false}
+                          w={70}
+                          styles={{ input: { textAlign: 'center' } }}
+                        />
                         <Button
                           size="xs"
                           variant="light"
-                          disabled={locked || maxBuyable <= 0}
+                          disabled={maxBuyable <= 0}
                           onClick={() => {
                             if (maxBuyable > 0) setQuantities((prev) => ({ ...prev, [key]: maxBuyable }));
                           }}
@@ -332,32 +262,103 @@ export default function BattleUpgradesPage() {
                         </Button>
                         <Button
                           size="xs"
-                          disabled={locked || qty <= 0 || qty > maxBuyable}
+                          disabled={qty <= 0 || qty > maxBuyable}
                           loading={isBuying}
                           onClick={() => handleBuy(def, qty)}
                         >
                           Buy
                         </Button>
-                        {owned > 0 && (
-                          <Button
-                            size="xs"
-                            color="orange"
-                            variant="light"
-                            disabled={qty <= 0 || qty > owned}
-                            loading={isSelling}
-                            onClick={() => handleSell(def, qty)}
-                          >
-                            Sell
-                          </Button>
-                        )}
                       </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </Paper>
+                    ) : (
+                      <Group gap="xs" wrap="nowrap" justify="center">
+                        <NumberInput
+                          size="xs"
+                          min={0}
+                          max={owned}
+                          value={qty || ''}
+                          placeholder="0"
+                          onChange={(val) =>
+                            setQuantities((prev) => ({
+                              ...prev,
+                              [key]: typeof val === 'number' ? val : 0,
+                            }))
+                          }
+                          allowNegative={false}
+                          w={70}
+                          styles={{ input: { textAlign: 'center' } }}
+                          disabled={owned <= 0}
+                        />
+                        <Button
+                          size="xs"
+                          variant="light"
+                          disabled={owned <= 0}
+                          onClick={() => {
+                            if (owned > 0) setQuantities((prev) => ({ ...prev, [key]: owned }));
+                          }}
+                        >
+                          Max
+                        </Button>
+                        <Button
+                          size="xs"
+                          color="orange"
+                          disabled={owned <= 0 || qty <= 0 || qty > owned}
+                          loading={isSelling}
+                          onClick={() => handleSell(def, qty)}
+                        >
+                          Sell
+                        </Button>
+                      </Group>
+                    )}
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
+      </Paper>
+    );
+  };
+
+  const offenseUpgrades = status.definitions.battle.filter(d => d.type === BattleUpgradeType.OFFENSE);
+  const defenseUpgrades = status.definitions.battle.filter(d => d.type === BattleUpgradeType.DEFENSE);
+  const spyUpgrades = status.definitions.battle.filter(d => d.type === BattleUpgradeType.SPY);
+  const sentryUpgrades = status.definitions.battle.filter(d => d.type === BattleUpgradeType.SENTRY);
+
+  return (
+    <Container size="xl">
+      <Stack gap="md">
+        <Group justify="space-between" align="flex-start">
+          <Stack gap={4}>
+            <Title order={2}>Battle Upgrades</Title>
+            <Text size="sm" style={{ color: 'var(--ot-text-dim)' }}>
+              Equip your units with powerful upgrades. Each upgrade requires a unit of the corresponding tier to mount or operate it.
+            </Text>
+          </Stack>
+          <OTCard>
+            <Stack gap={4}>
+              <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>Gold on Hand</Text>
+              <Text fw={700} size="lg" className="ot-stat-value">{toLocale(gold)}</Text>
+            </Stack>
+          </OTCard>
+        </Group>
+
+        {/* Buy/Sell Tabs */}
+        <Tabs value={mode} onChange={(val) => {
+          setMode((val as 'buy' | 'sell') || 'buy');
+          setQuantities({});
+        }}>
+          <Tabs.List>
+            <Tabs.Tab value="buy">Buy</Tabs.Tab>
+            <Tabs.Tab value="sell">Sell</Tabs.Tab>
+          </Tabs.List>
+        </Tabs>
+
+        <Stack gap="lg">
+          {renderUpgradeSection('Offense Upgrades', BattleUpgradeType.OFFENSE, offenseUpgrades)}
+          {renderUpgradeSection('Defense Upgrades', BattleUpgradeType.DEFENSE, defenseUpgrades)}
+          {renderUpgradeSection('Spy Offense Upgrades', BattleUpgradeType.SPY, spyUpgrades)}
+          {renderUpgradeSection('Spy Defense Upgrades', BattleUpgradeType.SENTRY, sentryUpgrades)}
+        </Stack>
       </Stack>
     </Container>
   );

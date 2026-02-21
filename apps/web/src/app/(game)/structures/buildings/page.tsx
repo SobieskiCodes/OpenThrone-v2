@@ -18,8 +18,10 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
+import { updatePlayerCache } from '@/lib/cache-sync';
 import { OTCard } from '@/components/ui';
 import { toLocale } from '@openthrone/game-logic';
+import type { PlayerStateSnapshot } from '@openthrone/shared';
 import {
   IconWall,
   IconSword,
@@ -143,10 +145,14 @@ export default function BuildingsPage() {
 
   const upgradeMutation = useMutation({
     mutationFn: (buildingType: string) =>
-      api.post('/structures/buildings/upgrade', { buildingType }),
-    onSuccess: () => {
+      api.post<{ playerState: PlayerStateSnapshot }>('/structures/buildings/upgrade', { buildingType }),
+    onSuccess: (data) => {
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, data.playerState);
+
+      // Still invalidate buildings queries
       queryClient.invalidateQueries({ queryKey: ['structures', 'buildings'] });
-      queryClient.invalidateQueries({ queryKey: ['player'] });
+
       notifications.show({
         title: 'Upgrade Complete',
         message: 'Building upgraded successfully!',

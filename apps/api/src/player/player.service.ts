@@ -17,10 +17,8 @@ import {
   calculateFullDetailedBreakdown,
   calculateGoldPerTurnBreakdown,
   calculateCitizensPerDayBreakdown,
-  computeArmoryValue,
-  OffensiveUpgrades,
-  SpyUpgrades,
-  SentryUpgrades,
+  computeArmoryResaleValue,
+  computeBattleUpgradeResaleValue,
   canUpgradeBuilding,
   getBuildingLevel,
 } from '@openthrone/game-logic';
@@ -33,9 +31,18 @@ export class PlayerService {
   constructor(private readonly prisma: PrismaService) {}
 
   async searchPlayers(search: string) {
+    // Build where clause compatible with both SQLite and PostgreSQL
+    // PostgreSQL supports mode: 'insensitive', SQLite doesn't
+    const isPostgres = process.env.DATABASE_URL?.includes('postgresql');
+    const containsClause: any = { contains: search };
+    if (isPostgres) {
+      containsClause.mode = 'insensitive';
+    }
+
     const where: any = {
-      display_name: { contains: search, mode: 'insensitive' },
+      display_name: containsClause,
     };
+
     const players = await this.prisma.player.findMany({
       where,
       select: {
@@ -58,7 +65,6 @@ export class PlayerService {
         units: true,
         items: true,
         battle_upgrades: true,
-        structure_upgrades: true,
         fortification: true,
         bonus_points: true,
         stats: true,
@@ -120,10 +126,6 @@ export class PlayerService {
         level: bu.level,
         quantity: bu.quantity,
       })),
-      structureUpgrades: player.structure_upgrades.map((su) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
-      })),
       fortification: player.fortification
         ? {
             fortLevel: player.fortification.fort_level,
@@ -160,7 +162,6 @@ export class PlayerService {
     player: {
       economy: { gold: bigint } | null;
       fortification: { fort_level: number } | null;
-      structure_upgrades: { upgrade_type: string; level: number }[];
       buildings: { building_type: string; level: number }[];
     },
     playerLevel: number,
@@ -182,26 +183,6 @@ export class PlayerService {
       if (nextDef && playerLevel >= nextDef.playerLevelRequirement) {
         count++;
       }
-    }
-
-    // Count legacy structure upgrades (OFFENSE/SPY/SENTRY) that can be upgraded
-    const getLevel = (type: string) =>
-      player.structure_upgrades.find((s) => s.upgrade_type === type)?.level ?? 1;
-
-    const legacyCategories: Array<{
-      defs: Array<{ level: number; cost: number; fortLevelRequirement?: number; [k: string]: any }>;
-      currentLevel: number;
-    }> = [
-      { defs: OffensiveUpgrades, currentLevel: getLevel('OFFENSE') },
-      { defs: SpyUpgrades, currentLevel: getLevel('SPY') },
-      { defs: SentryUpgrades, currentLevel: getLevel('SENTRY') },
-    ];
-
-    for (const cat of legacyCategories) {
-      const nextDef = cat.defs.find((d) => d.level === cat.currentLevel + 1);
-      if (!nextDef) continue;
-      const requiredFort = nextDef.fortLevelRequirement ?? 0;
-      if (fortLevel >= requiredFort) count++;
     }
 
     return count;
@@ -434,7 +415,6 @@ export class PlayerService {
         units: true,
         items: true,
         battle_upgrades: true,
-        structure_upgrades: true,
         fortification: true,
         bonus_points: true,
         stats: true,
@@ -469,10 +449,6 @@ export class PlayerService {
       bonusPoints: player.bonus_points.map((bp) => ({
         bonusType: bp.bonus_type,
         level: bp.level,
-      })),
-      structureUpgrades: player.structure_upgrades.map((su) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
       })),
     };
 
@@ -537,10 +513,10 @@ export class PlayerService {
     const mySentry = stats.sentry.total;
     const overallRank = player.stats?.rank ?? 0;
 
-    // Compute net worth for this player
+    // Compute net worth for this player (at 75% resale value)
     const myGold = Number(player.economy?.gold ?? 0);
     const myBank = Number(player.economy?.gold_in_bank ?? 0);
-    const myArmory = computeArmoryValue(
+    const myArmoryResale = computeArmoryResaleValue(
       player.items.map((i) => ({
         itemType: i.item_type,
         usage: i.usage,
@@ -548,7 +524,14 @@ export class PlayerService {
         quantity: i.quantity,
       })),
     );
-    const myNetWorth = myGold + myBank + myArmory;
+    const myBattleUpgradeResale = computeBattleUpgradeResaleValue(
+      player.battle_upgrades.map((bu) => ({
+        upgradeType: bu.upgrade_type,
+        level: bu.level,
+        quantity: bu.quantity,
+      })),
+    );
+    const myNetWorth = myGold + myBank + myArmoryResale + myBattleUpgradeResale;
 
     // Compute net worth for all active players to get rank position
     const allPlayers = await this.prisma.player.findMany({
@@ -557,6 +540,7 @@ export class PlayerService {
         id: true,
         economy: { select: { gold: true, gold_in_bank: true } },
         items: { select: { item_type: true, usage: true, level: true, quantity: true } },
+        battle_upgrades: { select: { upgrade_type: true, level: true, quantity: true } },
       },
     });
 
@@ -565,7 +549,7 @@ export class PlayerService {
       if (p.id === playerId) continue;
       const g = Number(p.economy?.gold ?? 0);
       const b = Number(p.economy?.gold_in_bank ?? 0);
-      const a = computeArmoryValue(
+      const aResale = computeArmoryResaleValue(
         p.items.map((i) => ({
           itemType: i.item_type,
           usage: i.usage,
@@ -573,7 +557,14 @@ export class PlayerService {
           quantity: i.quantity,
         })),
       );
-      if (g + b + a > myNetWorth) netWorthRank++;
+      const buResale = computeBattleUpgradeResaleValue(
+        p.battle_upgrades.map((bu) => ({
+          upgradeType: bu.upgrade_type,
+          level: bu.level,
+          quantity: bu.quantity,
+        })),
+      );
+      if (g + b + aResale + buResale > myNetWorth) netWorthRank++;
     }
 
     const [offenseRank, defenseRank, spyRank, sentryRank] = await Promise.all([

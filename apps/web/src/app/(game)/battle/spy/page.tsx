@@ -25,6 +25,8 @@ import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { useApi } from '@/hooks/use-api';
+import { updatePlayerCache } from '@/lib/cache-sync';
+import type { PlayerStateSnapshot } from '@openthrone/shared';
 
 interface PlayerEntry {
   id: string;
@@ -52,6 +54,7 @@ interface SpyResult {
   attackLogId?: number;
   goldStolen?: string;
   destroyedItems?: { itemType: string; usage: string; level: number }[];
+  playerState: PlayerStateSnapshot;
 }
 
 const TARGET_UNIT_OPTIONS = [
@@ -105,8 +108,13 @@ function SpyPageContent() {
     mutationFn: (body: { type: string; spiesSent: number; targetUnitType?: string }) =>
       api.post(`/battle/spy/${selectedTarget!.id}`, body) as Promise<SpyResult>,
     onSuccess: (data: SpyResult) => {
-      setResult(data);
+      // Update cache with fresh state (instant feedback!)
+      updatePlayerCache(queryClient, data.playerState);
+
+      // Still invalidate battle queries (history, etc.)
       queryClient.invalidateQueries({ queryKey: ['battle'] });
+
+      setResult(data);
       notifications.show({
         title: data.success ? 'Mission Successful' : 'Mission Failed',
         message: data.success

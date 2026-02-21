@@ -602,7 +602,6 @@ export interface FullPlayerData {
   items: Array<{ itemType: string; usage: string; level: number; quantity: number }>;
   battleUpgrades: Array<{ upgradeType: string; level: number; quantity: number }>;
   bonusPoints: Array<{ bonusType: string; level: number }>;
-  structureUpgrades: Array<{ upgradeType: string; level: number }>;
   offense: number;
   defense: number;
   spy: number;

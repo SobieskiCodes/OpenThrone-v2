@@ -163,3 +163,30 @@ export function getBattleUpgradesByType(
 ): BattleUpgradeDefinition[] {
   return BattleUpgrades.filter((b) => b.type === type);
 }
+
+/**
+ * Returns the battle upgrade definition for a given type and level.
+ */
+export function getBattleUpgradeByTypeAndLevel(
+  type: BattleUpgradeType,
+  level: number,
+): BattleUpgradeDefinition | undefined {
+  return BattleUpgrades.find((b) => b.type === type && b.level === level);
+}
+
+/**
+ * Computes battle upgrade resale value (75% refund).
+ * Used for net worth calculations.
+ */
+export function computeBattleUpgradeResaleValue(
+  upgrades: Array<{ upgradeType: string; level: number; quantity: number }>,
+): number {
+  return upgrades.reduce((sum, upgrade) => {
+    const def = getBattleUpgradeByTypeAndLevel(
+      upgrade.upgradeType as BattleUpgradeType,
+      upgrade.level,
+    );
+    const fullCost = (def?.cost ?? 0) * upgrade.quantity;
+    return sum + Math.floor(fullCost * 0.75);
+  }, 0);
+}

@@ -7,7 +7,7 @@ import type { LevelXP } from '@openthrone/shared';
  */
 function generateXPCurve(): LevelXP[] {
   const levels: LevelXP[] = [];
-  for (let level = 1; level <= 100; level++) {
+  for (let level = 1; level <= 1000; level++) {
     const xp = level === 1 ? 0 : (level - 1) * (1000 + 75 * (level - 2));
     levels.push({ level, xp });
   }
@@ -18,7 +18,7 @@ export const levelXPArray: LevelXP[] = generateXPCurve();
 
 /**
  * Returns the level corresponding to the given cumulative XP.
- * Level 1 starts at 0 XP, max level is 100.
+ * Level 1 starts at 0 XP, max level is 1000.
  */
 export function getLevelForXP(xp: number): number {
   for (let i = levelXPArray.length - 1; i >= 0; i--) {

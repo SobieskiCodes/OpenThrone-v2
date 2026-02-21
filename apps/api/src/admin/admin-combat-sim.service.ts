@@ -32,7 +32,6 @@ export class AdminCombatSimService {
         items: true,
         battle_upgrades: true,
         bonus_points: true,
-        structure_upgrades: true,
       },
     });
 
@@ -64,10 +63,6 @@ export class AdminCombatSimService {
         bonusType: bp.bonus_type,
         level: bp.level,
       })),
-      structureUpgrades: player.structure_upgrades.map((su) => ({
-        upgradeType: su.upgrade_type,
-        level: su.level,
-      })),
     };
 
     const fullStats = calculateFullStats(statsInput);
@@ -87,7 +82,6 @@ export class AdminCombatSimService {
       items: statsInput.items,
       battleUpgrades: statsInput.battleUpgrades,
       bonusPoints: statsInput.bonusPoints,
-      structureUpgrades: statsInput.structureUpgrades,
       offense: fullStats.offense.total,
       defense: fullStats.defense.total,
       spy: fullStats.spy.total,

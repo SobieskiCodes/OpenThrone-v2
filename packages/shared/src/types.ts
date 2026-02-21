@@ -248,3 +248,31 @@ export interface PageAlert {
   type: 'SUCCESS' | 'DANGER' | 'INFO';
   message: string;
 }
+
+// ─── Cache Sync: Player State Snapshot ──────────────────────────────
+// Returned by mutations to update frontend cache without refetching
+
+export interface PlayerStateSnapshot {
+  // Economy
+  gold: string; // BigInt as string
+  goldInBank: string; // BigInt as string
+
+  // Stats
+  experience: number;
+  level: number;
+  offense: number;
+  defense: number;
+  spy: number;
+  sentry: number;
+
+  // Resources
+  attackTurns: number;
+  citizens: number;
+
+  // Units (only when changed)
+  updatedUnits?: Array<{
+    unitType: UnitType;
+    level: number;
+    quantity: number;
+  }>;
+}

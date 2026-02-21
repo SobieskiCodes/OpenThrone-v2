@@ -13,6 +13,7 @@ import {
   getBuildingLevel,
 } from '@openthrone/game-logic';
 import { UnitType, BonusType, BuildingType } from '@openthrone/shared';
+import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
 
 @Injectable()
 export class RecruitmentService {
@@ -229,6 +230,8 @@ export class RecruitmentService {
       new PlayerRecruitedEvent(referrer.id, null, ipAddress, citizensAwarded),
     );
 
+    // Note: claimRecruitLink is a public endpoint (no auth), so no playerState needed
+    // The referrer's cache will update on their next page load
     return {
       message: `You helped ${referrer.display_name} recruit ${citizensAwarded} citizens!`,
       citizensAwarded,
@@ -320,10 +323,13 @@ export class RecruitmentService {
       new AutoRecruitEvent(playerId, citizensGained, economy.house_level || 1),
     );
 
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+
     return {
       citizensGained,
       poolSize: poolPlayers.length + 1,
       message: `Auto-recruit awarded ${citizensGained} citizens!`,
+      playerState,
     };
   }
 
