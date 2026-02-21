@@ -111,6 +111,12 @@ export const usePlayerStore = create<PlayerState>()(
         },
       }
     ),
-    { name: 'PlayerStore' }
+    {
+      name: 'PlayerStore',
+      // Custom serializer for devtools to handle BigInt
+      serialize: {
+        replacer: (_, value) => (typeof value === 'bigint' ? value.toString() + 'n' : value),
+      },
+    }
   )
 );
