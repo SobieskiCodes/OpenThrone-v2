@@ -160,6 +160,95 @@ export default function FeaturePage() {
 }
 ```
 
+## State Management
+
+### Zustand Global Store
+
+Player state that needs **instant updates** across the app lives in Zustand (`apps/web/src/stores/player-store.ts`).
+
+**Store Structure:**
+```typescript
+interface PlayerState {
+  // Stored as strings (for serialization), accessed via helpers
+  gold: string;
+  goldInBank: string;
+  experience: string;
+
+  // Regular fields
+  id: string;
+  displayName: string;
+  level: number;
+  attackTurns: number;
+  totalUnits: number;
+  unitsByType: Record<string, number>;
+  buildings: Record<string, number>;
+  proficiencies: Record<string, number>;
+  availablePoints: number;
+  equippedItems: Array<{ id: string; type: string; tier: number }>;
+  unreadMail: number;
+
+  // BigInt helpers (accept/return BigInt, store as string internally)
+  getGold: () => bigint;
+  setGold: (value: bigint) => void;
+  addGold: (delta: bigint) => void;
+  subtractGold: (amount: bigint) => void;
+  // ... similar for goldInBank, experience
+
+  // Actions
+  setState: (partial: Partial<PlayerState>) => void;
+  mergeState: (partial: Partial<PlayerState>) => void;
+  reset: () => void;
+}
+```
+
+**Why strings?** BigInt can't be serialized by JSON.stringify (used by localStorage, React DevTools, etc.). We store as string and provide BigInt helper methods.
+
+**Hydration:** `apps/web/src/app/(game)/layout.tsx` fetches player data via TanStack Query and hydrates the store on mount.
+
+### When to Use Zustand vs TanStack Query
+
+| Data Type | Tool | Reason |
+|-----------|------|--------|
+| Frequently changing player data (gold, attackTurns, units, proficiencies) | **Zustand** | Instant UI updates, no cache invalidation lag |
+| Rarely changing player data (displayName, race, settings) | **TanStack Query** | Simpler, no need for instant sync |
+| Lists (rankings, other players, activity feed, alliance members) | **TanStack Query** | Server cache, pagination, background refetch |
+| Initial data fetch on page load | **TanStack Query** | Server state management, loading states |
+
+### Mutation Pattern (Gold/Units/Proficiencies)
+
+**Backend:**
+1. Service performs mutation in `$transaction()`
+2. Returns `playerState` delta with updated values
+3. Emits event AFTER transaction
+
+**Frontend:**
+1. Mutation calls API
+2. `onSuccess`: **instantly** update Zustand store with delta
+3. Still invalidate TanStack Query for background re-sync
+
+**Example:**
+```typescript
+import { usePlayerStore } from '@/stores/player-store';
+
+const equipMutation = useMutation({
+  mutationFn: (item) => api.post('/armory/equip', item),
+  onSuccess: (data) => {
+    // Update Zustand store INSTANTLY (no waiting for cache invalidation)
+    if (data.playerState?.gold) {
+      usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+    }
+
+    // Still invalidate queries for background re-sync
+    queryClient.invalidateQueries({ queryKey: ['armory'] });
+    queryClient.invalidateQueries({ queryKey: ['player'] });
+
+    notifications.show({ title: 'Success', message: 'Items purchased!', color: 'green' });
+  },
+});
+```
+
+**Never use `updatePlayerCache()` helper** — it's deprecated. Use Zustand helpers directly.
+
 ## Adding a New Feature (Checklist)
 
 1. **Enums** → `packages/shared/src/enums.ts` (if new enum types needed)

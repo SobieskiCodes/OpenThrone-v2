@@ -169,15 +169,15 @@ function GameShell({ children }: { children: React.ReactNode }) {
         return acc;
       }, {} as Record<string, number>) ?? {};
 
-      // Hydrate store
+      // Hydrate store (gold stored as strings)
       usePlayerStore.getState().setState({
         id: meData.id ?? '',
         displayName: meData.displayName ?? '',
         level: meData.level ?? 1,
-        experience: meData.stats?.experience ? BigInt(meData.stats.experience) : 0n,
+        experience: meData.stats?.experience?.toString() ?? '0',
         race: meData.race ?? 'UNDEAD',
-        gold: meData.economy?.gold ? BigInt(meData.economy.gold) : 0n,
-        goldInBank: meData.economy?.goldInBank ? BigInt(meData.economy.goldInBank) : 0n,
+        gold: meData.economy?.gold?.toString() ?? '0',
+        goldInBank: meData.economy?.goldInBank?.toString() ?? '0',
         attackTurns: meData.economy?.attackTurns ?? 0,
         totalUnits,
         unitsByType,

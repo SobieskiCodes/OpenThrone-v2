@@ -19,7 +19,7 @@ import { OTCard } from '@/components/ui';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
-import { updatePlayerCache } from '@/lib/cache-sync';
+import { usePlayerStore } from '@/stores/player-store';
 import { toLocale } from '@openthrone/game-logic';
 import type { PlayerStateSnapshot } from '@openthrone/shared';
 
@@ -77,10 +77,15 @@ export default function BankPage() {
   const depositMutation = useMutation({
     mutationFn: (amount: string) => api.post<{ playerState: PlayerStateSnapshot }>('/bank/deposit', { amount }),
     onSuccess: (data) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, data.playerState);
+      // Update Zustand store INSTANTLY
+      if (data.playerState?.gold) {
+        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+      }
+      if (data.playerState?.goldInBank) {
+        usePlayerStore.getState().setGoldInBank(BigInt(data.playerState.goldInBank));
+      }
 
-      // Still invalidate bank queries
+      // Still invalidate bank queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['bank'] });
 
       setError(null);
@@ -96,10 +101,15 @@ export default function BankPage() {
   const withdrawMutation = useMutation({
     mutationFn: (amount: string) => api.post<{ playerState: PlayerStateSnapshot }>('/bank/withdraw', { amount }),
     onSuccess: (data) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, data.playerState);
+      // Update Zustand store INSTANTLY
+      if (data.playerState?.gold) {
+        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+      }
+      if (data.playerState?.goldInBank) {
+        usePlayerStore.getState().setGoldInBank(BigInt(data.playerState.goldInBank));
+      }
 
-      // Still invalidate bank queries
+      // Still invalidate bank queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['bank'] });
 
       setError(null);

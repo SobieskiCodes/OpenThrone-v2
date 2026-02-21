@@ -1,17 +1,17 @@
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 
 interface PlayerState {
   // ─── Identity ────────────────────────────────────────────────────
   id: string;
   displayName: string;
   level: number;
-  experience: bigint;
+  experience: string; // stored as string, use getExperience() for BigInt
   race: string;
 
   // ─── Economy ─────────────────────────────────────────────────────
-  gold: bigint;
-  goldInBank: bigint;
+  gold: string; // stored as string, use getGold() for BigInt
+  goldInBank: string; // stored as string, use getGoldInBank() for BigInt
   attackTurns: number;
 
   // ─── Units (summary for header/nav) ──────────────────────────────
@@ -32,10 +32,19 @@ interface PlayerState {
   unreadMail: number;
 
   // ─── Actions ─────────────────────────────────────────────────────
-  setState: (partial: Partial<PlayerState>) => void;
-  mergeState: (partial: Partial<PlayerState>) => void;
+  setState: (partial: Partial<Omit<PlayerState, 'setState' | 'mergeState' | 'addGold' | 'subtractGold' | 'setGold' | 'setGoldInBank' | 'setExperience' | 'getGold' | 'getGoldInBank' | 'getExperience' | 'setBuilding' | 'setProficiency' | 'reset'>>) => void;
+  mergeState: (partial: Partial<Omit<PlayerState, 'setState' | 'mergeState' | 'addGold' | 'subtractGold' | 'setGold' | 'setGoldInBank' | 'setExperience' | 'getGold' | 'getGoldInBank' | 'getExperience' | 'setBuilding' | 'setProficiency' | 'reset'>>) => void;
+
+  // BigInt helpers (accept/return BigInt, store as string)
+  getGold: () => bigint;
+  getGoldInBank: () => bigint;
+  getExperience: () => bigint;
+  setGold: (value: bigint) => void;
+  setGoldInBank: (value: bigint) => void;
+  setExperience: (value: bigint) => void;
   addGold: (delta: bigint) => void;
   subtractGold: (amount: bigint) => void;
+
   setBuilding: (type: string, level: number) => void;
   setProficiency: (type: string, level: number) => void;
   reset: () => void;
@@ -45,10 +54,10 @@ const initialState = {
   id: '',
   displayName: '',
   level: 1,
-  experience: 0n,
+  experience: '0',
   race: 'UNDEAD',
-  gold: 0n,
-  goldInBank: 0n,
+  gold: '0',
+  goldInBank: '0',
   attackTurns: 0,
   totalUnits: 0,
   unitsByType: {},
@@ -60,63 +69,47 @@ const initialState = {
 };
 
 export const usePlayerStore = create<PlayerState>()(
-  devtools(
-    persist(
-      (set) => ({
-        ...initialState,
+  persist(
+    (set, get) => ({
+      ...initialState,
 
-        // Full replace (for initial hydration)
-        setState: (partial) => set(partial),
+      // Full replace (for initial hydration)
+      setState: (partial) => set(partial),
 
-        // Merge delta (for WebSocket updates)
-        mergeState: (partial) => set((state) => ({ ...state, ...partial })),
+      // Merge delta (for WebSocket updates)
+      mergeState: (partial) => set((state) => ({ ...state, ...partial })),
 
-        // Gold helpers
-        addGold: (delta) => set((s) => ({ gold: s.gold + delta })),
-        subtractGold: (amount) => set((s) => ({ gold: s.gold - amount })),
+      // BigInt getters (convert string → BigInt)
+      getGold: () => BigInt(get().gold),
+      getGoldInBank: () => BigInt(get().goldInBank),
+      getExperience: () => BigInt(get().experience),
 
-        // Building helpers
-        setBuilding: (type, level) =>
-          set((s) => ({
-            buildings: { ...s.buildings, [type]: level },
-          })),
+      // BigInt setters (convert BigInt → string)
+      setGold: (value) => set({ gold: value.toString() }),
+      setGoldInBank: (value) => set({ goldInBank: value.toString() }),
+      setExperience: (value) => set({ experience: value.toString() }),
 
-        // Proficiency helpers
-        setProficiency: (type, level) =>
-          set((s) => ({
-            proficiencies: { ...s.proficiencies, [type]: level },
-          })),
+      // Gold helpers (work with BigInt)
+      addGold: (delta) => set((s) => ({ gold: (BigInt(s.gold) + delta).toString() })),
+      subtractGold: (amount) => set((s) => ({ gold: (BigInt(s.gold) - amount).toString() })),
 
-        // Reset (logout)
-        reset: () => set(initialState),
-      }),
-      {
-        name: 'openthrone-player-state',
-        // Serialize BigInt to string for localStorage
-        serialize: (state) => {
-          return JSON.stringify(state, (_, v) =>
-            typeof v === 'bigint' ? v.toString() : v
-          );
-        },
-        deserialize: (str) => {
-          const parsed = JSON.parse(str);
-          // Convert gold strings back to BigInt
-          if (parsed.state.gold)
-            parsed.state.gold = BigInt(parsed.state.gold);
-          if (parsed.state.goldInBank)
-            parsed.state.goldInBank = BigInt(parsed.state.goldInBank);
-          if (parsed.state.experience)
-            parsed.state.experience = BigInt(parsed.state.experience);
-          return parsed;
-        },
-      }
-    ),
+      // Building helpers
+      setBuilding: (type, level) =>
+        set((s) => ({
+          buildings: { ...s.buildings, [type]: level },
+        })),
+
+      // Proficiency helpers
+      setProficiency: (type, level) =>
+        set((s) => ({
+          proficiencies: { ...s.proficiencies, [type]: level },
+        })),
+
+      // Reset (logout)
+      reset: () => set(initialState),
+    }),
     {
-      name: 'PlayerStore',
-      // Custom serializer for devtools to handle BigInt
-      serialize: {
-        replacer: (_, value) => (typeof value === 'bigint' ? value.toString() + 'n' : value),
-      },
+      name: 'player-storage',
     }
   )
 );

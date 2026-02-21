@@ -204,9 +204,7 @@ export default function ArmoryPage() {
 
       // Update Zustand store INSTANTLY (if backend returns playerState)
       if (data.playerState?.gold) {
-        usePlayerStore.getState().setState({
-          gold: BigInt(data.playerState.gold),
-        });
+        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
       }
 
       queryClient.invalidateQueries({ queryKey: ['armory'] });
@@ -228,9 +226,7 @@ export default function ArmoryPage() {
 
       // Update Zustand store INSTANTLY (if backend returns playerState)
       if (data.playerState?.gold) {
-        usePlayerStore.getState().setState({
-          gold: BigInt(data.playerState.gold),
-        });
+        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
       }
 
       queryClient.invalidateQueries({ queryKey: ['armory'] });
