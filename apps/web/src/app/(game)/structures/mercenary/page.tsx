@@ -18,8 +18,9 @@ import {
   ThemeIcon,
 } from '@mantine/core';
 import { OTCard } from '@/components/ui';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
 import { BuildingType } from '@openthrone/shared';
@@ -51,6 +52,7 @@ interface MercenaryStatus {
 export default function MercenaryCampPage() {
   const { api, isReady } = useApi();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -61,6 +63,13 @@ export default function MercenaryCampPage() {
     queryFn: () => api.get('/structures/mercenary'),
     enabled: isReady,
   });
+
+  // Redirect to buildings page if mercenary camp not built
+  useEffect(() => {
+    if (mercStatus && mercStatus.campLevel < 1) {
+      router.push('/structures/buildings');
+    }
+  }, [mercStatus, router]);
 
   const { data: structStatus } = useQuery<{ gold: string; fort: { level: number } }>({
     queryKey: ['structures', 'status'],
@@ -318,14 +327,6 @@ export default function MercenaryCampPage() {
               </Stack>
             </OTCard>
           </>
-        )}
-
-        {mercStatus.campLevel < 1 && (
-          <Alert color="yellow" title="Mercenary Camp Required">
-            <Text size="sm">
-              Build a Mercenary Camp from the <strong>Buildings</strong> page to hire pre-trained soldiers for gold — no citizens required!
-            </Text>
-          </Alert>
         )}
       </Stack>
     </Container>
