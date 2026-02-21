@@ -18,7 +18,7 @@ import { OTCard } from '@/components/ui';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
-import { updatePlayerCache } from '@/lib/cache-sync';
+import { usePlayerStore } from '@/stores/player-store';
 import type { PlayerStateSnapshot } from '@openthrone/shared';
 
 interface RecruitmentStatus {
@@ -50,10 +50,23 @@ export default function RecruitmentPage() {
   const autoRecruit = useMutation({
     mutationFn: () => api.post<{ citizensGained: number; message: string; playerState: PlayerStateSnapshot }>('/recruitment/auto-recruit'),
     onSuccess: (result) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, result.playerState);
+      // Update Zustand store INSTANTLY
+      if (result.playerState?.gold) {
+        usePlayerStore.getState().setGold(BigInt(result.playerState.gold));
+      }
 
-      // Still invalidate recruitment queries
+      // Update unit counts (citizens are CITIZEN type units)
+      if (result.playerState?.updatedUnits) {
+        const totalUnits = result.playerState.updatedUnits.reduce((sum, u) => sum + u.quantity, 0);
+        const unitsByType = result.playerState.updatedUnits.reduce((acc, u) => {
+          acc[u.unitType] = (acc[u.unitType] || 0) + u.quantity;
+          return acc;
+        }, {} as Record<string, number>);
+
+        usePlayerStore.getState().mergeState({ totalUnits, unitsByType });
+      }
+
+      // Still invalidate recruitment queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['recruitment'] });
 
       notifications.show({

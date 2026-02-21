@@ -88,6 +88,17 @@ export default function TrainingPage() {
         usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
       }
 
+      // Update unit counts if returned
+      if (data.playerState?.updatedUnits) {
+        const totalUnits = data.playerState.updatedUnits.reduce((sum, u) => sum + u.quantity, 0);
+        const unitsByType = data.playerState.updatedUnits.reduce((acc, u) => {
+          acc[u.unitType] = (acc[u.unitType] || 0) + u.quantity;
+          return acc;
+        }, {} as Record<string, number>);
+
+        usePlayerStore.getState().mergeState({ totalUnits, unitsByType });
+      }
+
       // Still invalidate training queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['training'] });
 
@@ -108,6 +119,17 @@ export default function TrainingPage() {
       // Update Zustand store INSTANTLY
       if (data.playerState?.gold) {
         usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+      }
+
+      // Update unit counts if returned
+      if (data.playerState?.updatedUnits) {
+        const totalUnits = data.playerState.updatedUnits.reduce((sum, u) => sum + u.quantity, 0);
+        const unitsByType = data.playerState.updatedUnits.reduce((acc, u) => {
+          acc[u.unitType] = (acc[u.unitType] || 0) + u.quantity;
+          return acc;
+        }, {} as Record<string, number>);
+
+        usePlayerStore.getState().mergeState({ totalUnits, unitsByType });
       }
 
       // Still invalidate training queries for background re-sync
