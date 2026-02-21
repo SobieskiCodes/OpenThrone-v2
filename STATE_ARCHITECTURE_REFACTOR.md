@@ -137,7 +137,7 @@ socket.on('state:update', (delta) => {
 
 ---
 
-## 🚀 Phase 1: Zustand Global Store (Week 1-2)
+## 🚀 Phase 1: Zustand Global Store (Week 1-2) — ✅ IN PROGRESS
 
 **Goal:** Replace TanStack Query cache with single Zustand store for core player state
 
@@ -148,7 +148,7 @@ socket.on('state:update', (delta) => {
 - Built-in DevTools support
 - LocalStorage persistence out of the box
 
-### Step 1.1: Install & Create Store
+### Step 1.1: Install & Create Store ✅ DONE
 
 ```bash
 pnpm add zustand
@@ -156,21 +156,30 @@ pnpm add zustand
 
 **File:** `apps/web/src/stores/player-store.ts`
 
+**⚠️ CRITICAL: BigInt Serialization Issue**
+
+Initial implementation used `BigInt` for gold/experience but hit serialization errors:
+- `localStorage` (persist middleware) can't serialize BigInt
+- React DevTools can't serialize BigInt
+- `JSON.stringify()` throws "Do not know how to serialize a BigInt"
+
+**✅ SOLUTION: Store as strings, expose BigInt helpers**
+
 ```typescript
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 
 interface PlayerState {
   // ─── Identity ────────────────────────────────────────────────────
   id: string;
   displayName: string;
   level: number;
-  experience: bigint;
+  experience: string; // Stored as string, use getExperience() for BigInt
   race: string;
 
   // ─── Economy ─────────────────────────────────────────────────────
-  gold: bigint;
-  goldInBank: bigint;
+  gold: string; // Stored as string, use getGold() for BigInt
+  goldInBank: string; // Stored as string, use getGoldInBank() for BigInt
   attackTurns: number;
 
   // ─── Units (summary for header/nav) ──────────────────────────────
@@ -191,10 +200,19 @@ interface PlayerState {
   unreadMail: number;
 
   // ─── Actions ─────────────────────────────────────────────────────
-  setState: (partial: Partial<PlayerState>) => void;
-  mergeState: (partial: Partial<PlayerState>) => void;
-  mergeGold: (delta: bigint) => void;
+  setState: (partial: Partial<Omit<PlayerState, 'setState' | 'mergeState' | 'addGold' | 'subtractGold' | 'setGold' | 'setGoldInBank' | 'setExperience' | 'getGold' | 'getGoldInBank' | 'getExperience' | 'setBuilding' | 'setProficiency' | 'reset'>>) => void;
+  mergeState: (partial: Partial<Omit<PlayerState, 'setState' | 'mergeState' | 'addGold' | 'subtractGold' | 'setGold' | 'setGoldInBank' | 'setExperience' | 'getGold' | 'getGoldInBank' | 'getExperience' | 'setBuilding' | 'setProficiency' | 'reset'>>) => void;
+
+  // BigInt helpers (accept/return BigInt, store as string internally)
+  getGold: () => bigint;
+  getGoldInBank: () => bigint;
+  getExperience: () => bigint;
+  setGold: (value: bigint) => void;
+  setGoldInBank: (value: bigint) => void;
+  setExperience: (value: bigint) => void;
+  addGold: (delta: bigint) => void;
   subtractGold: (amount: bigint) => void;
+
   setBuilding: (type: string, level: number) => void;
   setProficiency: (type: string, level: number) => void;
   reset: () => void;
@@ -204,10 +222,10 @@ const initialState = {
   id: '',
   displayName: '',
   level: 1,
-  experience: 0n,
+  experience: '0',
   race: 'UNDEAD',
-  gold: 0n,
-  goldInBank: 0n,
+  gold: '0',
+  goldInBank: '0',
   attackTurns: 0,
   totalUnits: 0,
   unitsByType: {},
@@ -219,53 +237,57 @@ const initialState = {
 };
 
 export const usePlayerStore = create<PlayerState>()(
-  devtools(
-    persist(
-      (set, get) => ({
-        ...initialState,
+  persist(
+    (set, get) => ({
+      ...initialState,
 
-        // Full replace
-        setState: (partial) => set(partial),
+      // Full replace (for initial hydration)
+      setState: (partial) => set(partial),
 
-        // Merge delta (for WebSocket updates)
-        mergeState: (partial) => set((state) => ({ ...state, ...partial })),
+      // Merge delta (for WebSocket updates)
+      mergeState: (partial) => set((state) => ({ ...state, ...partial })),
 
-        // Gold helpers
-        mergeGold: (delta) => set((s) => ({ gold: s.gold + delta })),
-        subtractGold: (amount) => set((s) => ({ gold: s.gold - amount })),
+      // BigInt getters (convert string → BigInt)
+      getGold: () => BigInt(get().gold),
+      getGoldInBank: () => BigInt(get().goldInBank),
+      getExperience: () => BigInt(get().experience),
 
-        // Building helpers
-        setBuilding: (type, level) => set((s) => ({
-          buildings: { ...s.buildings, [type]: level },
-        })),
+      // BigInt setters (convert BigInt → string)
+      setGold: (value) => set({ gold: value.toString() }),
+      setGoldInBank: (value) => set({ goldInBank: value.toString() }),
+      setExperience: (value) => set({ experience: value.toString() }),
 
-        // Proficiency helpers
-        setProficiency: (type, level) => set((s) => ({
-          proficiencies: { ...s.proficiencies, [type]: level },
-        })),
+      // Gold helpers (work with BigInt)
+      addGold: (delta) => set((s) => ({ gold: (BigInt(s.gold) + delta).toString() })),
+      subtractGold: (amount) => set((s) => ({ gold: (BigInt(s.gold) - amount).toString() })),
 
-        // Reset (logout)
-        reset: () => set(initialState),
-      }),
-      {
-        name: 'openthrone-player-state',
-        // Serialize BigInt to string for localStorage
-        serialize: (state) => JSON.stringify(state, (_, v) => typeof v === 'bigint' ? v.toString() : v),
-        deserialize: (str) => {
-          const parsed = JSON.parse(str);
-          // Convert gold strings back to BigInt
-          if (parsed.state.gold) parsed.state.gold = BigInt(parsed.state.gold);
-          if (parsed.state.goldInBank) parsed.state.goldInBank = BigInt(parsed.state.goldInBank);
-          if (parsed.state.experience) parsed.state.experience = BigInt(parsed.state.experience);
-          return parsed;
-        },
-      }
-    )
+      // Building helpers
+      setBuilding: (type, level) => set((s) => ({
+        buildings: { ...s.buildings, [type]: level },
+      })),
+
+      // Proficiency helpers
+      setProficiency: (type, level) => set((s) => ({
+        proficiencies: { ...s.proficiencies, [type]: level },
+      })),
+
+      // Reset (logout)
+      reset: () => set(initialState),
+    }),
+    {
+      name: 'player-storage',
+    }
   )
 );
 ```
 
-### Step 1.2: Hydrate Store on Login
+**Why this works:**
+- ✅ Strings serialize to localStorage without issues
+- ✅ Helper methods provide type-safe BigInt interface
+- ✅ Persist middleware works out of the box
+- ✅ Cross-tab sync works via localStorage events
+
+### Step 1.2: Hydrate Store on Login ✅ DONE
 
 **File:** `apps/web/src/app/(game)/layout.tsx`
 
@@ -280,45 +302,88 @@ const { data: meData } = useQuery<MeData>({
 // Hydrate Zustand store when data loads
 useEffect(() => {
   if (meData) {
+    // Calculate derived state
+    const totalUnits = meData.units?.reduce((sum, u) => sum + u.quantity, 0) ?? 0;
+    const unitsByType = meData.units?.reduce((acc, u) => {
+      acc[u.unitType] = u.quantity;
+      return acc;
+    }, {} as Record<string, number>) ?? {};
+    const buildings = buildingsData?.buildings?.reduce((acc, b) => {
+      acc[b.buildingType] = b.currentLevel;
+      return acc;
+    }, {} as Record<string, number>) ?? {};
+
+    // Hydrate store (gold stored as strings)
     usePlayerStore.getState().setState({
-      id: meData.id,
-      displayName: meData.displayName,
-      level: meData.level,
-      experience: meData.stats?.experience ? BigInt(meData.stats.experience) : 0n,
-      race: meData.race,
-      gold: BigInt(meData.economy?.gold ?? '0'),
-      goldInBank: BigInt(meData.economy?.goldInBank ?? '0'),
+      id: meData.id ?? '',
+      displayName: meData.displayName ?? '',
+      level: meData.level ?? 1,
+      experience: meData.stats?.experience?.toString() ?? '0',
+      race: meData.race ?? 'UNDEAD',
+      gold: meData.economy?.gold?.toString() ?? '0',
+      goldInBank: meData.economy?.goldInBank?.toString() ?? '0',
       attackTurns: meData.economy?.attackTurns ?? 0,
-      totalUnits: meData.units?.reduce((sum, u) => sum + u.quantity, 0) ?? 0,
+      totalUnits,
+      unitsByType,
+      buildings,
       availablePoints: meData.availablePoints ?? 0,
-      unreadMail: unreadCount, // from separate query
-      // ... etc
+      unreadMail: unreadCount,
+      proficiencies: {}, // TODO: add when available
+      equippedItems: [], // TODO: add when available
     });
   }
-}, [meData, unreadCount]);
+}, [meData, buildingsData, unreadCount]);
+
+// Reset store on logout
+const handleLogout = async () => {
+  usePlayerStore.getState().reset();
+  await signOut({ redirect: false });
+  router.push('/login');
+};
 ```
 
-### Step 1.3: Update Store on Mutations
+### Step 1.3: Update Store on Mutations ✅ DONE (3 pages migrated)
 
 **Pattern for ALL mutations:**
 
 ```typescript
+import { usePlayerStore } from '@/stores/player-store';
+
 // Example: Armory equip mutation
 const equipMutation = useMutation({
-  mutationFn: (itemId: string) => api.post('/armory/equip', { itemId }),
+  mutationFn: (item) => api.post('/armory/equip', item),
   onSuccess: (data) => {
-    // 1. Update Zustand store FIRST (instant UI feedback!)
-    usePlayerStore.getState().mergeState({
-      gold: BigInt(data.playerState.gold),
-      equippedItems: data.playerState.equippedItems,
-    });
+    // 1. Update Zustand store INSTANTLY (use setGold helper)
+    if (data.playerState?.gold) {
+      usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+    }
 
-    // 2. Still invalidate queries for safety
+    // 2. Still invalidate queries for background re-sync
     queryClient.invalidateQueries({ queryKey: ['armory'] });
-    queryClient.invalidateQueries({ queryKey: ['player', 'me'] });
+    queryClient.invalidateQueries({ queryKey: ['player'] });
 
     // 3. Show notification
-    notifications.show({ title: 'Success', message: 'Item equipped', color: 'green' });
+    notifications.show({ title: 'Equipped', message: 'Items purchased!', color: 'green' });
+  },
+});
+```
+
+**Example: Bank deposit/withdraw**
+
+```typescript
+const depositMutation = useMutation({
+  mutationFn: (amount: string) => api.post('/bank/deposit', { amount }),
+  onSuccess: (data) => {
+    // Update BOTH gold and goldInBank
+    if (data.playerState?.gold) {
+      usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+    }
+    if (data.playerState?.goldInBank) {
+      usePlayerStore.getState().setGoldInBank(BigInt(data.playerState.goldInBank));
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['bank'] });
+    notifications.show({ title: 'Success', message: 'Deposit successful!', color: 'green' });
   },
 });
 ```
@@ -327,23 +392,24 @@ const equipMutation = useMutation({
 
 ```typescript
 const trainMutation = useMutation({
-  mutationFn: (dto: TrainDto) => api.post('/training/train', dto),
+  mutationFn: (units: Array<{ unitType: string; level: number; quantity: number }>) =>
+    api.post('/training/train', { units }),
   onSuccess: (data) => {
-    // Update store
-    usePlayerStore.getState().mergeState({
-      gold: BigInt(data.playerState.gold),
-      totalUnits: data.playerState.units.reduce((sum, u) => sum + u.quantity, 0),
-      unitsByType: data.playerState.units.reduce((acc, u) => {
-        acc[u.type] = u.quantity;
-        return acc;
-      }, {} as Record<string, number>),
-    });
+    // Update gold instantly
+    if (data.playerState?.gold) {
+      usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+    }
 
     queryClient.invalidateQueries({ queryKey: ['training'] });
-    notifications.show({ title: 'Success', message: 'Units trained!', color: 'green' });
+    notifications.show({ title: 'Trained', message: 'Units trained successfully!', color: 'green' });
   },
 });
 ```
+
+**✅ Pages Migrated:**
+- Armory (equip/unequip items)
+- Training (train/untrain units)
+- Bank (deposit/withdraw gold)
 
 ### Step 1.4: Use Store in Components
 
@@ -394,28 +460,34 @@ function SomeComponent() {
 ### Step 1.5: Migration Checklist
 
 **Priority Pages (Week 1):**
-- [ ] Header component (gold, level, turns)
-- [ ] Sidebar navigation (badges)
-- [ ] Dashboard/Home page
-- [ ] Armory page
-- [ ] Training page
-- [ ] Bank page
-- [ ] Structures/Buildings page
+- [x] ~~Header component (gold, level, turns)~~ — Reads from store (hydrated in layout)
+- [x] ~~Sidebar navigation (badges)~~ — Reads from store (hydrated in layout)
+- [ ] Dashboard/Home page — TODO: migrate mutations
+- [x] ~~Armory page~~ — ✅ Migrated (equip/unequip)
+- [x] ~~Training page~~ — ✅ Migrated (train/untrain)
+- [x] ~~Bank page~~ — ✅ Migrated (deposit/withdraw)
+- [ ] Structures/Buildings page — TODO: migrate upgrade mutations
+- [ ] Mercenary page — TODO: migrate hire mutations
+- [ ] Battle Upgrades page — TODO: migrate purchase mutations
+- [ ] Repair page — TODO: migrate repair mutations
 
 **Remaining Pages (Week 2):**
-- [ ] Battle pages
-- [ ] Spy/Intelligence pages
-- [ ] Social/Alliance pages
-- [ ] Admin pages
-- [ ] Profile pages
+- [ ] Battle pages (attack mutations) — Not yet implemented in Phase 13
+- [ ] Spy/Intelligence pages (mission mutations) — Not yet implemented
+- [ ] Social/Alliance pages (invite/join mutations) — Check if any mutate player state
+- [ ] Admin pages — Skip (admin-only, not player state)
+- [ ] Profile pages — Read-only, no mutations
 
 **Cleanup:**
 - [ ] Remove `updatePlayerCache()` helper from `lib/cache-sync.ts`
 - [ ] Remove scattered `queryClient.setQueryData()` calls
+- [ ] Document pattern in CLAUDE.md — ✅ DONE
 - [ ] Keep TanStack Query ONLY for:
   - Lists (rankings, battle history, mail inbox)
   - Secondary data (alliance details, player profiles)
   - Data that changes based on filters/pagination
+
+**Progress:** 3/10 critical pages migrated (30%)
 
 ### Step 1.6: Testing
 
@@ -1112,15 +1184,17 @@ socket.on('disconnect', () => console.log('🤖 Bot offline'));
 ## 📋 Implementation Checklist
 
 ### Week 1: Zustand Foundation
-- [ ] Install Zustand (`pnpm add zustand`)
-- [ ] Create `player-store.ts` with core state
-- [ ] Hydrate store in layout on login
-- [ ] Migrate Header component
-- [ ] Migrate Armory page
-- [ ] Test: Spend gold → Header updates instantly
+- [x] ~~Install Zustand (`pnpm add zustand`)~~ — ✅ Installed
+- [x] ~~Create `player-store.ts` with core state~~ — ✅ Done (string-based BigInt storage)
+- [x] ~~Hydrate store in layout on login~~ — ✅ Done
+- [x] ~~Migrate Header component~~ — ✅ Uses store (hydrated)
+- [x] ~~Migrate Armory page~~ — ✅ Done
+- [x] ~~Migrate Training page~~ — ✅ Done
+- [x] ~~Migrate Bank page~~ — ✅ Done
+- [ ] Test: Spend gold → Header updates instantly — **NEEDS TESTING**
 
 ### Week 2: Zustand Migration Complete
-- [ ] Migrate all remaining pages (Training, Bank, Structures, Battle, etc.)
+- [ ] Migrate remaining pages (Buildings, Mercenary, Upgrades, Repair)
 - [ ] Update all mutations to write to store
 - [ ] Remove `updatePlayerCache()` helper
 - [ ] Remove scattered `queryClient.setQueryData()` calls
