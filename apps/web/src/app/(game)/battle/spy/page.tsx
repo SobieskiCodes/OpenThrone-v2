@@ -108,12 +108,9 @@ function SpyPageContent() {
     mutationFn: (body: { type: string; spiesSent: number; targetUnitType?: string }) =>
       api.post(`/battle/spy/${selectedTarget!.id}`, body) as Promise<SpyResult>,
     onSuccess: (data: SpyResult) => {
-      // Update Zustand store INSTANTLY
-      if (data.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
-      }
-      if (data.playerState?.attackTurns !== undefined) {
-        usePlayerStore.getState().mergeState({ attackTurns: data.playerState.attackTurns });
+      // Update Zustand store INSTANTLY (includes level, XP, gold, turns, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
       // Still invalidate battle queries for background re-sync

@@ -147,12 +147,9 @@ export default function BuildingsPage() {
     mutationFn: (buildingType: string) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/structures/buildings/upgrade', { buildingType }),
     onSuccess: (data) => {
-      // Update Zustand store INSTANTLY
-      if (data.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
-      }
-      if (data.playerState?.level) {
-        usePlayerStore.getState().mergeState({ level: data.playerState.level });
+      // Update Zustand store INSTANTLY (includes level, XP, gold, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
       // Still invalidate buildings queries for background re-sync

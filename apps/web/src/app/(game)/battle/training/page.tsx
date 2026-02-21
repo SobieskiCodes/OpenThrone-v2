@@ -83,20 +83,9 @@ export default function TrainingPage() {
     mutationFn: (units: Array<{ unitType: string; level: number; quantity: number }>) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/training/train', { units }),
     onSuccess: (data) => {
-      // Update Zustand store INSTANTLY
-      if (data.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
-      }
-
-      // Update unit counts if returned
-      if (data.playerState?.updatedUnits) {
-        const totalUnits = data.playerState.updatedUnits.reduce((sum, u) => sum + u.quantity, 0);
-        const unitsByType = data.playerState.updatedUnits.reduce((acc, u) => {
-          acc[u.unitType] = (acc[u.unitType] || 0) + u.quantity;
-          return acc;
-        }, {} as Record<string, number>);
-
-        usePlayerStore.getState().mergeState({ totalUnits, unitsByType });
+      // Update Zustand store INSTANTLY (includes level, XP, gold, units, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
       // Still invalidate training queries for background re-sync
@@ -116,20 +105,9 @@ export default function TrainingPage() {
     mutationFn: (units: Array<{ unitType: string; level: number; quantity: number }>) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/training/untrain', { units }),
     onSuccess: (data) => {
-      // Update Zustand store INSTANTLY
-      if (data.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
-      }
-
-      // Update unit counts if returned
-      if (data.playerState?.updatedUnits) {
-        const totalUnits = data.playerState.updatedUnits.reduce((sum, u) => sum + u.quantity, 0);
-        const unitsByType = data.playerState.updatedUnits.reduce((acc, u) => {
-          acc[u.unitType] = (acc[u.unitType] || 0) + u.quantity;
-          return acc;
-        }, {} as Record<string, number>);
-
-        usePlayerStore.getState().mergeState({ totalUnits, unitsByType });
+      // Update Zustand store INSTANTLY (includes level, XP, gold, units, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
       // Still invalidate training queries for background re-sync

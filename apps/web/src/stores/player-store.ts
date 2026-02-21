@@ -49,6 +49,9 @@ interface PlayerState {
   setBuilding: (type: string, level: number) => void;
   setProficiency: (type: string, level: number) => void;
   reset: () => void;
+
+  // Helper to update from backend PlayerStateSnapshot
+  updateFromSnapshot: (snapshot: any) => void;
 }
 
 const initialState = {
@@ -109,6 +112,31 @@ export const usePlayerStore = create<PlayerState>()(
 
       // Reset (logout)
       reset: () => set(initialState),
+
+      // Update from backend PlayerStateSnapshot (handles all common fields)
+      updateFromSnapshot: (snapshot) => {
+        const updates: any = {};
+
+        // Economy fields
+        if (snapshot.gold) updates.gold = snapshot.gold;
+        if (snapshot.goldInBank) updates.goldInBank = snapshot.goldInBank;
+        if (snapshot.attackTurns !== undefined) updates.attackTurns = snapshot.attackTurns;
+
+        // Level/XP fields
+        if (snapshot.level !== undefined) updates.level = snapshot.level;
+        if (snapshot.experience !== undefined) updates.experience = snapshot.experience.toString();
+
+        // Units (if provided)
+        if (snapshot.updatedUnits) {
+          updates.totalUnits = snapshot.updatedUnits.reduce((sum: number, u: any) => sum + u.quantity, 0);
+          updates.unitsByType = snapshot.updatedUnits.reduce((acc: any, u: any) => {
+            acc[u.unitType] = (acc[u.unitType] || 0) + u.quantity;
+            return acc;
+          }, {});
+        }
+
+        set((state) => ({ ...state, ...updates }));
+      },
     }),
     {
       name: 'player-storage',

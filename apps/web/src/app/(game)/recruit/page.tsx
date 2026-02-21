@@ -50,20 +50,9 @@ export default function RecruitmentPage() {
   const autoRecruit = useMutation({
     mutationFn: () => api.post<{ citizensGained: number; message: string; playerState: PlayerStateSnapshot }>('/recruitment/auto-recruit'),
     onSuccess: (result) => {
-      // Update Zustand store INSTANTLY
-      if (result.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(result.playerState.gold));
-      }
-
-      // Update unit counts (citizens are CITIZEN type units)
-      if (result.playerState?.updatedUnits) {
-        const totalUnits = result.playerState.updatedUnits.reduce((sum, u) => sum + u.quantity, 0);
-        const unitsByType = result.playerState.updatedUnits.reduce((acc, u) => {
-          acc[u.unitType] = (acc[u.unitType] || 0) + u.quantity;
-          return acc;
-        }, {} as Record<string, number>);
-
-        usePlayerStore.getState().mergeState({ totalUnits, unitsByType });
+      // Update Zustand store INSTANTLY (includes level, XP, gold, units, etc.)
+      if (result.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(result.playerState);
       }
 
       // Still invalidate recruitment queries for background re-sync

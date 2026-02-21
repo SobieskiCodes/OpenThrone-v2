@@ -71,9 +71,9 @@ export default function BattleUpgradesPage() {
     mutationFn: (data: { upgradeType: string; level: number; quantity: number }) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/structures/battle-upgrade', data),
     onSuccess: (response) => {
-      // Update Zustand store INSTANTLY
-      if (response.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(response.playerState.gold));
+      // Update Zustand store INSTANTLY (includes level, XP, gold, etc.)
+      if (response.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(response.playerState);
       }
 
       // Still invalidate structures queries for background re-sync
@@ -93,9 +93,9 @@ export default function BattleUpgradesPage() {
     mutationFn: (data: { upgradeType: string; level: number; quantity: number }) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/structures/sell-battle-upgrade', data),
     onSuccess: (response) => {
-      // Update Zustand store INSTANTLY
-      if (response.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(response.playerState.gold));
+      // Update Zustand store INSTANTLY (includes level, XP, gold, etc.)
+      if (response.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(response.playerState);
       }
 
       // Still invalidate structures queries for background re-sync

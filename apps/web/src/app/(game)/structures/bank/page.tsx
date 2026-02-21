@@ -77,12 +77,9 @@ export default function BankPage() {
   const depositMutation = useMutation({
     mutationFn: (amount: string) => api.post<{ playerState: PlayerStateSnapshot }>('/bank/deposit', { amount }),
     onSuccess: (data) => {
-      // Update Zustand store INSTANTLY
-      if (data.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
-      }
-      if (data.playerState?.goldInBank) {
-        usePlayerStore.getState().setGoldInBank(BigInt(data.playerState.goldInBank));
+      // Update Zustand store INSTANTLY (includes gold, goldInBank, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
       // Still invalidate bank queries for background re-sync
@@ -101,12 +98,9 @@ export default function BankPage() {
   const withdrawMutation = useMutation({
     mutationFn: (amount: string) => api.post<{ playerState: PlayerStateSnapshot }>('/bank/withdraw', { amount }),
     onSuccess: (data) => {
-      // Update Zustand store INSTANTLY
-      if (data.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
-      }
-      if (data.playerState?.goldInBank) {
-        usePlayerStore.getState().setGoldInBank(BigInt(data.playerState.goldInBank));
+      // Update Zustand store INSTANTLY (includes gold, goldInBank, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
       // Still invalidate bank queries for background re-sync

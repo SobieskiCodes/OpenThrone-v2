@@ -211,12 +211,9 @@ export default function PlayersPage() {
     mutationFn: ({ defenderId, turns }: { defenderId: string; turns: number }) =>
       api.post(`/battle/attack/${defenderId}`, { turns }) as Promise<AttackResult>,
     onSuccess: (data: AttackResult) => {
-      // Update Zustand store INSTANTLY
-      if (data.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
-      }
-      if (data.playerState?.attackTurns !== undefined) {
-        usePlayerStore.getState().mergeState({ attackTurns: data.playerState.attackTurns });
+      // Update Zustand store INSTANTLY (includes level, XP, gold, turns, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
       // Still invalidate battle queries for background re-sync

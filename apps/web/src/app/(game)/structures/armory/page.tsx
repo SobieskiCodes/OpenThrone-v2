@@ -202,9 +202,9 @@ export default function ArmoryPage() {
       setQuantities({});
       setBusyKey(null);
 
-      // Update Zustand store INSTANTLY (if backend returns playerState)
-      if (data.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+      // Update Zustand store INSTANTLY (includes level, XP, gold, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
       queryClient.invalidateQueries({ queryKey: ['armory'] });
@@ -224,9 +224,9 @@ export default function ArmoryPage() {
       setQuantities({});
       setBusyKey(null);
 
-      // Update Zustand store INSTANTLY (if backend returns playerState)
-      if (data.playerState?.gold) {
-        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+      // Update Zustand store INSTANTLY (includes level, XP, gold, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
       queryClient.invalidateQueries({ queryKey: ['armory'] });
