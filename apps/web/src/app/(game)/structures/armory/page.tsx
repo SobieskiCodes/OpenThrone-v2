@@ -22,6 +22,7 @@ import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
+import { usePlayerStore } from '@/stores/player-store';
 import { toLocale, getUnitByTypeAndLevel } from '@openthrone/game-logic';
 import type { ItemDefinition } from '@openthrone/shared';
 import { ItemUsage, ItemType, UnitType } from '@openthrone/shared';
@@ -197,9 +198,17 @@ export default function ArmoryPage() {
   const equipMutation = useMutation({
     mutationFn: (item: { itemType: string; usage: string; level: number; quantity: number }) =>
       api.post('/armory/equip', item),
-    onSuccess: () => {
+    onSuccess: (data: any, variables) => {
       setQuantities({});
       setBusyKey(null);
+
+      // Update Zustand store INSTANTLY (if backend returns playerState)
+      if (data.playerState?.gold) {
+        usePlayerStore.getState().setState({
+          gold: BigInt(data.playerState.gold),
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ['armory'] });
       queryClient.invalidateQueries({ queryKey: ['player'] });
       notifications.show({ title: 'Equipped', message: 'Items purchased!', color: 'green' });
@@ -213,9 +222,17 @@ export default function ArmoryPage() {
   const unequipMutation = useMutation({
     mutationFn: (item: { itemType: string; usage: string; level: number; quantity: number }) =>
       api.post('/armory/unequip', item),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       setQuantities({});
       setBusyKey(null);
+
+      // Update Zustand store INSTANTLY (if backend returns playerState)
+      if (data.playerState?.gold) {
+        usePlayerStore.getState().setState({
+          gold: BigInt(data.playerState.gold),
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ['armory'] });
       queryClient.invalidateQueries({ queryKey: ['player'] });
       notifications.show({ title: 'Sold', message: 'Items sold! 75% gold refunded.', color: 'green' });

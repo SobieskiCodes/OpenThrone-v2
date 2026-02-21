@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import {
   AppShell,
   Group,
@@ -23,6 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useApi } from '@/hooks/use-api';
 import { RaceThemeProvider } from '@/context/race-theme';
+import { usePlayerStore } from '@/stores/player-store';
 import {
   IconHome,
   IconShield,
@@ -149,6 +151,45 @@ function GameShell({ children }: { children: React.ReactNode }) {
     (b) => b.buildingType === 'MERCENARY_CAMP' && b.currentLevel > 0
   ) ?? false;
 
+  // ─── Hydrate Zustand Store ──────────────────────────────────────
+  useEffect(() => {
+    if (meData) {
+      // Calculate total units
+      const totalUnits = meData.units?.reduce((sum, u) => sum + u.quantity, 0) ?? 0;
+
+      // Build unitsByType map
+      const unitsByType = meData.units?.reduce((acc, u) => {
+        acc[u.unitType] = u.quantity;
+        return acc;
+      }, {} as Record<string, number>) ?? {};
+
+      // Build buildings map
+      const buildings = buildingsData?.buildings?.reduce((acc, b) => {
+        acc[b.buildingType] = b.currentLevel;
+        return acc;
+      }, {} as Record<string, number>) ?? {};
+
+      // Hydrate store
+      usePlayerStore.getState().setState({
+        id: meData.id ?? '',
+        displayName: meData.displayName ?? '',
+        level: meData.level ?? 1,
+        experience: meData.stats?.experience ? BigInt(meData.stats.experience) : 0n,
+        race: meData.race ?? 'UNDEAD',
+        gold: meData.economy?.gold ? BigInt(meData.economy.gold) : 0n,
+        goldInBank: meData.economy?.goldInBank ? BigInt(meData.economy.goldInBank) : 0n,
+        attackTurns: meData.economy?.attackTurns ?? 0,
+        totalUnits,
+        unitsByType,
+        buildings,
+        availablePoints: meData.availablePoints ?? 0,
+        unreadMail: unreadCount,
+        proficiencies: {}, // TODO: add when proficiencies are in meData
+        equippedItems: [], // TODO: add when equipped items are in meData
+      });
+    }
+  }, [meData, buildingsData, unreadCount]);
+
   const permissions: string[] = (session as any)?.permissions ?? [];
   const isAdmin = permissions.includes('ADMINISTRATOR');
 
@@ -175,6 +216,8 @@ function GameShell({ children }: { children: React.ReactNode }) {
   if (availableUpgrades > 0) badgeCounts['/structures/buildings'] = availableUpgrades;
 
   const handleLogout = async () => {
+    // Reset Zustand store on logout
+    usePlayerStore.getState().reset();
     await signOut({ redirect: false });
     router.push('/login');
   };

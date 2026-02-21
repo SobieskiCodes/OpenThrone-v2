@@ -265,7 +265,12 @@ export class ArmoryService {
       ),
     );
 
-    return result;
+    return {
+      ...result,
+      playerState: {
+        gold: result.gold,
+      },
+    };
   }
 
   async unequip(playerId: string, dto: UnequipItemDto) {
@@ -405,6 +410,11 @@ export class ArmoryService {
       ),
     );
 
-    return result;
+    return {
+      ...result,
+      playerState: {
+        gold: result.gold,
+      },
+    };
   }
 }
