@@ -28,8 +28,9 @@ interface PlayerState {
   // ─── Items (equipped summary) ────────────────────────────────────
   equippedItems: Array<{ id: string; type: string; tier: number }>;
 
-  // ─── Unread Counts ───────────────────────────────────────────────
+  // ─── Notifications ───────────────────────────────────────────────
   unreadMail: number;
+  availableUpgrades: number;
 
   // ─── Actions ─────────────────────────────────────────────────────
   setState: (partial: Partial<Omit<PlayerState, 'setState' | 'mergeState' | 'addGold' | 'subtractGold' | 'setGold' | 'setGoldInBank' | 'setExperience' | 'getGold' | 'getGoldInBank' | 'getExperience' | 'setBuilding' | 'setProficiency' | 'reset'>>) => void;
@@ -66,6 +67,7 @@ const initialState = {
   availablePoints: 0,
   equippedItems: [],
   unreadMail: 0,
+  availableUpgrades: 0,
 };
 
 export const usePlayerStore = create<PlayerState>()(

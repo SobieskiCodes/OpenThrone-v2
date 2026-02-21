@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   AppShell,
   Group,
@@ -18,6 +18,7 @@ import {
   Indicator,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -33,6 +34,9 @@ import {
   IconWorld,
   IconSettings,
   IconLogout,
+  IconMail,
+  IconTrophy,
+  IconHammer,
 } from '@tabler/icons-react';
 
 const navItems = [
@@ -183,12 +187,61 @@ function GameShell({ children }: { children: React.ReactNode }) {
         unitsByType,
         buildings,
         availablePoints: meData.availablePoints ?? 0,
+        availableUpgrades: meData.availableUpgrades ?? 0,
         unreadMail: unreadCount,
         proficiencies: {}, // TODO: add when proficiencies are in meData
         equippedItems: [], // TODO: add when equipped items are in meData
       });
     }
   }, [meData, buildingsData, unreadCount]);
+
+  // ─── Notification Handler ────────────────────────────────────────
+  const notificationsShown = useRef(false);
+
+  useEffect(() => {
+    // Only show notifications once per session, after data is loaded
+    if (notificationsShown.current || !meData) return;
+
+    const unreadMail = usePlayerStore.getState().unreadMail;
+    const availablePoints = usePlayerStore.getState().availablePoints;
+    const availableUpgrades = usePlayerStore.getState().availableUpgrades;
+
+    // Show notifications for pending items
+    if (unreadMail > 0) {
+      notifications.show({
+        id: 'unread-mail',
+        title: 'Unread Messages',
+        message: `You have ${unreadMail} unread message${unreadMail > 1 ? 's' : ''}`,
+        color: 'blue',
+        icon: <IconMail size={20} />,
+        autoClose: 5000,
+      });
+    }
+
+    if (availablePoints > 0) {
+      notifications.show({
+        id: 'available-points',
+        title: 'Proficiency Points Available',
+        message: `You have ${availablePoints} proficiency point${availablePoints > 1 ? 's' : ''} to spend`,
+        color: 'green',
+        icon: <IconTrophy size={20} />,
+        autoClose: 5000,
+      });
+    }
+
+    if (availableUpgrades > 0) {
+      notifications.show({
+        id: 'available-upgrades',
+        title: 'Building Upgrades Available',
+        message: `You have ${availableUpgrades} building upgrade${availableUpgrades > 1 ? 's' : ''} available`,
+        color: 'yellow',
+        icon: <IconHammer size={20} />,
+        autoClose: 5000,
+      });
+    }
+
+    notificationsShown.current = true;
+  }, [meData]);
 
   const permissions: string[] = (session as any)?.permissions ?? [];
   const isAdmin = permissions.includes('ADMINISTRATOR');
