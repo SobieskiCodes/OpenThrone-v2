@@ -35,6 +35,7 @@ import {
   FortDamagedEvent,
   LeveledUpEvent,
 } from '@openthrone/events';
+import { PlayerStateChangedEvent } from '../game/events';
 
 @Injectable()
 export class BattleService {
@@ -724,6 +725,33 @@ export class BattleService {
       includeUnits: true, // Include units since casualties happened
     });
 
+    // Emit WebSocket event for real-time state sync
+    const [attackerEcon, attackerStats, attackerUnits] = await Promise.all([
+      this.prisma.playerEconomy.findUnique({ where: { player_id: attackerId } }),
+      this.prisma.playerStats.findUnique({ where: { player_id: attackerId } }),
+      this.prisma.playerUnit.findMany({ where: { player_id: attackerId } }),
+    ]);
+
+    const unitsByType: Record<string, number> = {};
+    let totalUnits = 0;
+    for (const u of attackerUnits) {
+      unitsByType[u.unit_type] = (unitsByType[u.unit_type] || 0) + u.quantity;
+      totalUnits += u.quantity;
+    }
+
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId: attackerId,
+        gold: attackerEcon?.gold,
+        attackTurns: attackerEcon?.attack_turns,
+        level: getLevelForXP(attackerStats?.experience ?? 0),
+        experience: attackerStats?.experience,
+        totalUnits,
+        unitsByType,
+      }),
+    );
+
     return {
       id: log.id,
       attackerWins: result.attackerWins,
@@ -880,6 +908,30 @@ export class BattleService {
         new SpyMissionExecutedEvent(attackerId, defenderId, 'intel', result.success, attackLog.id),
       );
 
+      // Emit WebSocket event for real-time state sync
+      const [intelEcon, intelUnits] = await Promise.all([
+        this.prisma.playerEconomy.findUnique({ where: { player_id: attackerId } }),
+        this.prisma.playerUnit.findMany({ where: { player_id: attackerId } }),
+      ]);
+
+      const intelUnitsByType: Record<string, number> = {};
+      let intelTotalUnits = 0;
+      for (const u of intelUnits) {
+        intelUnitsByType[u.unit_type] = (intelUnitsByType[u.unit_type] || 0) + u.quantity;
+        intelTotalUnits += u.quantity;
+      }
+
+      this.eventEmitter.emit(
+        'player.state.changed',
+        new PlayerStateChangedEvent({
+          playerId: attackerId,
+          gold: intelEcon?.gold,
+          attackTurns: intelEcon?.attack_turns,
+          totalUnits: intelTotalUnits,
+          unitsByType: intelUnitsByType,
+        }),
+      );
+
       const playerState1 = await buildPlayerSnapshot(this.prisma, attackerId);
       return { ...result, missionType: 'intel', intelData, attackLogId: attackLog.id, playerState: playerState1 };
     }
@@ -928,6 +980,29 @@ export class BattleService {
       this.eventEmitter.emit(
         'combat.spy',
         new SpyMissionExecutedEvent(attackerId, defenderId, 'assassinate', result.success, assassinateLog.id),
+      );
+
+      // Emit WebSocket event for real-time state sync
+      const [assassinateEcon, assassinateUnits] = await Promise.all([
+        this.prisma.playerEconomy.findUnique({ where: { player_id: attackerId } }),
+        this.prisma.playerUnit.findMany({ where: { player_id: attackerId } }),
+      ]);
+
+      const assassinateUnitsByType: Record<string, number> = {};
+      let assassinateTotalUnits = 0;
+      for (const u of assassinateUnits) {
+        assassinateUnitsByType[u.unit_type] = (assassinateUnitsByType[u.unit_type] || 0) + u.quantity;
+        assassinateTotalUnits += u.quantity;
+      }
+
+      this.eventEmitter.emit(
+        'player.state.changed',
+        new PlayerStateChangedEvent({
+          playerId: attackerId,
+          attackTurns: assassinateEcon?.attack_turns,
+          totalUnits: assassinateTotalUnits,
+          unitsByType: assassinateUnitsByType,
+        }),
       );
 
       const playerState2 = await buildPlayerSnapshot(this.prisma, attackerId);
@@ -985,6 +1060,29 @@ export class BattleService {
           new FortDamagedEvent(defenderId, result.fortDamage, newHP),
         );
       }
+
+      // Emit WebSocket event for real-time state sync
+      const [infiltrateEcon, infiltrateUnits] = await Promise.all([
+        this.prisma.playerEconomy.findUnique({ where: { player_id: attackerId } }),
+        this.prisma.playerUnit.findMany({ where: { player_id: attackerId } }),
+      ]);
+
+      const infiltrateUnitsByType: Record<string, number> = {};
+      let infiltrateTotalUnits = 0;
+      for (const u of infiltrateUnits) {
+        infiltrateUnitsByType[u.unit_type] = (infiltrateUnitsByType[u.unit_type] || 0) + u.quantity;
+        infiltrateTotalUnits += u.quantity;
+      }
+
+      this.eventEmitter.emit(
+        'player.state.changed',
+        new PlayerStateChangedEvent({
+          playerId: attackerId,
+          attackTurns: infiltrateEcon?.attack_turns,
+          totalUnits: infiltrateTotalUnits,
+          unitsByType: infiltrateUnitsByType,
+        }),
+      );
 
       const playerState3 = await buildPlayerSnapshot(this.prisma, attackerId);
       return { ...result, missionType: 'infiltrate', playerState: playerState3 };
@@ -1048,6 +1146,30 @@ export class BattleService {
       this.eventEmitter.emit(
         'combat.spy',
         new SpyMissionExecutedEvent(attackerId, defenderId, 'steal_gold', result.success, stealLog.id),
+      );
+
+      // Emit WebSocket event for real-time state sync
+      const [stealEcon, stealUnits] = await Promise.all([
+        this.prisma.playerEconomy.findUnique({ where: { player_id: attackerId } }),
+        this.prisma.playerUnit.findMany({ where: { player_id: attackerId } }),
+      ]);
+
+      const stealUnitsByType: Record<string, number> = {};
+      let stealTotalUnits = 0;
+      for (const u of stealUnits) {
+        stealUnitsByType[u.unit_type] = (stealUnitsByType[u.unit_type] || 0) + u.quantity;
+        stealTotalUnits += u.quantity;
+      }
+
+      this.eventEmitter.emit(
+        'player.state.changed',
+        new PlayerStateChangedEvent({
+          playerId: attackerId,
+          gold: stealEcon?.gold,
+          attackTurns: stealEcon?.attack_turns,
+          totalUnits: stealTotalUnits,
+          unitsByType: stealUnitsByType,
+        }),
       );
 
       const playerState4 = await buildPlayerSnapshot(this.prisma, attackerId);
@@ -1117,6 +1239,30 @@ export class BattleService {
       this.eventEmitter.emit(
         'combat.spy',
         new SpyMissionExecutedEvent(attackerId, defenderId, 'sabotage', result.success, sabotageLog.id),
+      );
+
+      // Emit WebSocket event for real-time state sync
+      const [sabotageEcon, sabotageUnits] = await Promise.all([
+        this.prisma.playerEconomy.findUnique({ where: { player_id: attackerId } }),
+        this.prisma.playerUnit.findMany({ where: { player_id: attackerId } }),
+      ]);
+
+      const sabotageUnitsByType: Record<string, number> = {};
+      let sabotageTotalUnits = 0;
+      for (const u of sabotageUnits) {
+        sabotageUnitsByType[u.unit_type] = (sabotageUnitsByType[u.unit_type] || 0) + u.quantity;
+        sabotageTotalUnits += u.quantity;
+      }
+
+      this.eventEmitter.emit(
+        'player.state.changed',
+        new PlayerStateChangedEvent({
+          playerId: attackerId,
+          gold: sabotageEcon?.gold,
+          attackTurns: sabotageEcon?.attack_turns,
+          totalUnits: sabotageTotalUnits,
+          unitsByType: sabotageUnitsByType,
+        }),
       );
 
       const playerState5 = await buildPlayerSnapshot(this.prisma, attackerId);

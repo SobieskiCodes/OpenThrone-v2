@@ -11,6 +11,7 @@ import {
   BonusType,
 } from '@openthrone/shared';
 import type { EquipItemDto, UnequipItemDto } from '@openthrone/shared';
+import { PlayerStateChangedEvent } from '../game/events';
 
 @Injectable()
 export class ArmoryService {
@@ -265,6 +266,15 @@ export class ArmoryService {
       ),
     );
 
+    // Emit WebSocket event for real-time state sync
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.gold),
+      }),
+    );
+
     return {
       ...result,
       playerState: {
@@ -408,6 +418,15 @@ export class ArmoryService {
         dto.level,
         dto.quantity,
       ),
+    );
+
+    // Emit WebSocket event for real-time state sync
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.gold),
+      }),
     );
 
     return {

@@ -3,7 +3,7 @@
  * Gateway listens to this and broadcasts to player's WebSocket room
  */
 export class PlayerStateChangedEvent {
-  playerId: string;
+  playerId!: string; // Initialized via constructor
 
   // Economy
   gold?: bigint;

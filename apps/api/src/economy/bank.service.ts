@@ -5,6 +5,7 @@ import { GoldDepositedEvent, GoldWithdrawnEvent } from '@openthrone/events';
 import { getBuildingLevel } from '@openthrone/game-logic';
 import { BankAccountType, BankTransferHistoryType, BuildingType } from '@openthrone/shared';
 import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
+import { PlayerStateChangedEvent } from '../game/events';
 
 @Injectable()
 export class BankService {
@@ -95,6 +96,16 @@ export class BankService {
     // Build player state snapshot for cache sync
     const playerState = await buildPlayerSnapshot(this.prisma, playerId);
 
+    // Emit WebSocket event for real-time state sync
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.gold),
+        goldInBank: BigInt(result.goldInBank),
+      }),
+    );
+
     return { ...result, playerState };
   }
 
@@ -156,6 +167,16 @@ export class BankService {
 
     // Build player state snapshot for cache sync
     const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+
+    // Emit WebSocket event for real-time state sync
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.gold),
+        goldInBank: BigInt(result.goldInBank),
+      }),
+    );
 
     return { ...result, playerState };
   }

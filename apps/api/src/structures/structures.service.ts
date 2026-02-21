@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { StructureUpgradedEvent } from '@openthrone/events';
 import { FortRepairedEvent } from '@openthrone/events';
+import { PlayerStateChangedEvent } from '../game/events';
 import {
   Fortifications,
   getFortificationByLevel,
@@ -208,6 +209,15 @@ export class StructuresService {
       ),
     );
 
+    // Emit WebSocket event for real-time state sync
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.newGold),
+      }),
+    );
+
     // Build player state snapshot for cache sync
     const playerState = await buildPlayerSnapshot(this.prisma, playerId);
 
@@ -384,6 +394,15 @@ export class StructuresService {
       ),
     );
 
+    // Emit WebSocket event for real-time state sync
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.newGold),
+      }),
+    );
+
     return result;
   }
 
@@ -498,6 +517,15 @@ export class StructuresService {
       ),
     );
 
+    // Emit WebSocket event for real-time state sync
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.gold),
+      }),
+    );
+
     // Build player state snapshot for cache sync
     const playerState = await buildPlayerSnapshot(this.prisma, playerId);
 
@@ -575,6 +603,15 @@ export class StructuresService {
         })),
       };
     });
+
+    // Emit WebSocket event for real-time state sync
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.gold),
+      }),
+    );
 
     // Build player state snapshot for cache sync
     const playerState = await buildPlayerSnapshot(this.prisma, playerId);
@@ -794,6 +831,29 @@ export class StructuresService {
 
       return { gold: newGold.toString(), purchases };
     });
+
+    // Emit WebSocket event for real-time state sync
+    // Fetch updated units to calculate totals
+    const updatedUnits = await this.prisma.playerUnit.findMany({
+      where: { player_id: playerId },
+    });
+
+    const unitsByType: Record<string, number> = {};
+    let totalUnits = 0;
+    for (const u of updatedUnits) {
+      unitsByType[u.unit_type] = (unitsByType[u.unit_type] || 0) + u.quantity;
+      totalUnits += u.quantity;
+    }
+
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.gold),
+        totalUnits,
+        unitsByType,
+      }),
+    );
 
     return result;
   }

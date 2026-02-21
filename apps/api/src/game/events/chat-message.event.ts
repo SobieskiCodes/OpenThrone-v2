@@ -3,12 +3,12 @@
  * Gateway broadcasts to all players in that room
  */
 export class ChatMessageEvent {
-  roomId: string;
-  senderId: string;
-  senderName: string;
-  senderRace: string;
-  message: string;
-  timestamp: Date;
+  roomId!: string; // Initialized via constructor
+  senderId!: string;
+  senderName!: string;
+  senderRace!: string;
+  message!: string;
+  timestamp!: Date;
 
   constructor(partial: Partial<ChatMessageEvent>) {
     Object.assign(this, partial);
