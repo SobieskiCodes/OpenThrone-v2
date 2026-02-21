@@ -113,8 +113,10 @@ function SpyPageContent() {
         usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
-      // Still invalidate battle queries for background re-sync
+      // Invalidate queries to refetch player data (proficiency points, buildings, mail)
       queryClient.invalidateQueries({ queryKey: ['battle'] });
+      queryClient.invalidateQueries({ queryKey: ['player'] });
+      queryClient.invalidateQueries({ queryKey: ['mail'] });
 
       setResult(data);
       notifications.show({

@@ -25,6 +25,7 @@ import { useApi } from '@/hooks/use-api';
 import { useRaceTheme } from '@/context/race-theme';
 import { useCountdowns } from '@/hooks/use-countdowns';
 import { getRecommendedAction } from '@/lib/recommended-action';
+import { usePlayerStore } from '@/stores/player-store';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -312,6 +313,14 @@ export default function DashboardPage() {
   const countdowns = useCountdowns();
   const [activityScope, setActivityScope] = useState<ActivityScope>('my');
 
+  // Read frequently-updated state from Zustand for instant updates
+  const storeGold = usePlayerStore((state) => state.getGold());
+  const storeGoldInBank = usePlayerStore((state) => state.getGoldInBank());
+  const storeAttackTurns = usePlayerStore((state) => state.attackTurns);
+  const storeExperience = usePlayerStore((state) => state.getExperience());
+  const storeLevel = usePlayerStore((state) => state.level);
+  const storeTotalUnits = usePlayerStore((state) => state.totalUnits);
+
   const { data: player, isLoading } = useQuery<PlayerData>({
     queryKey: ['player', 'me'],
     queryFn: () => api.get('/player/me'),
@@ -385,15 +394,17 @@ export default function DashboardPage() {
     );
   }
 
-  const experience = player.stats?.experience ?? 0;
-  const gold = Number(player.economy?.gold ?? 0);
-  const goldInBank = Number(player.economy?.goldInBank ?? 0);
-  const attackTurns = player.economy?.attackTurns ?? 0;
+  // Use Zustand store for live-updating state
+  const experience = Number(storeExperience);
+  const gold = Number(storeGold);
+  const goldInBank = Number(storeGoldInBank);
+  const attackTurns = storeAttackTurns;
+  const level = storeLevel;
+
+  // Use TanStack Query for static/infrequently-updated state
   const fortLevel = player.fortification?.fortLevel ?? 1;
   const fortHitpoints = player.fortification?.hitpoints ?? 0;
   const rank = player.stats?.rank ?? 0;
-
-  const level = getLevelForXP(experience);
   const currentLevelXP = getXPForLevel(level);
   const nextLevelXP = getXPForLevel(level + 1) || currentLevelXP;
   const xpToNext = Math.max(0, nextLevelXP - experience);
@@ -408,7 +419,7 @@ export default function DashboardPage() {
   const fortHpPercent = Math.min(100, (fortHitpoints / fortMaxHp) * 100);
 
   const untrainedCitizens = player.units?.find((u) => u.unitType === 'CITIZEN' && u.level === 1)?.quantity ?? 0;
-  const totalUnits = player.units?.reduce((sum, u) => sum + u.quantity, 0) ?? 0;
+  const totalUnits = storeTotalUnits; // Use store for instant updates
   const totalItems = player.items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
 
   const armoryResaleValue = computeArmoryResaleValue(player.items ?? []);

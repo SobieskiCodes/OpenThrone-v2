@@ -173,29 +173,18 @@ export default function PlayersPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  // Player list state (use server defaults, then load from localStorage on mount)
-  const [search, setSearch] = useState('');
-  const [raceFilter, setRaceFilter] = useState('');
-  const [classFilter, setClassFilter] = useState('');
-  const [botFilter, setBotFilter] = useState('all');
-  const [sort, setSort] = useState('rank');
-  const [order, setOrder] = useState('asc');
-  const [inRange, setInRange] = useState(true);
-  const [playerPage, setPlayerPage] = useState(1);
+  // Load saved filters immediately (before first render)
+  const savedFilters = typeof window !== 'undefined' ? loadBattleFilters() : null;
 
-  // Load saved filters from localStorage after mount (client-only)
-  useEffect(() => {
-    const saved = loadBattleFilters();
-    if (saved) {
-      if (saved.search !== undefined) setSearch(saved.search);
-      if (saved.raceFilter !== undefined) setRaceFilter(saved.raceFilter);
-      if (saved.classFilter !== undefined) setClassFilter(saved.classFilter);
-      if (saved.botFilter !== undefined) setBotFilter(saved.botFilter);
-      if (saved.sort !== undefined) setSort(saved.sort);
-      if (saved.order !== undefined) setOrder(saved.order);
-      if (saved.inRange !== undefined) setInRange(saved.inRange);
-    }
-  }, []);
+  // Player list state (initialize from localStorage if available)
+  const [search, setSearch] = useState(savedFilters?.search ?? '');
+  const [raceFilter, setRaceFilter] = useState(savedFilters?.raceFilter ?? '');
+  const [classFilter, setClassFilter] = useState(savedFilters?.classFilter ?? '');
+  const [botFilter, setBotFilter] = useState(savedFilters?.botFilter ?? 'all');
+  const [sort, setSort] = useState(savedFilters?.sort ?? 'rank');
+  const [order, setOrder] = useState(savedFilters?.order ?? 'asc');
+  const [inRange, setInRange] = useState(savedFilters?.inRange ?? true);
+  const [playerPage, setPlayerPage] = useState(1);
 
   // Attack modal state
   const [attackTarget, setAttackTarget] = useState<PlayerEntry | null>(null);
@@ -216,8 +205,10 @@ export default function PlayersPage() {
         usePlayerStore.getState().updateFromSnapshot(data.playerState);
       }
 
-      // Still invalidate battle queries for background re-sync
+      // Invalidate queries to refetch player data (proficiency points, buildings, mail)
       queryClient.invalidateQueries({ queryKey: ['battle'] });
+      queryClient.invalidateQueries({ queryKey: ['player'] });
+      queryClient.invalidateQueries({ queryKey: ['mail'] });
 
       closeConfirm();
       notifications.show({
