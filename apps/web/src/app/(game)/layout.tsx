@@ -24,6 +24,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useApi } from '@/hooks/use-api';
+import { useGameSync } from '@/hooks/use-game-sync';
 import { RaceThemeProvider } from '@/context/race-theme';
 import { usePlayerStore } from '@/stores/player-store';
 import {
@@ -125,6 +126,9 @@ function GameShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { api, isReady } = useApi();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
+
+  // Connect to WebSocket for real-time state sync
+  useGameSync();
 
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ['mail', 'unread-count'],

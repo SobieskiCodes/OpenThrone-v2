@@ -22,6 +22,7 @@ import { AdminModule } from './admin/admin.module';
 import { BotModule } from './bot/bot.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { ActivityModule } from './activity/activity.module';
+import { GameModule } from './game/game.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ActivityModule } from './activity/activity.module';
     EventEmitterModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
+    GameModule,
     AuthModule,
     PlayerModule,
     EconomyModule,

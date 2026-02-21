@@ -1183,7 +1183,7 @@ socket.on('disconnect', () => console.log('🤖 Bot offline'));
 
 ## 📋 Implementation Checklist
 
-### Week 1: Zustand Foundation
+### Week 1: Zustand Foundation — ✅ COMPLETE
 - [x] ~~Install Zustand (`pnpm add zustand`)~~ — ✅ Installed
 - [x] ~~Create `player-store.ts` with core state~~ — ✅ Done (string-based BigInt storage)
 - [x] ~~Hydrate store in layout on login~~ — ✅ Done
@@ -1191,24 +1191,30 @@ socket.on('disconnect', () => console.log('🤖 Bot offline'));
 - [x] ~~Migrate Armory page~~ — ✅ Done
 - [x] ~~Migrate Training page~~ — ✅ Done
 - [x] ~~Migrate Bank page~~ — ✅ Done
-- [ ] Test: Spend gold → Header updates instantly — **NEEDS TESTING**
+- [x] ~~Test: Spend gold → Header updates instantly~~ — ✅ Tested and working
 
-### Week 2: Zustand Migration Complete
-- [ ] Migrate remaining pages (Buildings, Mercenary, Upgrades, Repair)
-- [ ] Update all mutations to write to store
-- [ ] Remove `updatePlayerCache()` helper
-- [ ] Remove scattered `queryClient.setQueryData()` calls
-- [ ] Keep TanStack Query ONLY for lists/secondary data
-- [ ] Test: Full user flow (train, attack, upgrade, etc.)
+### Week 2: Zustand Migration Complete — ✅ COMPLETE
+- [x] ~~Migrate remaining pages (Buildings, Mercenary, Upgrades, Repair)~~ — ✅ All 9 pages migrated
+- [x] ~~Update all mutations to write to store~~ — ✅ All use `updateFromSnapshot()`
+- [x] ~~Real-time notifications (level-up, points, buildings, mail)~~ — ✅ Done
+- [x] ~~Sidebar badge indicators~~ — ✅ Read from store
+- [x] ~~Dashboard reads from store~~ — ✅ Done
+- [x] ~~Filter persistence (attack page)~~ — ✅ Done
+- [x] ~~Query invalidation (attack/spy pages)~~ — ✅ Fixed
+- [x] ~~Test: Full user flow (train, attack, upgrade, etc.)~~ — ✅ Tested
 
-### Week 3: WebSocket Setup
-- [ ] Create `GameGateway` in `apps/api/src/game/`
-- [ ] Register in `AppModule`
-- [ ] Add JWT authentication to gateway
-- [ ] Create `PlayerStateChangedEvent` interface
-- [ ] Update 2-3 services to emit events (Training, Bank, Structures)
-- [ ] Create `useGameSync()` hook on frontend
-- [ ] Test: Training → state:update event → Zustand updates
+### Week 3: WebSocket Setup — 🚧 IN PROGRESS
+- [x] ~~Install WebSocket dependencies~~ — ✅ `@nestjs/websockets`, `socket.io-client`
+- [x] ~~Create `GameGateway` in `apps/api/src/game/`~~ — ✅ Done with JWT auth
+- [x] ~~Register in `AppModule`~~ — ✅ GameModule imported
+- [x] ~~Add JWT authentication to gateway~~ — ✅ Done
+- [x] ~~Create `PlayerStateChangedEvent` interface~~ — ✅ Done + ChatMessageEvent
+- [x] ~~Update Training service to emit events~~ — ✅ Done (train + untrain)
+- [x] ~~Create `useGameSync()` hook on frontend~~ — ✅ Done with chat helpers
+- [x] ~~Add useGameSync to layout~~ — ✅ Auto-connects on login
+- [ ] Test: Training → state:update event → Zustand updates — **READY TO TEST**
+- [ ] Update Bank service to emit events
+- [ ] Update Structures service to emit events
 
 ### Week 4: WebSocket Complete
 - [ ] Update ALL services to emit events

@@ -14,6 +14,7 @@ import {
 } from '@openthrone/shared';
 import type { TrainUnitsDto, UntrainUnitsDto, ConvertUnitsDto } from '@openthrone/shared';
 import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
+import { PlayerStateChangedEvent } from '../game/events';
 
 @Injectable()
 export class TrainingService {
@@ -271,6 +272,24 @@ export class TrainingService {
       includeUnits: true,
     });
 
+    // Emit WebSocket event for real-time state sync
+    const unitsByType: Record<string, number> = {};
+    let totalUnits = 0;
+    for (const u of result.units) {
+      unitsByType[u.unitType] = (unitsByType[u.unitType] || 0) + u.quantity;
+      totalUnits += u.quantity;
+    }
+
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.gold),
+        totalUnits,
+        unitsByType,
+      }),
+    );
+
     return { ...result, playerState };
   }
 
@@ -395,6 +414,24 @@ export class TrainingService {
     const playerState = await buildPlayerSnapshot(this.prisma, playerId, {
       includeUnits: true,
     });
+
+    // Emit WebSocket event for real-time state sync
+    const unitsByType: Record<string, number> = {};
+    let totalUnits = 0;
+    for (const u of result.units) {
+      unitsByType[u.unitType] = (unitsByType[u.unitType] || 0) + u.quantity;
+      totalUnits += u.quantity;
+    }
+
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        gold: BigInt(result.gold),
+        totalUnits,
+        unitsByType,
+      }),
+    );
 
     return { ...result, playerState };
   }
