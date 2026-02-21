@@ -30,7 +30,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { useRouter } from 'next/navigation';
-import { updatePlayerCache } from '@/lib/cache-sync';
+import { usePlayerStore } from '@/stores/player-store';
 import type { PlayerStateSnapshot } from '@openthrone/shared';
 
 interface AllianceIntelEntry {
@@ -211,10 +211,15 @@ export default function PlayersPage() {
     mutationFn: ({ defenderId, turns }: { defenderId: string; turns: number }) =>
       api.post(`/battle/attack/${defenderId}`, { turns }) as Promise<AttackResult>,
     onSuccess: (data: AttackResult) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, data.playerState);
+      // Update Zustand store INSTANTLY
+      if (data.playerState?.gold) {
+        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+      }
+      if (data.playerState?.attackTurns !== undefined) {
+        usePlayerStore.getState().mergeState({ attackTurns: data.playerState.attackTurns });
+      }
 
-      // Still invalidate battle queries (history, rankings, etc.)
+      // Still invalidate battle queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['battle'] });
 
       closeConfirm();

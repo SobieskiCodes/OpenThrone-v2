@@ -25,7 +25,7 @@ import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { useApi } from '@/hooks/use-api';
-import { updatePlayerCache } from '@/lib/cache-sync';
+import { usePlayerStore } from '@/stores/player-store';
 import type { PlayerStateSnapshot } from '@openthrone/shared';
 
 interface PlayerEntry {
@@ -108,10 +108,15 @@ function SpyPageContent() {
     mutationFn: (body: { type: string; spiesSent: number; targetUnitType?: string }) =>
       api.post(`/battle/spy/${selectedTarget!.id}`, body) as Promise<SpyResult>,
     onSuccess: (data: SpyResult) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, data.playerState);
+      // Update Zustand store INSTANTLY
+      if (data.playerState?.gold) {
+        usePlayerStore.getState().setGold(BigInt(data.playerState.gold));
+      }
+      if (data.playerState?.attackTurns !== undefined) {
+        usePlayerStore.getState().mergeState({ attackTurns: data.playerState.attackTurns });
+      }
 
-      // Still invalidate battle queries (history, etc.)
+      // Still invalidate battle queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['battle'] });
 
       setResult(data);
