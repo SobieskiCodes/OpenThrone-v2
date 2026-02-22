@@ -380,6 +380,7 @@ model Alliance {
   is_public         Boolean  @default(true)
   require_auth      Boolean  @default(false)
   closed_enrollment Boolean  @default(false)
+  allow_bots        Boolean  @default(false) // Allow bots to auto-join this alliance
   gold_in_bank      BigInt?  @default(0)
   slug              String?
   banner_img        String?

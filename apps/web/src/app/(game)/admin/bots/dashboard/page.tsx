@@ -79,6 +79,12 @@ export default function BotsDashboardPage() {
     enabled: isReady,
   });
 
+  const { data: equipmentData, isLoading: equipmentLoading } = useQuery<any>({
+    queryKey: ['admin', 'bots', 'analytics', 'equipment'],
+    queryFn: () => api.get('/admin/bots/analytics/equipment'),
+    enabled: isReady,
+  });
+
   // Transform strategy comparison data for charts
   const strategyChartData = data?.strategyComparison
     ? Object.keys(data.strategyComparison).reduce((acc: any[], strategy) => {
@@ -141,6 +147,7 @@ export default function BotsDashboardPage() {
             <Tabs.Tab value="overview">Overview</Tabs.Tab>
             <Tabs.Tab value="battles">Battle Analytics</Tabs.Tab>
             <Tabs.Tab value="units">Unit Composition</Tabs.Tab>
+            <Tabs.Tab value="equipment">Equipment</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="overview" pt="md">
@@ -153,6 +160,10 @@ export default function BotsDashboardPage() {
 
           <Tabs.Panel value="units" pt="md">
             {renderUnitCompositionTab()}
+          </Tabs.Panel>
+
+          <Tabs.Panel value="equipment" pt="md">
+            {renderEquipmentTab()}
           </Tabs.Panel>
         </Tabs>
       </Stack>
@@ -559,6 +570,146 @@ export default function BotsDashboardPage() {
             </ResponsiveContainer>
           </Paper>
         ))}
+      </Stack>
+    );
+  }
+
+  function renderEquipmentTab() {
+    if (equipmentLoading) {
+      return <Skeleton height={400} />;
+    }
+
+    if (!equipmentData) {
+      return (
+        <Text c="dimmed" ta="center" py="xl">
+          No equipment data available.
+        </Text>
+      );
+    }
+
+    return (
+      <Stack gap="lg">
+        {/* Strategy Equipment Summary */}
+        <Paper p="md" withBorder>
+          <Text size="sm" fw={600} mb="md">
+            Equipment Coverage by Strategy
+          </Text>
+          <Table striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Strategy</Table.Th>
+                <Table.Th ta="right">Avg Weapons</Table.Th>
+                <Table.Th ta="right">Avg Offense Units</Table.Th>
+                <Table.Th ta="right">Weapon Coverage</Table.Th>
+                <Table.Th ta="right">Avg Armor</Table.Th>
+                <Table.Th ta="right">Avg Defense Units</Table.Th>
+                <Table.Th ta="right">Armor Coverage</Table.Th>
+                <Table.Th ta="right">Avg Weapon Tier</Table.Th>
+                <Table.Th ta="right">Avg Armor Tier</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {Object.entries(equipmentData.byStrategy).map(([strategy, stats]: [string, any]) => (
+                <Table.Tr key={strategy}>
+                  <Table.Td>
+                    <Badge color={STRATEGY_COLORS[strategy]} variant="light">
+                      {strategy}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td ta="right">{stats.avgWeapons}</Table.Td>
+                  <Table.Td ta="right">{stats.avgOffenseUnits}</Table.Td>
+                  <Table.Td
+                    ta="right"
+                    c={
+                      stats.avgWeaponCoverage >= 80
+                        ? 'green'
+                        : stats.avgWeaponCoverage >= 50
+                          ? 'yellow'
+                          : 'red'
+                    }
+                  >
+                    {stats.avgWeaponCoverage}%
+                  </Table.Td>
+                  <Table.Td ta="right">{stats.avgArmor}</Table.Td>
+                  <Table.Td ta="right">{stats.avgDefenseUnits}</Table.Td>
+                  <Table.Td
+                    ta="right"
+                    c={
+                      stats.avgArmorCoverage >= 80
+                        ? 'green'
+                        : stats.avgArmorCoverage >= 50
+                          ? 'yellow'
+                          : 'red'
+                    }
+                  >
+                    {stats.avgArmorCoverage}%
+                  </Table.Td>
+                  <Table.Td ta="right">T{stats.avgWeaponTier}</Table.Td>
+                  <Table.Td ta="right">T{stats.avgArmorTier}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Paper>
+
+        {/* Individual Bot Equipment */}
+        <Paper p="md" withBorder>
+          <Text size="sm" fw={600} mb="md">
+            Individual Bot Equipment Status
+          </Text>
+          <Table striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Bot Name</Table.Th>
+                <Table.Th>Strategy</Table.Th>
+                <Table.Th ta="right">Level</Table.Th>
+                <Table.Th ta="right">Weapons / Offense</Table.Th>
+                <Table.Th ta="right">Armor / Defense</Table.Th>
+                <Table.Th ta="right">Weapon Tier</Table.Th>
+                <Table.Th ta="right">Armor Tier</Table.Th>
+                <Table.Th>Status</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {equipmentData.bots.map((bot: any) => (
+                <Table.Tr key={bot.botId}>
+                  <Table.Td>
+                    <Text fw={600}>{bot.botName}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge size="xs" color={STRATEGY_COLORS[bot.strategy]} variant="light">
+                      {bot.strategy}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td ta="right">{bot.level}</Table.Td>
+                  <Table.Td
+                    ta="right"
+                    c={
+                      bot.weaponCoverage >= 80 ? 'green' : bot.weaponCoverage >= 50 ? 'yellow' : 'red'
+                    }
+                  >
+                    {bot.weapons} / {bot.offenseUnits} ({bot.weaponCoverage}%)
+                  </Table.Td>
+                  <Table.Td
+                    ta="right"
+                    c={bot.armorCoverage >= 80 ? 'green' : bot.armorCoverage >= 50 ? 'yellow' : 'red'}
+                  >
+                    {bot.armor} / {bot.defenseUnits} ({bot.armorCoverage}%)
+                  </Table.Td>
+                  <Table.Td ta="right">T{bot.avgWeaponTier}</Table.Td>
+                  <Table.Td ta="right">T{bot.avgArmorTier}</Table.Td>
+                  <Table.Td>
+                    <Badge
+                      color={bot.status === 'GOOD' ? 'green' : bot.status === 'FAIR' ? 'yellow' : 'red'}
+                    >
+                      {bot.status}
+                    </Badge>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Paper>
       </Stack>
     );
   }

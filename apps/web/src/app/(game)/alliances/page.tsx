@@ -101,6 +101,7 @@ export default function AlliancesPage() {
   const [newName, setNewName] = useState('');
   const [newMotto, setNewMotto] = useState('');
   const [newIsPublic, setNewIsPublic] = useState(true);
+  const [newAllowBots, setNewAllowBots] = useState(false);
 
   // Deposit form (per alliance)
   const [depositAmounts, setDepositAmounts] = useState<Record<number, number | string>>({});
@@ -126,13 +127,15 @@ export default function AlliancesPage() {
   const canJoinMore = myAlliances.length < 3;
 
   const createMutation = useMutation({
-    mutationFn: (body: { name: string; motto?: string; isPublic: boolean }) =>
+    mutationFn: (body: { name: string; motto?: string; isPublic: boolean; allowBots: boolean }) =>
       api.post('/alliances', body),
     onSuccess: () => {
       setError(null);
       setSuccess('Alliance created!');
       setNewName('');
       setNewMotto('');
+      setNewIsPublic(true);
+      setNewAllowBots(false);
       queryClient.invalidateQueries({ queryKey: ['alliances'] });
     },
     onError: (err: Error) => {
@@ -479,12 +482,19 @@ export default function AlliancesPage() {
                     checked={newIsPublic}
                     onChange={(e) => setNewIsPublic(e.currentTarget.checked)}
                   />
+                  <Switch
+                    label="Allow bots to join"
+                    description="Bots can auto-join this alliance"
+                    checked={newAllowBots}
+                    onChange={(e) => setNewAllowBots(e.currentTarget.checked)}
+                  />
                   <Button
                     onClick={() =>
                       createMutation.mutate({
                         name: newName,
                         motto: newMotto || undefined,
                         isPublic: newIsPublic,
+                        allowBots: newAllowBots,
                       })
                     }
                     loading={createMutation.isPending}

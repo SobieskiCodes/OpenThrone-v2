@@ -113,6 +113,7 @@ export class AllianceService {
           name: dto.name,
           motto: dto.motto ?? null,
           is_public: dto.isPublic,
+          allow_bots: dto.allowBots,
           leader_id: playerId,
         },
       });
@@ -464,6 +465,7 @@ export class AllianceService {
     if (dto.motto !== undefined) data.motto = dto.motto;
     if (dto.isPublic !== undefined) data.is_public = dto.isPublic;
     if (dto.closedEnrollment !== undefined) data.closed_enrollment = dto.closedEnrollment;
+    if (dto.allowBots !== undefined) data.allow_bots = dto.allowBots;
 
     await this.prisma.alliance.update({
       where: { id },

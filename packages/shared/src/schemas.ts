@@ -181,12 +181,14 @@ export const createAllianceSchema = z.object({
   name: z.string().min(3).max(50),
   motto: z.string().max(200).optional(),
   isPublic: z.boolean().default(true),
+  allowBots: z.boolean().default(false),
 });
 
 export const updateAllianceSchema = z.object({
   motto: z.string().max(200).optional(),
   isPublic: z.boolean().optional(),
   closedEnrollment: z.boolean().optional(),
+  allowBots: z.boolean().optional(),
 });
 
 export const allianceDepositSchema = z.object({

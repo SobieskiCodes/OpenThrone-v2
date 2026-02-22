@@ -554,6 +554,130 @@ export class BotController {
     return { composition };
   }
 
+  @Get('analytics/equipment')
+  async getEquipmentAnalytics(@Query('period') period?: string) {
+    // Get all active bots with their items
+    const botConfigs = await this.prisma.botConfig.findMany({
+      where: { is_active: true },
+      include: {
+        player: {
+          select: {
+            id: true,
+            display_name: true,
+            stats: { select: { experience: true } },
+            items: {
+              select: {
+                id: true,
+                type: true,
+                usage: true,
+                tier: true,
+              },
+            },
+            units: {
+              select: {
+                unit_type: true,
+                quantity: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const botEquipment: any[] = [];
+
+    for (const bot of botConfigs) {
+      // Count items by type and tier
+      const weapons = bot.player.items.filter((i) => i.type === 'WEAPON');
+      const armor = bot.player.items.filter((i) => i.type === 'ARMOR');
+
+      // Count units by type
+      const units = bot.player.units || [];
+      const offenseUnits = units
+        .filter((u) => u.unit_type === 'OFFENSE')
+        .reduce((sum, u) => sum + u.quantity, 0);
+      const defenseUnits = units
+        .filter((u) => u.unit_type === 'DEFENSE')
+        .reduce((sum, u) => sum + u.quantity, 0);
+
+      // Calculate coverage
+      const weaponCoverage = offenseUnits > 0 ? weapons.length / offenseUnits : 0;
+      const armorCoverage = defenseUnits > 0 ? armor.length / defenseUnits : 0;
+
+      // Calculate average tier
+      const avgWeaponTier =
+        weapons.length > 0
+          ? weapons.reduce((sum, w) => sum + w.tier, 0) / weapons.length
+          : 0;
+      const avgArmorTier =
+        armor.length > 0 ? armor.reduce((sum, a) => sum + a.tier, 0) / armor.length : 0;
+
+      botEquipment.push({
+        botId: bot.player_id,
+        botName: bot.player.display_name,
+        strategy: bot.strategy,
+        level: getLevelForXP(bot.player.stats?.experience ?? 0),
+        weapons: weapons.length,
+        armor: armor.length,
+        offenseUnits,
+        defenseUnits,
+        weaponCoverage: Math.round(weaponCoverage * 100),
+        armorCoverage: Math.round(armorCoverage * 100),
+        avgWeaponTier: Math.round(avgWeaponTier * 10) / 10,
+        avgArmorTier: Math.round(avgArmorTier * 10) / 10,
+        status:
+          weaponCoverage >= 0.8 && armorCoverage >= 0.8
+            ? 'GOOD'
+            : weaponCoverage >= 0.5 && armorCoverage >= 0.5
+              ? 'FAIR'
+              : 'POOR',
+      });
+    }
+
+    // Calculate by-strategy averages
+    const byStrategy: Record<string, any> = {};
+    const strategyGroups: Record<string, any[]> = {};
+
+    for (const bot of botEquipment) {
+      if (!strategyGroups[bot.strategy]) {
+        strategyGroups[bot.strategy] = [];
+      }
+      strategyGroups[bot.strategy]!.push(bot);
+    }
+
+    for (const [strategy, bots] of Object.entries(strategyGroups)) {
+      const totalBots = bots.length;
+      if (totalBots === 0) continue;
+
+      byStrategy[strategy] = {
+        avgWeapons: Math.round(bots.reduce((sum, b) => sum + b.weapons, 0) / totalBots),
+        avgArmor: Math.round(bots.reduce((sum, b) => sum + b.armor, 0) / totalBots),
+        avgOffenseUnits: Math.round(
+          bots.reduce((sum, b) => sum + b.offenseUnits, 0) / totalBots,
+        ),
+        avgDefenseUnits: Math.round(
+          bots.reduce((sum, b) => sum + b.defenseUnits, 0) / totalBots,
+        ),
+        avgWeaponCoverage: Math.round(
+          bots.reduce((sum, b) => sum + b.weaponCoverage, 0) / totalBots,
+        ),
+        avgArmorCoverage: Math.round(
+          bots.reduce((sum, b) => sum + b.armorCoverage, 0) / totalBots,
+        ),
+        avgWeaponTier:
+          Math.round((bots.reduce((sum, b) => sum + b.avgWeaponTier, 0) / totalBots) * 10) /
+          10,
+        avgArmorTier:
+          Math.round((bots.reduce((sum, b) => sum + b.avgArmorTier, 0) / totalBots) * 10) / 10,
+      };
+    }
+
+    return {
+      byStrategy,
+      bots: botEquipment,
+    };
+  }
+
   @Post('generate')
   async generateBots(
     @Body(new ZodValidationPipe(generateBotsSchema)) dto: GenerateBotsDto,
