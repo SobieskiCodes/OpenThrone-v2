@@ -141,3 +141,14 @@ export {
   getSpyUpgradeByLevel,
   getSentryUpgradeByLevel,
 } from './structure-upgrades';
+
+// ─── Cosmetics Shop ──────────────────────────────────────────────────
+export {
+  CosmeticType,
+  NAME_COLORS,
+  ICONS,
+  ALL_COSMETICS,
+  getCosmeticById,
+  getCosmeticsByType,
+} from './cosmetics';
+export type { CosmeticDefinition } from './cosmetics';

@@ -139,6 +139,8 @@ export enum ChatMessageType {
   TEXT = 'TEXT',
   ATTACK_LOG = 'ATTACK_LOG',
   SYSTEM = 'SYSTEM',
+  PLAYER = 'PLAYER',
+  GAME_EVENT = 'GAME_EVENT',
 }
 
 export enum SpyMissionType {
@@ -184,4 +186,9 @@ export enum ActivityType {
   ALLIANCE_JOINED = 'ALLIANCE_JOINED',
   ALLIANCE_LEFT = 'ALLIANCE_LEFT',
   STRUCTURE_UPGRADED = 'STRUCTURE_UPGRADED',
+}
+
+export enum CosmeticType {
+  NAME_COLOR = 'NAME_COLOR',
+  ICON = 'ICON',
 }

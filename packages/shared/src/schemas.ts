@@ -421,3 +421,17 @@ export type UpdateBotDto = z.infer<typeof updateBotSchema>;
 export type GenerateBotsDto = z.infer<typeof generateBotsSchema>;
 export type BotActionLogsQueryDto = z.infer<typeof botActionLogsQuerySchema>;
 export type ActivityFeedQueryDto = z.infer<typeof activityFeedQuerySchema>;
+
+// ─── Cosmetics ───────────────────────────────────────────────────────────────
+
+export const purchaseCosmeticSchema = z.object({
+  cosmeticId: z.string().min(1),
+});
+
+export const equipCosmeticSchema = z.object({
+  cosmeticId: z.string().min(1),
+  equipped: z.boolean(),
+});
+
+export type PurchaseCosmeticDto = z.infer<typeof purchaseCosmeticSchema>;
+export type EquipCosmeticDto = z.infer<typeof equipCosmeticSchema>;

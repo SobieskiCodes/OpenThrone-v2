@@ -23,6 +23,7 @@ import { BotModule } from './bot/bot.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { ActivityModule } from './activity/activity.module';
 import { GameModule } from './game/game.module';
+import { ShopModule } from './shop/shop.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { GameModule } from './game/game.module';
     BotModule,
     SchedulerModule,
     ActivityModule,
+    ShopModule,
   ],
   providers: [
     {

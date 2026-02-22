@@ -36,7 +36,7 @@ Feature ideas, bug notes, and design thoughts. Roughly prioritized by section.
 - [ ] Alliance member cap? (prevents mega-alliances, forces politics)
 - [ ] Alliance gold vault — deposit gold that's 100% safe from raids but inaccessible to the depositor
   - Creates incentive for "war chests" and alliance-level strategy
-  - Could fund alliance features (bounties, contracts)
+  - Could fund alliance features (bounties, contracts - spy bounties kinda make sense - curious how attacks would work - same for war - how do people get put "out" - limited amount of attacks a day globally on a single player? (for beasts that wouldn't work well)) torn does it with cool downs (energy - we don't have that - one could pile up unlimitd turns) and hostpial time - which we don't have lol
   - Must not block solo player progression
 - [ ] **Alliance contracts** — clans post bounties/missions, individuals or other clans accept them, game handles tracking and payment on completion
 

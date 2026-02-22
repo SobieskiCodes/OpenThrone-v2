@@ -69,6 +69,8 @@ model Player {
   chat_reactions      ChatMessageReaction[]
   chat_read_status    ChatMessageReadStatus[]
 
+  cosmetics           PlayerCosmetic[]
+
   mail_sent           Mail[]
   mail_received       MailRecipient[]
 
@@ -523,9 +525,11 @@ model ChatMessage {
   room_id       Int
   sender_id     String
   content       String
-  message_type  String   @default("TEXT")
+  message_type  String   @default("TEXT") // TEXT | SYSTEM | GAME_EVENT
   reply_to_id   Int?
   shared_log_id Int?
+  sender_color  String?  // Hex color for name (cosmetic)
+  sender_icon   String?  // Emoji or icon (cosmetic)
   sent_at       DateTime @default(now())
 
   room       ChatRoom              @relation(fields: [room_id], references: [id], onDelete: Cascade)
@@ -761,4 +765,35 @@ model ActivityLog {
   @@index([player_id, created_at])
   @@index([created_at])
   @@map("activity_log")
+}
+
+// ─── Cosmetics Shop ──────────────────────────────────────────────────────────
+
+model Cosmetic {
+  id          String   @id @default(cuid())
+  type        String   // CosmeticType: NAME_COLOR | ICON
+  name        String   // Display name (e.g., "Royal Purple", "Crown")
+  value       String   // Hex color or emoji/icon
+  price       BigInt   // Gold cost
+  description String?
+  created_at  DateTime @default(now())
+
+  player_cosmetics PlayerCosmetic[]
+
+  @@map("cosmetics")
+}
+
+model PlayerCosmetic {
+  id          Int      @id @default(autoincrement())
+  player_id   String
+  cosmetic_id String
+  equipped    Boolean  @default(false)
+  purchased_at DateTime @default(now())
+
+  player   Player   @relation(fields: [player_id], references: [id], onDelete: Cascade)
+  cosmetic Cosmetic @relation(fields: [cosmetic_id], references: [id], onDelete: Cascade)
+
+  @@unique([player_id, cosmetic_id])
+  @@index([player_id, equipped])
+  @@map("player_cosmetics")
 }
