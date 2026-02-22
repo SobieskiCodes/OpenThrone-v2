@@ -13,6 +13,7 @@ export {
 export {
   levelXPArray,
   getLevelForXP,
+  getPlayerLevel,
   getXPForLevel,
   getXPToNextLevel,
 } from './xp';
