@@ -280,6 +280,94 @@ export class BotController {
     );
   }
 
+  @Get('logs')
+  async getAllBotLogs(
+    @Query('limit') limit?: string,
+    @Query('botId') botId?: string,
+    @Query('actionType') actionType?: string,
+    @Query('sessionId') sessionId?: string,
+    @Query('success') success?: string,
+    @Query('hours') hours?: string,
+    @Query('days') days?: string,
+  ) {
+    // Parse limit (default 50, max 200)
+    const parsedLimit = Math.min(200, Math.max(1, parseInt(limit || '50', 10)));
+
+    // Build where clause
+    const where: any = {};
+
+    // Filter by specific bot
+    if (botId) {
+      const botConfig = await this.prisma.botConfig.findFirst({
+        where: { player_id: botId },
+      });
+      if (botConfig) {
+        where.bot_config_id = botConfig.id;
+      }
+    }
+
+    // Filter by action type
+    if (actionType) {
+      where.action_type = actionType;
+    }
+
+    // Filter by session
+    if (sessionId) {
+      where.session_id = sessionId;
+    }
+
+    // Filter by success/failure
+    if (success !== undefined) {
+      where.success = success === 'true';
+    }
+
+    // Filter by time range
+    if (hours || days) {
+      const now = new Date();
+      const timeAgo = new Date();
+      if (hours) {
+        timeAgo.setHours(now.getHours() - parseInt(hours, 10));
+      } else if (days) {
+        timeAgo.setDate(now.getDate() - parseInt(days, 10));
+      }
+      where.created_at = { gte: timeAgo };
+    }
+
+    const logs = await this.prisma.botActionLog.findMany({
+      where,
+      include: {
+        bot_config: {
+          include: {
+            player: {
+              select: { id: true, display_name: true },
+            },
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+      take: parsedLimit,
+    });
+
+    return {
+      logs: logs.map((log) => ({
+        id: log.id,
+        botId: log.bot_config.player_id,
+        botName: log.bot_config.player.display_name,
+        strategy: log.bot_config.strategy,
+        sessionId: log.session_id,
+        actionType: log.action_type,
+        actionData: JSON.parse(log.action_data || '{}'),
+        resultData: log.result_data ? JSON.parse(log.result_data) : null,
+        reasoning: log.reasoning,
+        success: log.success,
+        errorMessage: log.error_message,
+        createdAt: log.created_at,
+      })),
+      total: logs.length,
+      filters: { botId, actionType, sessionId, success, hours, days, limit: parsedLimit },
+    };
+  }
+
   // ── Parameterized routes ──────────────────────────────────────────
 
   @Get(':id/analytics')
