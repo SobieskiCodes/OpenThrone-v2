@@ -13,8 +13,9 @@
 | **Phase 4: Simulation** | ✅ Complete | 8a740ed |
 | **Phase 5: Advanced Analytics** | ⏳ Not Started | - |
 | **Phase 6: Global Dashboard** | 🟡 Partial | 8a740ed |
+| **Phase 7: AI-Powered Optimization** | ⏳ Not Started | - |
 
-**Overall: 4/6 phases complete, 1 partial**
+**Overall: 4/7 phases complete, 1 partial**
 
 ### What's Working Now
 
@@ -565,13 +566,17 @@ Multi-bot charts:
 | **Phase 4** | High | Medium | Phase 0 | ✅ Complete |
 | **Phase 5** | High | Low | Phase 0, 1 | ⏳ Not Started |
 | **Phase 6** | Medium | Low | Phase 0, 1, 3 | 🟡 Partial |
+| **Phase 7** | **Very High** | **High** | Phase 0, 1, 3, 4 | ⏳ Not Started |
 
 **Actual sprint progress:**
 1. ✅ **Sprint 1:** Phase 0 (foundation) — Snapshot system with date progression support
 2. ✅ **Sprint 2:** Phase 1 (bot detail charts) — Time-series analytics with Recharts
 3. ✅ **Sprint 3:** Phase 3 + 4 (comparison & simulation) — Global dashboard + fast-forward sim
-4. ⏳ **Sprint 4:** Phase 2 (equipment & efficiency) — Next up
+4. ⏳ **Sprint 4:** Phase 2 (equipment & efficiency)
 5. ⏳ **Sprint 5:** Phase 5 + 6 completion (advanced analytics + economy monitoring)
+6. ⏳ **Sprint 6:** Phase 7A (agent framework) — CrewAI integration, 5 agents, weekly analysis
+7. ⏳ **Sprint 7:** Phase 7B + 7C (AI insights dashboard + experiments) — Admin UI for AI recommendations
+8. ⏳ **Sprint 8:** Phase 7D (LLM decision engine) — Internal AI-powered bots
 
 ---
 
@@ -588,16 +593,305 @@ After implementation, we'll be able to answer:
 
 ---
 
+## Phase 7: AI-Powered Optimization & Agent Analysis
+
+**Goal:** Use AI agents (CrewAI, LangGraph) to analyze bot performance and suggest strategy improvements.
+
+### 7.1 AI Analysis Dashboard
+
+**Location:** `apps/web/src/app/(game)/admin/bots/ai-insights/page.tsx`
+
+An AI-powered dashboard that:
+- Ingests bot logs, snapshots, and action data
+- Analyzes performance across strategies
+- Suggests weight adjustments for rule-based strategies
+- Identifies inefficiencies and bottlenecks
+- Recommends new strategy variants
+
+**Dashboard sections:**
+1. **Performance Analysis** - AI summary of what's working/not working
+2. **Strategy Tuning Suggestions** - Recommended weight changes with A/B test proposals
+3. **Bottleneck Detection** - AI-identified progression blockers
+4. **Anomaly Detection** - Unusual bot behaviors that might indicate bugs
+5. **Optimization Queue** - Pending experiments to run
+
+### 7.2 Agent Architecture (CrewAI / LangGraph)
+
+**Location:** `apps/api/src/bot/ai-analyst/`
+
+Multi-agent system with specialized roles:
+
+```typescript
+// Agent 1: Data Analyst
+// - Queries bot snapshots and action logs
+// - Aggregates metrics across strategies
+// - Identifies trends and outliers
+
+// Agent 2: Strategy Optimizer
+// - Analyzes strategy weights and outcomes
+// - Suggests weight adjustments
+// - Proposes new strategy variants
+
+// Agent 3: Economist
+// - Monitors gold circulation, inflation
+// - Detects economic imbalances
+// - Recommends gold sink/source adjustments
+
+// Agent 4: Combat Analyst
+// - Analyzes win rates, target selection
+// - Identifies combat balance issues
+// - Suggests attack/defense tuning
+
+// Agent 5: Report Writer
+// - Synthesizes insights from other agents
+// - Generates human-readable reports
+// - Creates actionable recommendations
+```
+
+### 7.3 CrewAI Integration
+
+**Setup:**
+```typescript
+// apps/api/src/bot/ai-analyst/crew.ts
+import { Crew } from '@crewai/crewai';
+
+const dataAnalyst = new Agent({
+  role: 'Bot Performance Analyst',
+  goal: 'Analyze bot snapshot data and identify performance trends',
+  backstory: 'Expert data scientist specializing in game economy analytics',
+  tools: [querySnapshots, aggregateMetrics, detectOutliers],
+});
+
+const strategyOptimizer = new Agent({
+  role: 'Strategy Weight Optimizer',
+  goal: 'Optimize bot strategy weights for better performance',
+  backstory: 'Game balance expert who fine-tunes AI behavior',
+  tools: [compareStrategies, simulateWeightChange, proposeExperiment],
+});
+
+const economist = new Agent({
+  role: 'Game Economy Monitor',
+  goal: 'Ensure economic balance and prevent inflation/deflation',
+  backstory: 'Economist who tracks in-game currency flow',
+  tools: [trackGoldCirculation, detectInflation, recommendAdjustments],
+});
+
+const crew = new Crew({
+  agents: [dataAnalyst, strategyOptimizer, economist],
+  tasks: [
+    'Analyze last 30 days of bot performance',
+    'Identify underperforming strategies',
+    'Suggest weight adjustments',
+    'Detect economic imbalances',
+  ],
+  process: 'sequential', // or 'hierarchical'
+});
+
+const results = await crew.kickoff();
+```
+
+### 7.4 Analysis Tools (Agent Tools)
+
+**Location:** `apps/api/src/bot/ai-analyst/tools/`
+
+Tools that agents can use:
+
+```typescript
+// query-snapshots.tool.ts
+export const querySnapshots = new Tool({
+  name: 'query_snapshots',
+  description: 'Query bot snapshot database with filters',
+  func: async (params: { strategy?: string; days?: number }) => {
+    // Query BotSnapshot table
+    // Return aggregated data
+  },
+});
+
+// compare-strategies.tool.ts
+export const compareStrategies = new Tool({
+  name: 'compare_strategies',
+  description: 'Compare performance across strategies',
+  func: async (params: { strategies: string[]; metric: string }) => {
+    // Compare gold/XP/win rates by strategy
+  },
+});
+
+// simulate-weight-change.tool.ts
+export const simulateWeightChange = new Tool({
+  name: 'simulate_weight_change',
+  description: 'Run simulation with modified strategy weights',
+  func: async (params: { strategy: string; weightChanges: Record<string, number> }) => {
+    // Clone bot with new weights
+    // Run 30-day simulation
+    // Return before/after metrics
+  },
+});
+
+// propose-experiment.tool.ts
+export const proposeExperiment = new Tool({
+  name: 'propose_experiment',
+  description: 'Create A/B test proposal for weight changes',
+  func: async (params: { strategy: string; changes: any; hypothesis: string }) => {
+    // Store experiment proposal
+    // Return experiment ID
+  },
+});
+```
+
+### 7.5 AI Analysis Workflow
+
+**Scheduled Analysis (Weekly):**
+```typescript
+@Cron('0 0 2 * * 0') // Every Sunday at 2 AM
+async runWeeklyAnalysis() {
+  const crew = this.buildAnalysisCrew();
+
+  const insights = await crew.kickoff({
+    inputs: {
+      timePeriod: '30d',
+      strategies: ['WARRIOR', 'ECONOMIST', 'TURTLE', 'SPYMASTER', 'BALANCED'],
+    },
+  });
+
+  // Store insights in database
+  await this.storeInsights(insights);
+
+  // Send notification to admin
+  await this.notifyAdmin(insights);
+}
+```
+
+**Manual Trigger (Admin Dashboard):**
+```typescript
+@Post('ai-analyst/run')
+async runAnalysis(@Body() dto: { focus: string; timePeriod: string }) {
+  // Run focused analysis (e.g., "economy" or "combat")
+  const crew = this.buildFocusedCrew(dto.focus);
+  return crew.kickoff({ inputs: { timePeriod: dto.timePeriod } });
+}
+```
+
+### 7.6 AI Insights UI
+
+**Location:** `apps/web/src/app/(game)/admin/bots/ai-insights/page.tsx`
+
+**Page sections:**
+
+1. **Latest Insights** (auto-refreshes)
+   ```
+   🤖 AI Analysis Report — Generated 2 hours ago
+
+   📊 Performance Summary
+   • ECONOMIST bots outperforming by 35% gold/day
+   • WARRIOR win rate dropped 8% this week
+   • TURTLE bots stalling at level 20 (bottleneck detected)
+
+   🎯 Recommended Actions
+   1. WARRIOR: Increase trainDefense weight from 3 → 5 (early-game survival)
+   2. TURTLE: Decrease bankDeposit weight from 8 → 6 (more aggressive spending)
+   3. SPYMASTER: Add spyMission frequency cap (currently spamming missions)
+
+   📈 Proposed Experiments
+   • A/B Test: WARRIOR vs WARRIOR_v2 (with defense boost)
+   • Duration: 14 days
+   • Sample size: 10 bots per variant
+   ```
+
+2. **Strategy Tuning Suggestions**
+   - Table of proposed weight changes
+   - "Run Simulation" button for each
+   - "Apply Changes" button (updates bot configs)
+
+3. **Economic Health Monitor**
+   - AI-detected inflation/deflation trends
+   - Gold distribution analysis
+   - Recommended balance changes
+
+4. **Experiment Queue**
+   - List of A/B tests to run
+   - Status: Pending / Running / Complete
+   - Results summary
+
+### 7.7 Experiment System
+
+**Database:**
+```prisma
+model BotExperiment {
+  id              Int      @id @default(autoincrement())
+  name            String
+  hypothesis      String   // "Increasing defense weight will improve WARRIOR survival"
+  strategy        String   // WARRIOR
+  control_config  Json     // Original weights
+  variant_config  Json     // Modified weights
+  status          String   // PENDING | RUNNING | COMPLETE
+  start_date      DateTime?
+  end_date        DateTime?
+  duration_days   Int      // 14
+  bots_per_group  Int      // 10
+
+  // Results (populated after completion)
+  control_metrics Json?    // { avgGold: 50000, avgLevel: 25, winRate: 0.65 }
+  variant_metrics Json?
+  winner          String?  // "control" | "variant" | "inconclusive"
+  confidence      Float?   // 0.95 (statistical significance)
+
+  @@map("bot_experiments")
+}
+```
+
+**Workflow:**
+1. AI agent proposes experiment
+2. Admin reviews and approves
+3. System spawns 20 bots (10 control, 10 variant)
+4. Runs for N days
+5. Compares metrics with statistical analysis
+6. AI agent generates results report
+7. If variant wins, suggests deploying to all bots
+
+### 7.8 Deliverables
+
+**Phase 7A: Agent Framework (2-3 weeks)**
+- [ ] CrewAI integration setup
+- [ ] 5 specialized agents (data, strategy, economy, combat, report)
+- [ ] Agent tools for querying snapshots and running simulations
+- [ ] Weekly scheduled analysis cron job
+
+**Phase 7B: AI Insights Dashboard (1-2 weeks)**
+- [ ] AI insights page in admin
+- [ ] Latest insights display with recommendations
+- [ ] Strategy tuning suggestion cards
+- [ ] "Run Simulation" and "Apply Changes" buttons
+
+**Phase 7C: Experiment System (2 weeks)**
+- [ ] BotExperiment database table
+- [ ] A/B test creation workflow
+- [ ] Automated bot spawning for experiments
+- [ ] Statistical analysis of results
+- [ ] Winner selection and deployment workflow
+
+**Phase 7D: LLM Decision Engine (3-4 weeks)**
+- [ ] BotLLMBrainService (replaces rule-based brain for flagged bots)
+- [ ] LLM prompt engineering for action decisions
+- [ ] Structured output parsing (JSON schema)
+- [ ] Cost tracking and budget limits
+- [ ] Hybrid mode: LLM for strategic decisions, rules for execution
+
+**Status: ⏳ NOT STARTED**
+
+---
+
 ## Future Enhancements
 
-**Post-Phase 6 ideas:**
-- **A/B Testing:** Run two identical bots with different strategies and compare
+**Post-Phase 7 ideas:**
+- **A/B Testing:** Run two identical bots with different strategies and compare ✅ (Covered in Phase 7C)
 - **Machine Learning:** Train a model to predict optimal actions
 - **Bot vs Bot Tournaments:** Pit strategies against each other
 - **Player vs Bot Benchmarking:** Compare real players to bot progression
 - **Scenario Testing:** "What if gold costs increase 20%?" — run simulation
 - **Live Dashboard:** Real-time WebSocket updates during bot sessions
 - **Community Insights:** Public-facing bot stats for player research
+- **Agent Collaboration:** Multiple agents debate best strategy changes before proposing
+- **Reinforcement Learning:** Train bots to optimize via trial-and-error (beyond LLM)
 
 ---
 

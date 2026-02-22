@@ -25,7 +25,7 @@ export const NAME_COLORS: CosmeticDefinition[] = [
     type: CosmeticType.NAME_COLOR,
     name: 'Royal Purple',
     value: '#9333EA',
-    price: 50000n,
+    price: BigInt(50000),
     description: 'A regal purple fit for nobility',
   },
   {
@@ -33,7 +33,7 @@ export const NAME_COLORS: CosmeticDefinition[] = [
     type: CosmeticType.NAME_COLOR,
     name: 'Blood Red',
     value: '#DC2626',
-    price: 50000n,
+    price: BigInt(50000),
     description: 'Strike fear into your enemies',
   },
   {
@@ -41,7 +41,7 @@ export const NAME_COLORS: CosmeticDefinition[] = [
     type: CosmeticType.NAME_COLOR,
     name: 'Golden',
     value: '#F59E0B',
-    price: 75000n,
+    price: BigInt(75000),
     description: 'Shine like treasure',
   },
   {
@@ -49,7 +49,7 @@ export const NAME_COLORS: CosmeticDefinition[] = [
     type: CosmeticType.NAME_COLOR,
     name: 'Emerald',
     value: '#10B981',
-    price: 75000n,
+    price: BigInt(75000),
     description: 'Vibrant and verdant',
   },
   {
@@ -57,7 +57,7 @@ export const NAME_COLORS: CosmeticDefinition[] = [
     type: CosmeticType.NAME_COLOR,
     name: 'Sapphire',
     value: '#3B82F6',
-    price: 75000n,
+    price: BigInt(75000),
     description: 'Deep as the ocean',
   },
   {
@@ -65,7 +65,7 @@ export const NAME_COLORS: CosmeticDefinition[] = [
     type: CosmeticType.NAME_COLOR,
     name: 'Shadow',
     value: '#475569',
-    price: 100000n,
+    price: BigInt(100000),
     description: 'Lurk in darkness',
   },
   {
@@ -73,7 +73,7 @@ export const NAME_COLORS: CosmeticDefinition[] = [
     type: CosmeticType.NAME_COLOR,
     name: 'Flame',
     value: '#F97316',
-    price: 100000n,
+    price: BigInt(100000),
     description: 'Burn bright',
   },
 ];
@@ -86,7 +86,7 @@ export const ICONS: CosmeticDefinition[] = [
     type: CosmeticType.ICON,
     name: 'Crown',
     value: '👑',
-    price: 100000n,
+    price: BigInt(100000),
     description: 'Show your royal status',
   },
   {
@@ -94,7 +94,7 @@ export const ICONS: CosmeticDefinition[] = [
     type: CosmeticType.ICON,
     name: 'Crossed Swords',
     value: '⚔️',
-    price: 75000n,
+    price: BigInt(75000),
     description: 'A warrior\'s mark',
   },
   {
@@ -102,7 +102,7 @@ export const ICONS: CosmeticDefinition[] = [
     type: CosmeticType.ICON,
     name: 'Shield',
     value: '🛡️',
-    price: 75000n,
+    price: BigInt(75000),
     description: 'Defender of the realm',
   },
   {
@@ -110,7 +110,7 @@ export const ICONS: CosmeticDefinition[] = [
     type: CosmeticType.ICON,
     name: 'Fire',
     value: '🔥',
-    price: 150000n,
+    price: BigInt(150000),
     description: 'Unleash destruction',
   },
   {
@@ -118,7 +118,7 @@ export const ICONS: CosmeticDefinition[] = [
     type: CosmeticType.ICON,
     name: 'Skull',
     value: '💀',
-    price: 125000n,
+    price: BigInt(125000),
     description: 'Death comes for all',
   },
   {
@@ -126,7 +126,7 @@ export const ICONS: CosmeticDefinition[] = [
     type: CosmeticType.ICON,
     name: 'Star',
     value: '⭐',
-    price: 125000n,
+    price: BigInt(125000),
     description: 'Shine among legends',
   },
   {
@@ -134,7 +134,7 @@ export const ICONS: CosmeticDefinition[] = [
     type: CosmeticType.ICON,
     name: 'Dragon',
     value: '🐉',
-    price: 200000n,
+    price: BigInt(200000),
     description: 'Rare and powerful',
   },
 ];
