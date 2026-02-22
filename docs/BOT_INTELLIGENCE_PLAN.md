@@ -1,0 +1,1020 @@
+# Bot Intelligence Plan — Making Bots Play Smart
+
+> **Goal:** Transform bots from random action generators into competent players with strategic thinking, battle memory, economic optimization, and social awareness.
+
+## Philosophy: "Good Enough to Challenge Humans"
+
+Bots should:
+- **Learn from experience** (remember wins/losses, adapt strategy)
+- **Make informed decisions** (spy before attacking, target weak players)
+- **Optimize resources** (buy armor for units they have, scale workers for income)
+- **Play socially** (join alliances, coordinate attacks, respond to threats)
+- **Respect game mechanics** (daily limits, level ranges, turn costs)
+
+**Not AI/LLM-powered** (yet) — just smart heuristics and memory.
+
+---
+
+## Current State
+
+### What Bots Do NOW ✅
+- Train units (workers, offense, defense, spy, sentry)
+- Upgrade buildings progressively
+- Repair fort when damaged
+- Bank gold deposits/withdrawals
+- **Attack players RANDOMLY** (no target selection logic)
+- **Spy missions RANDOMLY** (no correlation to attacks)
+- Purchase cosmetics when wealthy
+- Hire mercenaries from camp
+- Send chat messages (boasts, taunts, revenge threats)
+
+### Critical Gaps ❌
+1. **No intelligence gathering** — Spy and attack are disconnected
+2. **No target selection** — Attacks anyone, including much stronger players
+3. **No battle memory** — Doesn't remember wins/losses
+4. **No learning** — Repeats mistakes (attacking same strong player repeatedly)
+5. **No equipment optimization** — Buys items randomly, doesn't match unit count
+6. **No economic strategy** — Doesn't understand workers = income
+7. **No social play** — Can't join alliances, no coordination
+
+---
+
+## Phase 1: Combat Intelligence & Target Selection
+
+**Goal:** Bots spy before attacking, pick appropriate targets, remember outcomes, and avoid repeating mistakes.
+
+### 1.1 Pre-Attack Intelligence
+
+**New BotGameState Fields:**
+```typescript
+interface BotGameState {
+  // ... existing fields ...
+
+  // Intelligence tracking
+  intelReports: {
+    targetId: string;
+    targetName: string;
+    targetLevel: number;
+    goldAmount: number; // Revealed if spy/sentry ratio > 1.1x
+    offenseStrength: number; // Estimated from units seen
+    defenseStrength: number;
+    spiedAt: Date;
+    revealPercent: number; // How much info was revealed
+  }[];
+
+  // Battle memory
+  battleHistory: {
+    targetId: string;
+    targetName: string;
+    isWin: boolean;
+    goldStolen: number;
+    unitsLost: number;
+    timestamp: Date;
+  }[];
+
+  // Threat tracking (who attacked me recently)
+  recentAttackers: {
+    attackerId: string;
+    attackerName: string;
+    attackerLevel: number;
+    timestamp: Date;
+    goldLost: number;
+  }[];
+}
+```
+
+**DB Schema Addition:**
+```prisma
+model BotIntelCache {
+  id           String   @id @default(cuid())
+  bot_id       String
+  target_id    String
+  target_name  String
+  target_level Int
+  gold_amount  BigInt?  // Null if not revealed
+  offense_strength Int
+  defense_strength Int
+  spied_at     DateTime
+  reveal_percent Float
+
+  bot          Player   @relation("BotIntelReports", fields: [bot_id], references: [id], onDelete: Cascade)
+
+  @@unique([bot_id, target_id])
+  @@index([bot_id, spied_at])
+}
+
+model BotBattleMemory {
+  id           String   @id @default(cuid())
+  bot_id       String
+  target_id    String
+  target_name  String
+  is_win       Boolean
+  gold_stolen  BigInt
+  units_lost   Int
+  timestamp    DateTime @default(now())
+
+  bot          Player   @relation("BotBattleHistory", fields: [bot_id], references: [id], onDelete: Cascade)
+
+  @@index([bot_id, timestamp])
+  @@index([bot_id, target_id, timestamp])
+}
+```
+
+### 1.2 Smart Target Selection
+
+**New Action: `FIND_ATTACK_TARGET`**
+
+```typescript
+// In bot-strategies.ts
+function getAttackTargetCandidates(state: BotGameState): AttackTarget[] {
+  // Filter rules:
+  // 1. Within level range (±3 levels)
+  // 2. Not in same alliance
+  // 3. Hasn't been attacked 5 times today (daily limit)
+  // 4. Not in "avoid list" (lost to them recently without new intel)
+
+  const candidates = /* fetch from API */;
+
+  // Score each candidate
+  return candidates.map(target => ({
+    ...target,
+    score: calculateTargetScore(target, state),
+  })).sort((a, b) => b.score - a.score);
+}
+
+function calculateTargetScore(target: Player, botState: BotGameState): number {
+  let score = 100;
+
+  // Prefer targets we've spied on recently (fresh intel)
+  const intel = botState.intelReports.find(r => r.targetId === target.id);
+  if (intel && isRecent(intel.spiedAt, 24 * 60 * 60 * 1000)) {
+    score += 50; // Fresh intel bonus
+
+    // Prefer weak defense
+    if (intel.defenseStrength < botState.offenseUnits * 0.8) {
+      score += 30; // Easy win predicted
+    }
+
+    // Prefer wealthy targets (if gold revealed)
+    if (intel.goldAmount && intel.goldAmount > 50000) {
+      score += 20;
+    }
+  } else {
+    score -= 30; // No intel penalty
+  }
+
+  // Avoid targets we've lost to recently
+  const recentLoss = botState.battleHistory.find(
+    h => h.targetId === target.id && !h.isWin && isRecent(h.timestamp, 48 * 60 * 60 * 1000)
+  );
+  if (recentLoss) {
+    score -= 100; // Avoid repeat losses
+  }
+
+  // Revenge bonus (attacked me recently)
+  const attackedMe = botState.recentAttackers.find(a => a.attackerId === target.id);
+  if (attackedMe && isRecent(attackedMe.timestamp, 24 * 60 * 60 * 1000)) {
+    score += 40; // Revenge motivation
+  }
+
+  // Level difference penalty (prefer similar level)
+  const levelDiff = Math.abs(target.level - botState.level);
+  score -= levelDiff * 5;
+
+  return score;
+}
+```
+
+### 1.3 Intel-Driven Attack Flow
+
+**New Action Priority:**
+1. **Spy on potential targets** (if no recent intel)
+2. **Select best target** (using target scoring)
+3. **Attack selected target** (with appropriate turn count)
+
+```typescript
+// In prioritizeActions():
+
+// ── Intelligence Gathering (prioritize if planning to attack) ──
+if (!isEarlyGame && state.attackTurns >= 2 && state.spyUnits >= 3 && state.gold >= 3000) {
+  // Get list of potential attack targets (within level range)
+  const potentialTargets = /* fetch candidates */;
+
+  // Find targets without recent intel
+  const needsIntel = potentialTargets.filter(t => {
+    const intel = state.intelReports.find(r => r.targetId === t.id);
+    return !intel || !isRecent(intel.spiedAt, 24 * 60 * 60 * 1000);
+  });
+
+  if (needsIntel.length > 0) {
+    // Pick random target to spy on
+    const target = needsIntel[Math.floor(rng() * needsIntel.length)]!;
+    actions.push({
+      type: 'SPY_MISSION',
+      weight: weights.spyMission + 5, // Higher weight than before
+      reasoning: `Gathering intel on ${target.displayName} (Lv${target.level}) before attacking.`,
+      params: {
+        type: 'INTEL',
+        targetId: target.id,
+        spiesSent: Math.min(state.spyUnits, 5),
+      },
+    });
+  }
+}
+
+// ── Attack Player (use smart target selection) ──
+if (!isEarlyGame && state.attackTurns >= 1 && state.offenseUnits > 10) {
+  const targets = getAttackTargetCandidates(state);
+
+  if (targets.length > 0) {
+    const bestTarget = targets[0]!; // Highest scored target
+    const turns = Math.min(
+      Math.max(1, Math.floor(1 + rng() * 3)),
+      state.attackTurns,
+    );
+
+    actions.push({
+      type: 'ATTACK_PLAYER',
+      weight: weights.attackPlayer + rng() * 3,
+      reasoning: `Attacking ${bestTarget.displayName} (Lv${bestTarget.level}, score: ${bestTarget.score}) with ${turns} turns.`,
+      params: {
+        targetId: bestTarget.id,
+        turns,
+      },
+    });
+  }
+}
+```
+
+### 1.4 Battle Memory & Learning
+
+**Event Listener: Store Battle Outcomes**
+
+```typescript
+// In BotService or new BotMemoryService
+@OnEvent('battle.completed')
+async handleBattleCompleted(event: BattleCompletedEvent) {
+  // If attacker is a bot, record the outcome
+  const attackerConfig = await this.prisma.botConfig.findUnique({
+    where: { player_id: event.attackerId },
+  });
+
+  if (attackerConfig) {
+    await this.prisma.botBattleMemory.create({
+      data: {
+        bot_id: event.attackerId,
+        target_id: event.defenderId,
+        target_name: event.defenderName,
+        is_win: event.winner === event.attackerId,
+        gold_stolen: event.goldStolen,
+        units_lost: event.attackerUnitsLost,
+        timestamp: new Date(),
+      },
+    });
+  }
+
+  // If defender is a bot, track the attacker as a threat
+  const defenderConfig = await this.prisma.botConfig.findUnique({
+    where: { player_id: event.defenderId },
+  });
+
+  if (defenderConfig) {
+    await this.prisma.botThreatTracking.create({
+      data: {
+        bot_id: event.defenderId,
+        attacker_id: event.attackerId,
+        attacker_name: event.attackerName,
+        attacker_level: event.attackerLevel,
+        gold_lost: event.goldStolen,
+        timestamp: new Date(),
+      },
+    });
+  }
+}
+
+@OnEvent('spy.mission.completed')
+async handleSpyMissionCompleted(event: SpyMissionCompletedEvent) {
+  const botConfig = await this.prisma.botConfig.findUnique({
+    where: { player_id: event.spyId },
+  });
+
+  if (botConfig && event.missionType === 'INTEL') {
+    await this.prisma.botIntelCache.upsert({
+      where: {
+        bot_id_target_id: {
+          bot_id: event.spyId,
+          target_id: event.targetId,
+        },
+      },
+      update: {
+        target_level: event.intelData.level,
+        gold_amount: event.intelData.goldRevealed ? event.intelData.gold : null,
+        offense_strength: event.intelData.offenseUnits,
+        defense_strength: event.intelData.defenseUnits,
+        spied_at: new Date(),
+        reveal_percent: event.intelData.revealPercent,
+      },
+      create: {
+        bot_id: event.spyId,
+        target_id: event.targetId,
+        target_name: event.intelData.name,
+        target_level: event.intelData.level,
+        gold_amount: event.intelData.goldRevealed ? event.intelData.gold : null,
+        offense_strength: event.intelData.offenseUnits,
+        defense_strength: event.intelData.defenseUnits,
+        spied_at: new Date(),
+        reveal_percent: event.intelData.revealPercent,
+      },
+    });
+  }
+}
+```
+
+### 1.5 API Endpoints for Target Selection
+
+**New Endpoint: `GET /battle/targets`**
+
+```typescript
+// In BattleController
+@Get('targets')
+async getAttackTargets(@CurrentPlayer() player: Player) {
+  const targets = await this.battleService.findAttackTargets(player.id);
+  return {
+    targets: targets.map(t => ({
+      id: t.id,
+      displayName: t.displayName,
+      level: t.level,
+      race: t.race,
+      // Don't reveal stats unless player has spied on them
+    })),
+  };
+}
+```
+
+**BattleService:**
+```typescript
+async findAttackTargets(playerId: string): Promise<Player[]> {
+  const player = await this.prisma.player.findUnique({
+    where: { id: playerId },
+    include: { alliance_membership: true },
+  });
+
+  if (!player) throw new NotFoundException('Player not found');
+
+  // Filter rules:
+  // 1. Within ±3 levels (or configurable range)
+  // 2. Not in same alliance
+  // 3. Not the player themselves
+  // 4. Account is active
+
+  return this.prisma.player.findMany({
+    where: {
+      id: { not: playerId },
+      level: {
+        gte: player.level - 3,
+        lte: player.level + 3,
+      },
+      account_status: 'ACTIVE',
+      alliance_membership: player.alliance_membership
+        ? { alliance_id: { not: player.alliance_membership.alliance_id } }
+        : undefined,
+    },
+    take: 50,
+    orderBy: { last_active: 'desc' },
+  });
+}
+```
+
+### Deliverables
+
+- [ ] Add `BotIntelCache` and `BotBattleMemory` tables to schema
+- [ ] Add `BotThreatTracking` table for tracking who attacked the bot
+- [ ] Create `BotMemoryService` with event listeners for battle/spy outcomes
+- [ ] Update `loadBotGameState()` to include intel reports, battle history, recent attackers
+- [ ] Add `GET /battle/targets` endpoint for fetching attack candidates
+- [ ] Implement `getAttackTargetCandidates()` with scoring logic
+- [ ] Update `ATTACK_PLAYER` action to use target selection
+- [ ] Update `SPY_MISSION` action to prioritize intel gathering before attacks
+- [ ] Add admin UI to view bot intel cache and battle memory
+
+**Estimated Effort:** 2-3 days
+
+---
+
+## Phase 2: Equipment Optimization
+
+**Goal:** Bots buy armor/weapons for units they actually have, sell excess items, and upgrade strategically.
+
+### 2.1 Calculate Equipment Needs
+
+```typescript
+interface EquipmentNeeds {
+  weaponsNeeded: number; // For offense units
+  armorNeeded: number;   // For defense units
+  excessWeapons: number; // Items to sell
+  excessArmor: number;
+}
+
+function calculateEquipmentNeeds(state: BotGameState): EquipmentNeeds {
+  const weaponsOwned = state.items.filter(i => i.type === 'WEAPON').length;
+  const armorOwned = state.items.filter(i => i.type === 'ARMOR').length;
+
+  const weaponsNeeded = Math.max(0, state.offenseUnits - weaponsOwned);
+  const armorNeeded = Math.max(0, state.defenseUnits - armorOwned);
+
+  const excessWeapons = Math.max(0, weaponsOwned - state.offenseUnits);
+  const excessArmor = Math.max(0, armorOwned - state.defenseUnits);
+
+  return { weaponsNeeded, armorNeeded, excessWeapons, excessArmor };
+}
+```
+
+### 2.2 Smart Equipment Actions
+
+```typescript
+// In prioritizeActions():
+
+const equipNeeds = calculateEquipmentNeeds(state);
+
+// ── Sell Excess Equipment ──
+if (equipNeeds.excessWeapons > 5) {
+  // Sell lowest tier weapons first
+  const weaponsToSell = state.items
+    .filter(i => i.type === 'WEAPON')
+    .sort((a, b) => a.tier - b.tier)
+    .slice(0, equipNeeds.excessWeapons);
+
+  actions.push({
+    type: 'SELL_ITEMS',
+    weight: weights.sellItems + rng() * 2,
+    reasoning: `${equipNeeds.excessWeapons} excess weapons (only ${state.offenseUnits} offense units) — sell lowest tier for gold.`,
+    params: { itemIds: weaponsToSell.map(w => w.id) },
+  });
+}
+
+if (equipNeeds.excessArmor > 5) {
+  const armorToSell = state.items
+    .filter(i => i.type === 'ARMOR')
+    .sort((a, b) => a.tier - b.tier)
+    .slice(0, equipNeeds.excessArmor);
+
+  actions.push({
+    type: 'SELL_ITEMS',
+    weight: weights.sellItems + rng() * 2,
+    reasoning: `${equipNeeds.excessArmor} excess armor (only ${state.defenseUnits} defense units) — sell lowest tier for gold.`,
+    params: { itemIds: armorToSell.map(a => a.id) },
+  });
+}
+
+// ── Buy Equipment (only what's needed) ──
+if (equipNeeds.weaponsNeeded > 0 && state.gold >= 5000) {
+  const affordable = Math.floor(state.gold / 5000); // Rough weapon cost
+  const quantity = Math.min(equipNeeds.weaponsNeeded, affordable, 10);
+
+  actions.push({
+    type: 'BUY_WEAPONS',
+    weight: weights.buyWeapons + rng() * 2,
+    reasoning: `Need ${equipNeeds.weaponsNeeded} weapons for ${state.offenseUnits} offense units — buy ${quantity}.`,
+    params: { quantity, tier: determineBestAffordableTier(state) },
+  });
+}
+
+if (equipNeeds.armorNeeded > 0 && state.gold >= 5000) {
+  const affordable = Math.floor(state.gold / 5000);
+  const quantity = Math.min(equipNeeds.armorNeeded, affordable, 10);
+
+  actions.push({
+    type: 'BUY_ARMOR',
+    weight: weights.buyArmor + rng() * 2,
+    reasoning: `Need ${equipNeeds.armorNeeded} armor for ${state.defenseUnits} defense units — buy ${quantity}.`,
+    params: { quantity, tier: determineBestAffordableTier(state) },
+  });
+}
+```
+
+### 2.3 Upgrade Low-Tier Equipment
+
+```typescript
+// Upgrade logic: If bot has excess gold and items are low tier, upgrade
+function shouldUpgradeEquipment(state: BotGameState): boolean {
+  const avgWeaponTier = average(state.items.filter(i => i.type === 'WEAPON').map(i => i.tier));
+  const avgArmorTier = average(state.items.filter(i => i.type === 'ARMOR').map(i => i.tier));
+
+  // If wealthy and equipment is low tier, consider upgrading
+  return state.gold > 100000 && (avgWeaponTier < 3 || avgArmorTier < 3);
+}
+
+if (shouldUpgradeEquipment(state)) {
+  // Sell low-tier, buy high-tier
+  actions.push({
+    type: 'UPGRADE_EQUIPMENT',
+    weight: weights.upgradeEquipment + rng(),
+    reasoning: `Wealthy with low-tier equipment — sell old gear and buy better.`,
+    params: { targetTier: 4 },
+  });
+}
+```
+
+### Deliverables
+
+- [ ] Implement `calculateEquipmentNeeds()` helper
+- [ ] Add `SELL_ITEMS` action and executor
+- [ ] Update `BUY_WEAPONS` / `BUY_ARMOR` actions to respect unit counts
+- [ ] Add `UPGRADE_EQUIPMENT` action for replacing low-tier items
+- [ ] Add `sellItems` weight to all bot strategies
+- [ ] Test: Bot with 50 offense units should have ~50 weapons, not 200
+
+**Estimated Effort:** 1 day
+
+---
+
+## Phase 3: Economic Strategy & Worker Scaling
+
+**Goal:** Bots understand workers = income, scale workers strategically, and target wealthy players for gold theft.
+
+### 3.1 Income Optimization
+
+```typescript
+interface EconomicTarget {
+  targetWorkerCount: number;
+  currentIncome: number; // Gold per turn tick
+  targetIncome: number;
+  workerDeficit: number;
+}
+
+function calculateEconomicTarget(state: BotGameState, strategy: Strategy): EconomicTarget {
+  // Income calculation: workers * baseIncome * fortBonus * mineBonus
+  const baseIncome = 10; // Per worker
+  const fortBonus = 1 + (state.fortification.level * 0.1); // +10% per fort level
+  const mineBonus = 1 + (state.buildings.MINE * 0.15); // +15% per mine level
+
+  const currentIncome = state.workerUnits * baseIncome * fortBonus * mineBonus;
+
+  // Target income based on strategy
+  const targetIncomeByStrategy: Record<Strategy, number> = {
+    WARRIOR: 5000,   // Low income, focus on offense
+    TURTLE: 8000,    // Moderate income for fort repairs
+    ECONOMIST: 15000, // High income, maximize workers
+    SPYMASTER: 7000, // Moderate income for spy missions
+    BALANCED: 10000, // Balanced approach
+  };
+
+  const targetIncome = targetIncomeByStrategy[strategy] ?? 10000;
+  const targetWorkerCount = Math.ceil(targetIncome / (baseIncome * fortBonus * mineBonus));
+  const workerDeficit = Math.max(0, targetWorkerCount - state.workerUnits);
+
+  return {
+    targetWorkerCount,
+    currentIncome,
+    targetIncome,
+    workerDeficit,
+  };
+}
+```
+
+### 3.2 Worker Scaling Actions
+
+```typescript
+// In prioritizeActions():
+
+const economicTarget = calculateEconomicTarget(state, strategy);
+
+// ── Train Workers (if below target) ──
+if (economicTarget.workerDeficit > 0 && state.citizens > 10) {
+  const trainCount = Math.min(
+    economicTarget.workerDeficit,
+    state.citizens,
+    Math.floor(state.citizens * 0.3), // Don't convert ALL citizens at once
+  );
+
+  actions.push({
+    type: 'TRAIN_UNITS',
+    weight: weights.trainWorkers + rng() * 2,
+    reasoning: `Income: ${economicTarget.currentIncome.toLocaleString()}/turn (target: ${economicTarget.targetIncome.toLocaleString()}) — train ${trainCount} workers.`,
+    params: { type: 'WORKER', count: trainCount },
+  });
+}
+
+// ── Prioritize Mine Upgrades (increase income multiplier) ──
+if (state.buildings.MINE < 4 && state.gold > 50000) {
+  const nextLevel = state.buildings.MINE + 1;
+  const mineDef = getBuildingLevel('MINE', nextLevel);
+  if (mineDef) {
+    actions.push({
+      type: 'UPGRADE_BUILDING',
+      weight: weights.upgradeEconomy + 5, // Higher weight for ECONOMIST strategy
+      reasoning: `Mine Lv${state.buildings.MINE} → Lv${nextLevel} increases income by 15% (current: ${economicTarget.currentIncome.toLocaleString()}/turn).`,
+      params: { buildingType: 'MINE' },
+    });
+  }
+}
+```
+
+### 3.3 Gold Theft Targeting
+
+```typescript
+// Enhance target scoring with wealth consideration
+function calculateTargetScore(target: Player, botState: BotGameState): number {
+  let score = 100;
+
+  const intel = botState.intelReports.find(r => r.targetId === target.id);
+
+  if (intel) {
+    // If gold is revealed and high, boost score significantly
+    if (intel.goldAmount && intel.goldAmount > 100000) {
+      score += 50; // Juicy target
+    } else if (intel.goldAmount && intel.goldAmount > 50000) {
+      score += 25;
+    }
+
+    // If defense is weak AND gold is high, massive bonus
+    if (intel.defenseStrength < botState.offenseUnits * 0.6 && intel.goldAmount && intel.goldAmount > 100000) {
+      score += 75; // Jackpot: weak defense + rich
+    }
+  }
+
+  // ... rest of scoring logic ...
+
+  return score;
+}
+```
+
+### 3.4 Strategy-Based Economic Behavior
+
+```typescript
+// Different strategies have different worker/soldier ratios
+const STRATEGY_ECONOMIC_RATIOS: Record<Strategy, { workers: number; soldiers: number }> = {
+  WARRIOR: { workers: 1, soldiers: 3 },   // 25% workers, 75% military
+  TURTLE: { workers: 1, soldiers: 2 },    // 33% workers, 67% military (need income for fort repairs)
+  ECONOMIST: { workers: 3, soldiers: 1 }, // 75% workers, 25% military
+  SPYMASTER: { workers: 1, soldiers: 1 }, // 50/50 (need income for spy missions)
+  BALANCED: { workers: 2, soldiers: 3 },  // 40% workers, 60% military
+};
+
+function shouldPrioritizeWorkers(state: BotGameState, strategy: Strategy): boolean {
+  const ratio = STRATEGY_ECONOMIC_RATIOS[strategy];
+  const currentWorkerRatio = state.workerUnits / (state.workerUnits + state.offenseUnits + state.defenseUnits);
+  const targetWorkerRatio = ratio.workers / (ratio.workers + ratio.soldiers);
+
+  return currentWorkerRatio < targetWorkerRatio;
+}
+```
+
+### Deliverables
+
+- [ ] Implement `calculateEconomicTarget()` helper
+- [ ] Update worker training logic to use target income thresholds
+- [ ] Boost Mine upgrade weights for ECONOMIST strategy
+- [ ] Enhance target scoring to prioritize wealthy players (intel reveals gold)
+- [ ] Add strategy-based worker/soldier ratio enforcement
+- [ ] Test: ECONOMIST bots should have 70%+ workers, WARRIOR bots should have 20%
+
+**Estimated Effort:** 1-2 days
+
+---
+
+## Phase 4: Alliance System & Social Play
+
+**Goal:** Bots can join alliances, respect alliance rules, and coordinate (basic level).
+
+### 4.1 Alliance Joining Logic
+
+**New BotConfig Field:**
+```prisma
+model BotConfig {
+  // ... existing fields ...
+
+  auto_join_alliances Boolean @default(true) // Bots can auto-join alliances
+  preferred_alliance_size String @default('MEDIUM') // SMALL, MEDIUM, LARGE
+}
+```
+
+**New Action: `JOIN_ALLIANCE`**
+
+```typescript
+// In prioritizeActions():
+
+// ── Join Alliance (if not in one and auto-join enabled) ──
+if (!state.allianceId && state.level >= 5) {
+  // Fetch available alliances (not full, not invite-only, allows bots)
+  const alliances = await fetchJoinableAlliances(state.level);
+
+  if (alliances.length > 0) {
+    // Pick alliance based on bot preferences (size, activity level)
+    const bestAlliance = selectBestAlliance(alliances, state);
+
+    actions.push({
+      type: 'JOIN_ALLIANCE',
+      weight: weights.joinAlliance + rng() * 2,
+      reasoning: `Not in an alliance — join "${bestAlliance.name}" (${bestAlliance.memberCount} members, Lv${bestAlliance.avgLevel} avg).`,
+      params: { allianceId: bestAlliance.id },
+    });
+  }
+}
+```
+
+### 4.2 Alliance Toggle for Human Players
+
+**Update Alliance Creation Schema:**
+```prisma
+model Alliance {
+  // ... existing fields ...
+
+  allow_bots Boolean @default(true) // Can bots join this alliance?
+}
+```
+
+**Frontend: Alliance Creation Form**
+```tsx
+// In alliance creation form
+<Checkbox
+  label="Allow bots to join"
+  description="Bots can auto-join your alliance if this is enabled"
+  defaultChecked={true}
+  {...form.getInputProps('allowBots')}
+/>
+```
+
+### 4.3 Alliance Coordination (Basic)
+
+**Don't Attack Alliance Members:**
+```typescript
+// In getAttackTargetCandidates():
+const targets = allPlayers.filter(p => {
+  // ... other filters ...
+
+  // Exclude alliance members
+  if (state.allianceId && p.allianceId === state.allianceId) {
+    return false;
+  }
+
+  return true;
+});
+```
+
+**Share Intel with Alliance:**
+```typescript
+// After successful spy mission
+@OnEvent('spy.mission.completed')
+async handleSpyMissionCompleted(event: SpyMissionCompletedEvent) {
+  const botConfig = await this.prisma.botConfig.findUnique({
+    where: { player_id: event.spyId },
+    include: { player: { include: { alliance_membership: true } } },
+  });
+
+  if (botConfig?.player.alliance_membership && event.missionType === 'INTEL') {
+    // Share intel with alliance members
+    await this.allianceService.shareIntel(
+      event.spyId,
+      botConfig.player.alliance_membership.alliance_id,
+      event.intelData,
+    );
+  }
+}
+```
+
+### Deliverables
+
+- [ ] Add `allow_bots` field to Alliance model
+- [ ] Add checkbox to alliance creation form (default checked)
+- [ ] Add `auto_join_alliances` to BotConfig
+- [ ] Implement `fetchJoinableAlliances()` API endpoint
+- [ ] Add `JOIN_ALLIANCE` action and executor
+- [ ] Update target selection to exclude alliance members
+- [ ] Add intel sharing for bot-gathered intelligence
+- [ ] Test: Create alliance with bots disabled, verify bots don't join
+
+**Estimated Effort:** 1-2 days
+
+---
+
+## Phase 5: Advanced Intelligence & Adaptive Strategy
+
+**Goal:** Bots adapt their strategy based on performance, detect patterns, and optimize over time.
+
+### 5.1 Performance Metrics
+
+```typescript
+interface BotPerformanceMetrics {
+  winRate: number; // Last 50 battles
+  avgGoldStolen: number;
+  avgGoldLost: number;
+  netGoldFlow: number; // stolen - lost
+  incomeEfficiency: number; // gold income vs. expenses
+  rankingTrend: 'rising' | 'falling' | 'stable';
+}
+
+async function calculatePerformanceMetrics(botId: string): Promise<BotPerformanceMetrics> {
+  const battles = await prisma.botBattleMemory.findMany({
+    where: { bot_id: botId },
+    orderBy: { timestamp: 'desc' },
+    take: 50,
+  });
+
+  const wins = battles.filter(b => b.is_win).length;
+  const winRate = battles.length > 0 ? wins / battles.length : 0;
+
+  const avgGoldStolen = average(battles.map(b => Number(b.gold_stolen)));
+
+  const threats = await prisma.botThreatTracking.findMany({
+    where: { bot_id: botId },
+    orderBy: { timestamp: 'desc' },
+    take: 50,
+  });
+
+  const avgGoldLost = average(threats.map(t => Number(t.gold_lost)));
+  const netGoldFlow = avgGoldStolen - avgGoldLost;
+
+  // ... calculate income efficiency, ranking trend ...
+
+  return { winRate, avgGoldStolen, avgGoldLost, netGoldFlow, incomeEfficiency, rankingTrend };
+}
+```
+
+### 5.2 Strategy Adaptation
+
+```typescript
+// If bot is performing poorly, adjust strategy weights
+async function adaptStrategyWeights(botId: string, currentStrategy: Strategy): Promise<Partial<StrategyWeights>> {
+  const metrics = await calculatePerformanceMetrics(botId);
+  const adjustments: Partial<StrategyWeights> = {};
+
+  // If losing too many battles, boost defense training
+  if (metrics.winRate < 0.3) {
+    adjustments.trainDefense = 5; // Boost defense weight
+    adjustments.attackPlayer = -3; // Reduce attack aggression
+  }
+
+  // If losing gold (more stolen from than stolen), boost fort repairs
+  if (metrics.netGoldFlow < -10000) {
+    adjustments.repairFort = 5;
+    adjustments.upgradeFortification = 3;
+  }
+
+  // If income is low, boost worker training
+  if (metrics.incomeEfficiency < 0.5) {
+    adjustments.trainWorkers = 4;
+    adjustments.upgradeEconomy = 3;
+  }
+
+  return adjustments;
+}
+
+// Apply adaptations during bot session
+const adaptations = await adaptStrategyWeights(botId, strategy);
+const weights = { ...baseWeights, ...adaptations };
+```
+
+### 5.3 Pattern Detection
+
+```typescript
+// Detect if bot is stuck in a pattern (e.g., attacking same player repeatedly)
+function detectStuckPattern(battleHistory: BotBattleMemory[]): boolean {
+  if (battleHistory.length < 10) return false;
+
+  const recent = battleHistory.slice(0, 10);
+  const targets = new Set(recent.map(b => b.target_id));
+
+  // If 70% of recent attacks are on the same 2 targets, bot is stuck
+  if (targets.size <= 2) {
+    return true;
+  }
+
+  // If losing 80%+ of recent battles, strategy isn't working
+  const recentWinRate = recent.filter(b => b.is_win).length / recent.length;
+  if (recentWinRate < 0.2) {
+    return true;
+  }
+
+  return false;
+}
+
+// If stuck, force diversification
+if (detectStuckPattern(state.battleHistory)) {
+  // Blacklist recent targets temporarily
+  const recentTargets = state.battleHistory.slice(0, 10).map(b => b.target_id);
+  // Filter these out in target selection
+}
+```
+
+### Deliverables
+
+- [ ] Implement `calculatePerformanceMetrics()` helper
+- [ ] Add `adaptStrategyWeights()` logic with performance-based adjustments
+- [ ] Implement `detectStuckPattern()` to identify repetitive behavior
+- [ ] Add temporary target blacklist when stuck in loop
+- [ ] Create admin UI to view bot performance metrics
+- [ ] Test: Bot with low win rate should boost defense training
+
+**Estimated Effort:** 2-3 days
+
+---
+
+## Implementation Order
+
+| Phase | Effort | Priority | Dependencies | Status |
+|-------|--------|----------|--------------|--------|
+| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ⏳ **NEXT** |
+| **Phase 2** | Low (1 day) | High | Equipment API endpoints | ⏳ |
+| **Phase 3** | Medium (1-2 days) | High | Phase 1 (target scoring needs intel) | ⏳ |
+| **Phase 4** | Medium (1-2 days) | Medium | Alliance system | ⏳ |
+| **Phase 5** | High (2-3 days) | Low | Phase 1-4 complete (needs data) | ⏳ |
+
+**Recommended Sprint Order:**
+1. **Sprint 1:** Phase 1 (Combat Intelligence) — Biggest impact, forces good API
+2. **Sprint 2:** Phase 2 (Equipment) + Phase 3 (Economy) — Related optimizations
+3. **Sprint 3:** Phase 4 (Alliances) + Phase 5 (Adaptation) — Advanced features
+4. **Sprint 4:** Testing & tuning with 100-bot simulation
+
+**Total estimated time: 7-10 days**
+
+---
+
+## Success Metrics
+
+After implementation, bots should:
+
+✅ **Combat Intelligence:**
+- Spy on 80%+ of targets before attacking
+- Win rate improves from ~50% to 65%+ (due to better target selection)
+- Avoid repeat attacking players who beat them
+- Execute revenge attacks on recent attackers
+
+✅ **Equipment Optimization:**
+- Have weapon count within ±10% of offense unit count
+- Have armor count within ±10% of defense unit count
+- Sell excess items when count > units + 20%
+- Upgrade to higher tiers when wealthy (>200k gold)
+
+✅ **Economic Strategy:**
+- ECONOMIST bots have 70%+ workers
+- WARRIOR bots have <30% workers
+- Income scales with Mine upgrades
+- Target wealthy players revealed by intel
+
+✅ **Alliance Play:**
+- 60%+ of bots join alliances by level 10
+- Never attack alliance members
+- Share intel with alliance after spy missions
+- Respect "allow bots" toggle on alliances
+
+✅ **Adaptation:**
+- Bots with low win rate (<30%) boost defense training
+- Bots losing gold (net negative) prioritize fort upgrades
+- Bots stuck attacking same targets diversify after 10 attempts
+
+---
+
+## Testing Strategy
+
+### Unit Tests
+- Target scoring logic (verify wealthy + weak = high score)
+- Equipment needs calculation (50 offense = 50 weapons needed)
+- Economic target calculation (ECONOMIST > WARRIOR income targets)
+
+### Integration Tests
+- Full bot session with target selection (verify intel → attack flow)
+- Equipment buying (verify bot stops at unit count)
+- Alliance joining (verify bots respect allow_bots toggle)
+
+### Simulation Testing
+1. **100-bot simulation** (30 days fast-forward)
+2. Verify:
+   - Bots with higher intelligence have better rankings
+   - Equipment counts stabilize around unit counts
+   - Alliances form and bots join/leave appropriately
+3. Compare metrics before/after intelligence upgrades
+
+---
+
+## Next Steps
+
+1. ⏳ **Phase 1: Combat Intelligence**
+   - Add DB tables (BotIntelCache, BotBattleMemory, BotThreatTracking)
+   - Implement event listeners for battle/spy outcomes
+   - Build target scoring & selection logic
+   - Update attack flow to prioritize spied targets
+   - Add `GET /battle/targets` API endpoint
+
+2. ⏳ **Phase 2 & 3: Equipment + Economy** (can run in parallel)
+   - Equipment needs calculation
+   - Sell excess items logic
+   - Worker scaling based on target income
+   - Wealth-based target prioritization
+
+3. ⏳ **Phase 4: Alliances**
+   - Add `allow_bots` toggle to alliance creation
+   - Implement auto-join logic for bots
+   - Exclude alliance members from attacks
+
+4. ⏳ **Phase 5: Adaptation**
+   - Performance metrics calculation
+   - Strategy weight adjustments based on metrics
+   - Pattern detection & stuck prevention
+
+5. ⏳ **Testing & Tuning**
+   - Run 100-bot simulation
+   - Analyze metrics (win rate, equipment efficiency, income growth)
+   - Tune weights and thresholds
+
+Once complete, bots will be **competent opponents** that play strategically, learn from mistakes, optimize resources, and challenge human players! 🤖🧠
