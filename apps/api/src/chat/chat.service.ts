@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
+import { ShopService } from '../shop/shop.service';
 import {
   CreateChatRoomDto,
   SendMessageDto,
@@ -19,6 +20,7 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly shopService: ShopService,
   ) {}
 
   async getRooms(playerId: string) {
@@ -152,6 +154,8 @@ export class ChatService {
       content: m.content,
       messageType: m.message_type,
       sender: { id: m.sender.id, displayName: m.sender.display_name },
+      senderColor: m.sender_color,
+      senderIcon: m.sender_icon,
       replyTo: m.reply_to
         ? {
             id: m.reply_to.id,
@@ -277,6 +281,9 @@ export class ChatService {
       throw new ForbiddenException('You do not have write access');
     }
 
+    // Get player's equipped cosmetics
+    const cosmetics = await this.shopService.getEquippedCosmetics(playerId);
+
     const result = await this.prisma.$transaction(async (tx) => {
       const message = await tx.chatMessage.create({
         data: {
@@ -284,6 +291,8 @@ export class ChatService {
           sender_id: playerId,
           content,
           reply_to_id: replyToId ?? null,
+          sender_color: cosmetics.nameColor,
+          sender_icon: cosmetics.icon,
         },
         include: {
           sender: {
@@ -416,5 +425,109 @@ export class ChatService {
     }
 
     return participant;
+  }
+
+  // ─── General Room (System-wide chat) ─────────────────────────────────────
+
+  /**
+   * Create or get the general system room
+   * This room is for all players and system announcements
+   */
+  async ensureGeneralRoom() {
+    const existing = await this.prisma.chatRoom.findFirst({
+      where: { name: 'general', is_private: false },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    // Get first admin user (or create with system ID)
+    const systemUser = await this.prisma.player.findFirst({
+      where: {
+        permission_grants: {
+          some: { type: 'ADMINISTRATOR' },
+        },
+      },
+    });
+
+    const creatorId = systemUser?.id || 'system';
+
+    return await this.prisma.chatRoom.create({
+      data: {
+        name: 'general',
+        created_by_id: creatorId,
+        is_private: false,
+        participants: {
+          create: {
+            user_id: creatorId,
+            role: 'ADMIN',
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Auto-join a player to the general room
+   * Called when socket connects
+   */
+  async autoJoinGeneral(playerId: string) {
+    const generalRoom = await this.ensureGeneralRoom();
+
+    // Check if already a participant
+    const existing = await this.prisma.chatRoomParticipant.findUnique({
+      where: {
+        room_id_user_id: {
+          room_id: generalRoom.id,
+          user_id: playerId,
+        },
+      },
+    });
+
+    if (existing) {
+      return generalRoom;
+    }
+
+    // Add as participant
+    await this.prisma.chatRoomParticipant.create({
+      data: {
+        room_id: generalRoom.id,
+        user_id: playerId,
+        role: 'MEMBER',
+      },
+    });
+
+    return generalRoom;
+  }
+
+  /**
+   * Send a system message to the general room
+   * Used for turn ticks, server announcements, etc.
+   */
+  async sendSystemMessage(content: string, messageType: 'SYSTEM' | 'GAME_EVENT' = 'SYSTEM') {
+    const generalRoom = await this.ensureGeneralRoom();
+
+    const message = await this.prisma.chatMessage.create({
+      data: {
+        room_id: generalRoom.id,
+        sender_id: generalRoom.created_by_id,
+        content,
+        message_type: messageType,
+      },
+      include: {
+        sender: {
+          select: { id: true, display_name: true },
+        },
+      },
+    });
+
+    // Emit event for WebSocket broadcast
+    this.eventEmitter.emit(
+      'chat.messageSent',
+      new MessageSentEvent(generalRoom.id, generalRoom.created_by_id, message.id),
+    );
+
+    return message;
   }
 }

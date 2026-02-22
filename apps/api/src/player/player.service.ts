@@ -370,7 +370,7 @@ export class PlayerService {
       stats: player.stats
         ? isOwnProfile
           ? {
-              experience: player.stats.experience,
+              experience: player.stats.experience.toString(),
               rank: player.stats.rank,
               offense: player.stats.offense,
               defense: player.stats.defense,
@@ -379,7 +379,7 @@ export class PlayerService {
               level,
             }
           : {
-              experience: player.stats.experience,
+              experience: player.stats.experience.toString(),
               rank: player.stats.rank,
               level,
             }

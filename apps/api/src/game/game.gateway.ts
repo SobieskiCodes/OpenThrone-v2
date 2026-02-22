@@ -9,9 +9,10 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { OnEvent } from '@nestjs/event-emitter';
-import { Logger, UseGuards } from '@nestjs/common';
+import { Logger, UseGuards, forwardRef, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PlayerStateChangedEvent, ChatMessageEvent } from './events';
+import { ChatService } from '../chat/chat.service';
 
 /**
  * WebSocket Gateway for real-time game updates
@@ -35,7 +36,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly logger = new Logger(GameGateway.name);
 
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    @Inject(forwardRef(() => ChatService))
+    private chatService: ChatService,
+  ) {}
 
   // ─── Connection Management ───────────────────────────────────────────
 
@@ -59,8 +64,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Join player's private room (for personal state updates)
       client.join(`player:${payload.sub}`);
 
-      // Auto-join General chat
+      // Auto-join General chat (both socket room and database)
       client.join('chat:general');
+      await this.chatService.autoJoinGeneral(payload.sub).catch((err) => {
+        this.logger.error(`Failed to auto-join general for ${payload.sub}:`, err);
+      });
 
       this.logger.log(`Player ${payload.sub} (${client.data.displayName}) connected via WebSocket`);
 

@@ -31,6 +31,28 @@ export class ChatController {
 
   // Static routes FIRST
 
+  @Get('general')
+  async getGeneralRoom(@CurrentPlayer() player: any) {
+    const room = await this.chatService.ensureGeneralRoom();
+    await this.chatService.autoJoinGeneral(player.id);
+    return { id: room.id, name: room.name };
+  }
+
+  @Get('general/messages')
+  async getGeneralMessages(
+    @CurrentPlayer() player: any,
+    @Query('limit') limit?: string,
+    @Query('before') before?: string,
+  ) {
+    const room = await this.chatService.ensureGeneralRoom();
+    return this.chatService.getMessages(
+      player.id,
+      room.id,
+      limit ? parseInt(limit, 10) : 50,
+      before ? parseInt(before, 10) : undefined,
+    );
+  }
+
   @Get('rooms')
   async getRooms(@CurrentPlayer() player: any) {
     return this.chatService.getRooms(player.id);

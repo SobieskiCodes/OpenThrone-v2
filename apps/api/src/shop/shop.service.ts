@@ -133,7 +133,9 @@ export class ShopService {
     );
 
     return {
-      gold: result.gold.toString(),
+      playerState: {
+        gold: result.gold.toString(),
+      },
       cosmetic: result.cosmetic,
       message: `${result.cosmetic.name} purchased!`,
     };

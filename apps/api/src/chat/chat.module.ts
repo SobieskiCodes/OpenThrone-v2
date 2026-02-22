@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
+import { ShopModule } from '../shop/shop.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ChatGateway } from './chat.gateway';
         secret: config.get('JWT_SECRET', 'change-me-in-production'),
       }),
     }),
+    ShopModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway],

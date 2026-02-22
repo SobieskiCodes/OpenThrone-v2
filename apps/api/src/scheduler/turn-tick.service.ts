@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
+import { ChatService } from '../chat/chat.service';
 import { calculateGoldPerTurn, calculateRankScore, computeArmoryResaleValue, computeBattleUpgradeResaleValue, getBuildingLevel } from '@openthrone/game-logic';
 import { TurnTickEvent, RankingsRecalculatedEvent } from '@openthrone/events';
 import { BankAccountType, BankTransferHistoryType, BuildingType } from '@openthrone/shared';
@@ -16,6 +17,8 @@ export class TurnTickService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
   ) {}
 
   // TODO: Migrate to BullMQ queue when Redis available
@@ -142,6 +145,18 @@ export class TurnTickService {
       'system.turn_tick',
       new TurnTickEvent(new Date(), playersProcessed),
     );
+
+    // Broadcast turn tick announcement to general chat (only if successful)
+    if (!errorMessage) {
+      try {
+        await this.chatService.sendSystemMessage(
+          `⏰ Turn tick! All players received +6 attack turns and gold income from workers.`,
+          'SYSTEM',
+        );
+      } catch (chatErr) {
+        this.logger.error('Failed to broadcast turn tick to chat:', chatErr);
+      }
+    }
 
     return { playersProcessed, durationMs: Date.now() - startTime };
   }
