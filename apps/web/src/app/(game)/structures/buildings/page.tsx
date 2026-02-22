@@ -98,8 +98,13 @@ function getEffectLabel(type: string, level: NextLevel | null): string | null {
   switch (type) {
     case 'FORTIFICATION':
       return level.fortHitpoints != null ? `${toLocale(level.fortHitpoints)} HP` : null;
-    case 'MINE':
-      return level.incomeBonusPercent != null ? `+${level.incomeBonusPercent}% income` : null;
+    case 'MINE': {
+      const effects = [];
+      if (level.incomeBonusPercent != null) effects.push(`+${level.incomeBonusPercent}% income`);
+      // Mine adds +1 bank deposit per level (base 3 + mine level)
+      effects.push(`+1 bank deposit/day`);
+      return effects.join(', ');
+    }
     case 'SPY_ACADEMY':
       return level.spyOffenseBonus != null ? `+${level.spyOffenseBonus} spy offense` : null;
     case 'HOUSING':
