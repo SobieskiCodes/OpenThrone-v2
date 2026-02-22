@@ -529,6 +529,14 @@ export class BotService {
           orderBy: { timestamp: 'desc' },
           take: 50, // Keep last 50 attackers
         },
+        // Phase 4: Alliance System
+        alliance_membership: {
+          include: {
+            alliance: {
+              select: { id: true, name: true },
+            },
+          },
+        },
       },
     });
 
@@ -645,6 +653,9 @@ export class BotService {
       intelReports,
       battleHistory,
       recentAttackers,
+      // Phase 4: Alliance System (use first alliance if bot is in multiple)
+      allianceId: player.alliance_membership?.[0]?.alliance?.id ?? null,
+      allianceName: player.alliance_membership?.[0]?.alliance?.name ?? null,
       canAutoRecruit: (() => {
         if (!player.economy?.last_auto_recruit) return true;
         const todayStartUTC = new Date();

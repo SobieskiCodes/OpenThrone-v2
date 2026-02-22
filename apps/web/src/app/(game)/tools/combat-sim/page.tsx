@@ -181,8 +181,11 @@ function ProfileBuilder({
 
   const updateUnit = (index: number, field: keyof SimulatorUnit, value: any) => {
     const newUnits = [...profile.units];
-    newUnits[index] = { ...newUnits[index], [field]: value };
-    onChange({ ...profile, units: newUnits });
+    const unit = newUnits[index];
+    if (unit) {
+      newUnits[index] = { ...unit, [field]: value };
+      onChange({ ...profile, units: newUnits });
+    }
   };
 
   const addItem = () => {
@@ -201,8 +204,11 @@ function ProfileBuilder({
 
   const updateItem = (index: number, field: keyof SimulatorItem, value: any) => {
     const newItems = [...profile.items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    onChange({ ...profile, items: newItems });
+    const item = newItems[index];
+    if (item) {
+      newItems[index] = { ...item, [field]: value };
+      onChange({ ...profile, items: newItems });
+    }
   };
 
   return (
@@ -320,7 +326,7 @@ function ProfileBuilder({
 
       {/* Units Table */}
       {profile.units.length > 0 && (
-        <Table size="xs" mb="xs" striped>
+        <Table mb="xs" striped>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Type</Table.Th>
@@ -375,7 +381,7 @@ function ProfileBuilder({
 
       {/* Items Table */}
       {profile.items.length > 0 && (
-        <Table size="xs" mb="xs" striped>
+        <Table mb="xs" striped>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Item ID</Table.Th>
@@ -468,7 +474,7 @@ function SingleResultDisplay({ result }: { result: SingleSimResult }) {
               <div>
                 <Text size="sm" fw={600} mb="xs" c="red">Attacker Casualties</Text>
                 {result.attackerCasualties.length > 0 ? (
-                  <Table size="xs" striped>
+                  <Table striped>
                     <Table.Thead>
                       <Table.Tr>
                         <Table.Th>Unit</Table.Th>
@@ -493,7 +499,7 @@ function SingleResultDisplay({ result }: { result: SingleSimResult }) {
               <div>
                 <Text size="sm" fw={600} mb="xs" c="orange">Defender Casualties</Text>
                 {result.defenderCasualties.length > 0 ? (
-                  <Table size="xs" striped>
+                  <Table striped>
                     <Table.Thead>
                       <Table.Tr>
                         <Table.Th>Unit</Table.Th>

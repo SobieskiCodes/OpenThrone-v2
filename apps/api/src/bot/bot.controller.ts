@@ -561,24 +561,10 @@ export class BotController {
       where: { is_active: true },
       include: {
         player: {
-          select: {
-            id: true,
-            display_name: true,
-            stats: { select: { experience: true } },
-            items: {
-              select: {
-                id: true,
-                type: true,
-                usage: true,
-                tier: true,
-              },
-            },
-            units: {
-              select: {
-                unit_type: true,
-                quantity: true,
-              },
-            },
+          include: {
+            stats: true,
+            items: true,
+            units: true,
           },
         },
       },
@@ -587,9 +573,11 @@ export class BotController {
     const botEquipment: any[] = [];
 
     for (const bot of botConfigs) {
+      if (!bot.player) continue; // Skip if player relation is null
+
       // Count items by type and tier
-      const weapons = bot.player.items.filter((i) => i.type === 'WEAPON');
-      const armor = bot.player.items.filter((i) => i.type === 'ARMOR');
+      const weapons = bot.player.items.filter((i) => i.item_type === 'WEAPON');
+      const armor = bot.player.items.filter((i) => i.item_type === 'ARMOR');
 
       // Count units by type
       const units = bot.player.units || [];
@@ -604,19 +592,19 @@ export class BotController {
       const weaponCoverage = offenseUnits > 0 ? weapons.length / offenseUnits : 0;
       const armorCoverage = defenseUnits > 0 ? armor.length / defenseUnits : 0;
 
-      // Calculate average tier
+      // Calculate average tier (using 'level' field which represents tier)
       const avgWeaponTier =
         weapons.length > 0
-          ? weapons.reduce((sum, w) => sum + w.tier, 0) / weapons.length
+          ? weapons.reduce((sum, w) => sum + w.level, 0) / weapons.length
           : 0;
       const avgArmorTier =
-        armor.length > 0 ? armor.reduce((sum, a) => sum + a.tier, 0) / armor.length : 0;
+        armor.length > 0 ? armor.reduce((sum, a) => sum + a.level, 0) / armor.length : 0;
 
       botEquipment.push({
         botId: bot.player_id,
         botName: bot.player.display_name,
         strategy: bot.strategy,
-        level: getLevelForXP(bot.player.stats?.experience ?? 0),
+        level: getLevelForXP(Number(bot.player.stats?.experience ?? 0)),
         weapons: weapons.length,
         armor: armor.length,
         offenseUnits,

@@ -102,6 +102,10 @@ export interface BotGameState {
     goldLost: number;
   }[];
 
+  // Alliance (Phase 4: Alliance System)
+  allianceId: number | null;
+  allianceName: string | null;
+
   // Flags
   canAutoRecruit: boolean;
   /** True if bot already recruited during a prior session today */
@@ -119,6 +123,7 @@ export interface BotTarget {
   defense: number;
   fortLevel: number;
   population: number;
+  allianceId: number | null; // Phase 4: For alliance-aware targeting
 }
 
 export interface PrioritizedAction {
@@ -170,7 +175,23 @@ interface StrategyWeights {
   allocateIntel: number;
   allocateIncome: number;
   allocatePrices: number;
+  // Alliance (Phase 4: Alliance System)
+  joinAlliance: number;
+  createAlliance: number;
 }
+
+/**
+ * Worker Target Percentages — Phase 3: Economic Strategy
+ * Defines what % of total population should be workers for each strategy.
+ * This scales naturally with level (more pop = more workers).
+ */
+const WORKER_TARGET_PERCENTAGES: Record<Strategy, number> = {
+  WARRIOR: 20,      // 20% workers (low income, focus on military)
+  TURTLE: 35,       // 35% workers (moderate income for fort repairs)
+  ECONOMIST: 65,    // 65% workers (HIGH income maximization)
+  SPYMASTER: 40,    // 40% workers (need income for spy missions)
+  BALANCED: 45,     // 45% workers (balanced approach)
+};
 
 const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
   WARRIOR: {
@@ -211,6 +232,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     allocateIntel: 1,
     allocateIncome: 2,
     allocatePrices: 1,
+    // Alliance
+    joinAlliance: 6, // Warriors value alliances for coordinated attacks
+    createAlliance: 4, // Moderate interest in leading alliances
   },
   TURTLE: {
     autoRecruit: 10,
@@ -250,6 +274,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     allocateIntel: 2,
     allocateIncome: 5,
     allocatePrices: 2,
+    // Alliance
+    joinAlliance: 8, // Turtles value alliances for protection
+    createAlliance: 2, // Low interest in leading (prefer to follow)
   },
   ECONOMIST: {
     autoRecruit: 10,
@@ -289,6 +316,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     allocateIntel: 2,
     allocateIncome: 10,
     allocatePrices: 6,
+    // Alliance
+    joinAlliance: 4, // Economists less interested (prefer solo play)
+    createAlliance: 1, // Very low - prefer lone wolf approach
   },
   SPYMASTER: {
     autoRecruit: 10,
@@ -328,6 +358,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     allocateIntel: 10,
     allocateIncome: 4,
     allocatePrices: 3,
+    // Alliance
+    joinAlliance: 7, // Spymasters value alliances for intel sharing
+    createAlliance: 5, // Moderate-high interest in building intel networks
   },
   BALANCED: {
     autoRecruit: 10,
@@ -367,6 +400,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     allocateIntel: 3,
     allocateIncome: 5,
     allocatePrices: 3,
+    // Alliance
+    joinAlliance: 5, // Balanced approach to alliances
+    createAlliance: 3, // Moderate interest in creating alliances
   },
 };
 
@@ -455,7 +491,8 @@ export function prioritizeActions(
   state: BotGameState,
   seed: number,
 ): PrioritizedAction[] {
-  const weights = { ...STRATEGY_WEIGHTS[strategy] };
+  // Phase 5: Use performance-based adaptive weights instead of static base weights
+  const weights = getAdaptedWeights(STRATEGY_WEIGHTS[strategy], state);
   const rng = seededRng(seed);
   const actions: PrioritizedAction[] = [];
 
@@ -540,16 +577,40 @@ export function prioritizeActions(
   // ── Train Units (critical for growth — boosted if not trained today) ──
   if (state.citizens >= 1) {
     const trainBoost = state.trainedToday ? 0 : 5; // Big boost if haven't trained today
+
+    // Phase 3: Economic Strategy — Enforce worker percentage targets
+    const workerTargetPercent = WORKER_TARGET_PERCENTAGES[strategy];
+    const workerTarget = Math.floor(totalPop * (workerTargetPercent / 100));
+    const workerDeficit = Math.max(0, workerTarget - state.workers);
+
+    if (workerDeficit > 0 && state.citizens >= 10) {
+      // Train workers to hit percentage target (high priority)
+      const trainCount = Math.min(workerDeficit, state.citizens, 50);
+      const workerDef = getUnitByTypeAndLevel(UnitType.WORKER, 1);
+      if (workerDef) {
+        const costPer = workerDef.cost;
+        const affordable = Math.min(trainCount, Math.floor(state.gold / costPer));
+        if (affordable > 0) {
+          actions.push({
+            type: 'TRAIN_UNITS',
+            weight: weights.trainWorkers + rng() * 2 + trainBoost + 3, // +3 bonus for hitting target
+            reasoning: `Need ${workerDeficit} more workers to hit ${workerTargetPercent}% target (${state.workers}/${workerTarget}) — train ${affordable} at ${costPer.toLocaleString()}/ea.${!state.trainedToday ? ' (Priority: haven\'t trained today)' : ''}`,
+            params: { units: [{ unitType: 'WORKER', level: 1, quantity: affordable }] },
+          });
+        }
+      }
+    }
+
+    // Train other unit types using standard allocation
     const allocation = calculateTrainingAllocation(strategy, state, seed, isEarlyGame);
     for (const [unitType, qty] of Object.entries(allocation)) {
-      if (qty <= 0) continue;
+      if (qty <= 0 || unitType === 'WORKER') continue; // Skip workers (handled above)
       const unitDef = getUnitByTypeAndLevel(unitType as UnitType, 1);
       if (!unitDef) continue;
       const costPer = unitDef.cost;
       const affordable = Math.min(qty, Math.floor(state.gold / costPer));
       if (affordable <= 0) continue;
-      const wKey = unitType === 'WORKER' ? 'trainWorkers' :
-        unitType === 'OFFENSE' ? 'trainOffense' :
+      const wKey = unitType === 'OFFENSE' ? 'trainOffense' :
         unitType === 'DEFENSE' ? 'trainDefense' :
         unitType === 'SPY' ? 'trainSpy' : 'trainSentry';
       actions.push({
@@ -619,6 +680,28 @@ export function prioritizeActions(
       weight: weights.spyMission + rng() * 3,
       reasoning: `Has ${state.spyUnits} spy units and ${state.gold.toLocaleString()} gold — run intel mission (3,000 gold).`,
       params: { type: 'INTEL', spiesSent: Math.min(state.spyUnits, 3) },
+    });
+  }
+
+  // ── Create Alliance (Phase 4: Alliance System) ──
+  if (!state.allianceId && state.level >= 10) {
+    // Not in an alliance and level 10+ — consider creating one
+    actions.push({
+      type: 'CREATE_ALLIANCE',
+      weight: weights.createAlliance + rng() * 1.5,
+      reasoning: `Level ${state.level}, no alliance — consider founding a new alliance.`,
+      params: {},
+    });
+  }
+
+  // ── Join Alliance (Phase 4: Alliance System) ──
+  if (!state.allianceId && state.level >= 5) {
+    // Not in an alliance and level 5+ — consider joining
+    actions.push({
+      type: 'JOIN_ALLIANCE',
+      weight: weights.joinAlliance + rng() * 2,
+      reasoning: `Level ${state.level}, not in an alliance — search for one to join.`,
+      params: {},
     });
   }
 
@@ -785,6 +868,11 @@ export function calculateTargetScore(
   state: BotGameState,
   target: BotTarget,
 ): number {
+  // Phase 4: NEVER attack alliance members
+  if (state.allianceId && target.allianceId === state.allianceId) {
+    return -9999; // Effectively exclude alliance members from targeting
+  }
+
   let score = 0;
 
   // Base score from standard scoring
@@ -796,9 +884,19 @@ export function calculateTargetScore(
     // +30 bonus for having recent intel (we know what we're attacking)
     score += 30;
 
-    // +20 bonus if intel reveals gold (profitable target)
-    if (intel.goldAmount !== null && intel.goldAmount > 10000) {
-      score += 20;
+    // Phase 3: Prioritize wealthy targets revealed by intel (SCALED bonuses)
+    if (intel.goldAmount !== null) {
+      if (intel.goldAmount > 500000) {
+        score += 60; // MASSIVE bonus for very wealthy targets (500k+)
+      } else if (intel.goldAmount > 200000) {
+        score += 40; // Large bonus for wealthy targets (200k+)
+      } else if (intel.goldAmount > 100000) {
+        score += 30; // Good bonus for targets with 100k+
+      } else if (intel.goldAmount > 50000) {
+        score += 20; // Moderate bonus for targets with 50k+
+      } else if (intel.goldAmount > 10000) {
+        score += 10; // Small bonus for targets with 10k+
+      }
     }
 
     // +10 bonus for high reveal percentage (confident intel)
@@ -866,7 +964,14 @@ export function calculateTargetScore(
   if (strategy === 'WARRIOR' && intel) {
     // Warriors prefer targets with known gold (profitable raids)
     if (intel.goldAmount !== null && intel.goldAmount > 50000) {
-      score += 10;
+      score += 15; // Extra bonus for warriors attacking wealthy targets
+    }
+  } else if (strategy === 'ECONOMIST' && intel) {
+    // Phase 3: Economists RARELY attack, but when they do, they want BIG payouts
+    if (intel.goldAmount !== null && intel.goldAmount > 200000) {
+      score += 25; // Extra bonus for economists hitting jackpot targets
+    } else if (intel.goldAmount !== null && intel.goldAmount < 50000) {
+      score -= 30; // Heavily penalize economists attacking poor targets (not worth the risk)
     }
   } else if (strategy === 'SPYMASTER' && !intel) {
     // Spymasters heavily penalized for attacking without intel
@@ -977,4 +1082,184 @@ function getStructureUpgradeActions(
   }
 
   return actions;
+}
+
+// ─── Phase 5: Performance Metrics & Adaptive Strategy ──────────────────
+
+/**
+ * Performance metrics calculated from battle history and threat tracking.
+ * Used to adapt strategy weights dynamically based on bot performance.
+ */
+export interface BotPerformanceMetrics {
+  winRate: number; // 0-1 (Last 50 battles)
+  avgGoldStolen: number; // Average gold stolen per attack
+  avgGoldLost: number; // Average gold lost to attackers
+  netGoldFlow: number; // stolen - lost (positive = gaining gold, negative = losing)
+  battlesAnalyzed: number; // How many battles were analyzed
+  threatsAnalyzed: number; // How many threat records were analyzed
+}
+
+/**
+ * Calculate performance metrics from battle history and recent attackers.
+ * Returns metrics for the last 50 battles and 50 threat records.
+ */
+export function calculatePerformanceMetrics(state: BotGameState): BotPerformanceMetrics {
+  // Analyze last 50 battles (or fewer if bot is new)
+  const battles = state.battleHistory.slice(0, 50);
+  const wins = battles.filter((b) => b.isWin).length;
+  const winRate = battles.length > 0 ? wins / battles.length : 0.5; // Default 50% for new bots
+
+  const totalGoldStolen = battles.reduce((sum, b) => sum + b.goldStolen, 0);
+  const avgGoldStolen = battles.length > 0 ? totalGoldStolen / battles.length : 0;
+
+  // Analyze last 50 threat records (attacks received)
+  const threats = state.recentAttackers.slice(0, 50);
+  const totalGoldLost = threats.reduce((sum, t) => sum + t.goldLost, 0);
+  const avgGoldLost = threats.length > 0 ? totalGoldLost / threats.length : 0;
+
+  const netGoldFlow = avgGoldStolen - avgGoldLost;
+
+  return {
+    winRate,
+    avgGoldStolen,
+    avgGoldLost,
+    netGoldFlow,
+    battlesAnalyzed: battles.length,
+    threatsAnalyzed: threats.length,
+  };
+}
+
+/**
+ * Detect if bot is stuck in a non-productive pattern.
+ * Returns true if bot should diversify its strategy.
+ */
+export function detectStuckPattern(state: BotGameState): boolean {
+  // Need at least 10 battles to detect patterns
+  if (state.battleHistory.length < 10) {
+    return false;
+  }
+
+  const recent = state.battleHistory.slice(0, 10);
+
+  // Pattern 1: Attacking same 1-2 targets repeatedly (tunnel vision)
+  const uniqueTargets = new Set(recent.map((b) => b.targetId));
+  if (uniqueTargets.size <= 2) {
+    return true; // Stuck attacking same targets
+  }
+
+  // Pattern 2: Very low win rate in recent battles (strategy not working)
+  const recentWins = recent.filter((b) => b.isWin).length;
+  const recentWinRate = recentWins / recent.length;
+  if (recentWinRate < 0.2) {
+    return true; // Losing 80%+ of battles
+  }
+
+  // Pattern 3: Losing significant units in recent battles (bad target selection)
+  const recentLosses = recent.filter((b) => !b.isWin);
+  if (recentLosses.length >= 7) {
+    // Lost 7+ of last 10 battles
+    const avgUnitsLost = recentLosses.reduce((sum, b) => sum + b.unitsLost, 0) / recentLosses.length;
+    if (avgUnitsLost > 50) {
+      return true; // Losing too many units per battle
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Get list of targets to temporarily avoid (attacked recently without success).
+ * Bots should diversify and try new targets instead of repeating mistakes.
+ */
+export function getTemporaryBlacklist(state: BotGameState): string[] {
+  if (!detectStuckPattern(state)) {
+    return []; // Not stuck, no need to blacklist
+  }
+
+  // Blacklist targets from last 10 battles that resulted in losses
+  const recentLosses = state.battleHistory
+    .slice(0, 10)
+    .filter((b) => !b.isWin)
+    .map((b) => b.targetId);
+
+  return [...new Set(recentLosses)]; // Return unique target IDs
+}
+
+/**
+ * Adapt strategy weights based on performance metrics.
+ * Returns weight adjustments to apply on top of base strategy weights.
+ *
+ * Adaptation rules:
+ * - Low win rate (<30%) → boost defense training, reduce attack aggression
+ * - Losing gold (net negative) → boost fort repairs and fortification upgrades
+ * - Stuck in pattern → temporary target blacklist (handled separately)
+ */
+export function adaptStrategyWeights(
+  state: BotGameState,
+  metrics: BotPerformanceMetrics,
+): Partial<StrategyWeights> {
+  const adjustments: Partial<StrategyWeights> = {};
+
+  // Need at least 10 battles for meaningful adaptation
+  if (metrics.battlesAnalyzed < 10) {
+    return adjustments; // Not enough data yet
+  }
+
+  // ── Adaptation Rule 1: Low Win Rate → Boost Defense ──
+  if (metrics.winRate < 0.3) {
+    adjustments.trainDefense = 5; // Boost defense training
+    adjustments.upgradeFortification = 3; // Boost fort upgrades
+    adjustments.attackPlayer = -3; // Reduce attack aggression
+    adjustments.repairFort = 3; // Prioritize fort repairs
+  }
+
+  // ── Adaptation Rule 2: Losing Gold → Boost Fortifications ──
+  if (metrics.netGoldFlow < -10000) {
+    // Losing 10k+ gold per battle on average
+    adjustments.repairFort = 5; // HIGH priority on repairs
+    adjustments.upgradeFortification = 4; // Upgrade fort
+    adjustments.trainSentry = 3; // Train sentries to prevent gold theft
+    adjustments.bankDeposit = 2; // Bank more gold to protect it
+  }
+
+  // ── Adaptation Rule 3: High Win Rate but Low Gold → Improve Target Selection ──
+  if (metrics.winRate > 0.7 && metrics.avgGoldStolen < 5000) {
+    // Winning battles but not getting much gold
+    adjustments.spyMission = 4; // Spy more to find wealthy targets
+    adjustments.trainSpy = 2; // Train more spies for better intel
+  }
+
+  // ── Adaptation Rule 4: Taking Heavy Losses → Train More Units ──
+  if (metrics.netGoldFlow < -20000) {
+    // Hemorrhaging gold
+    adjustments.trainOffense = -2; // Stop wasting units on attacks
+    adjustments.trainDefense = 6; // Focus on defense
+    adjustments.trainWorkers = 4; // Boost income to recover
+  }
+
+  return adjustments;
+}
+
+/**
+ * Apply performance-based adaptations to base strategy weights.
+ * This is called in prioritizeActions() to modify weights dynamically.
+ */
+export function getAdaptedWeights(
+  baseWeights: StrategyWeights,
+  state: BotGameState,
+): StrategyWeights {
+  // Calculate performance metrics
+  const metrics = calculatePerformanceMetrics(state);
+
+  // Get weight adaptations based on performance
+  const adaptations = adaptStrategyWeights(state, metrics);
+
+  // Merge adaptations into base weights
+  const adapted = { ...baseWeights };
+  for (const [key, adjustment] of Object.entries(adaptations)) {
+    const k = key as keyof StrategyWeights;
+    adapted[k] = Math.max(0, adapted[k] + adjustment); // Never go negative
+  }
+
+  return adapted;
 }

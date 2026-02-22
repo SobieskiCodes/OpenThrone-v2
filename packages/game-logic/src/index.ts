@@ -113,11 +113,18 @@ export {
   scoreTarget,
   calculateTargetScore,
   addHumanNoise,
+  // Phase 5: Advanced Intelligence & Adaptive Strategy
+  calculatePerformanceMetrics,
+  detectStuckPattern,
+  getTemporaryBlacklist,
+  adaptStrategyWeights,
+  getAdaptedWeights,
 } from './bot-strategies';
 export type {
   BotGameState,
   BotTarget,
   PrioritizedAction,
+  BotPerformanceMetrics,
 } from './bot-strategies';
 
 // ─── Buildings (new system) ──────────────────────────────────────────

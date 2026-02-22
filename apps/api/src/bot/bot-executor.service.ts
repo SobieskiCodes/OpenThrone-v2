@@ -7,7 +7,11 @@ import { StructuresService } from '../structures/structures.service';
 import { BattleService } from '../battle/battle.service';
 import { ShopService } from '../shop/shop.service';
 import { PlayerService } from '../player/player.service';
-import { scoreTarget, calculateTargetScore } from '@openthrone/game-logic';
+import {
+  scoreTarget,
+  calculateTargetScore,
+  getTemporaryBlacklist,
+} from '@openthrone/game-logic';
 import { getLevelForXP } from '@openthrone/game-logic';
 import type { PrioritizedAction, BotGameState } from '@openthrone/game-logic';
 
@@ -65,6 +69,10 @@ export class BotExecutorService {
           return await this.execPurchaseCosmetic(playerId, action.params!);
         case 'HIRE_MERCENARIES':
           return await this.execHireMercenaries(playerId, action.params!);
+        case 'CREATE_ALLIANCE':
+          return await this.execCreateAlliance(playerId, state);
+        case 'JOIN_ALLIANCE':
+          return await this.execJoinAlliance(playerId, state);
         default:
           return { success: false, errorMessage: `Unknown action type: ${action.type}` };
       }
@@ -262,6 +270,9 @@ export class BotExecutorService {
         stats: true,
         fortification: true,
         units: true,
+        alliance_membership: {
+          select: { alliance_id: true },
+        },
       },
       take: 50,
     });
@@ -277,6 +288,9 @@ export class BotExecutorService {
           stats: true,
           fortification: true,
           units: true,
+          alliance_membership: {
+            select: { alliance_id: true },
+          },
         },
         take: 50,
       });
@@ -292,7 +306,16 @@ export class BotExecutorService {
     state: BotGameState,
     strategy: string,
   ): { id: string; displayName: string } | null {
+    // Phase 5: Get temporary blacklist to avoid targets bot is stuck attacking
+    const blacklist = getTemporaryBlacklist(state);
+    if (blacklist.length > 0) {
+      this.logger.debug(
+        `Blacklisting ${blacklist.length} targets due to stuck pattern`,
+      );
+    }
+
     const scored = candidates
+      .filter((c) => !blacklist.includes(c.id)) // Filter out blacklisted targets
       .map((c) => {
         const target = {
           id: c.id,
@@ -306,6 +329,7 @@ export class BotExecutorService {
             (sum: number, u: any) => sum + u.quantity,
             0,
           ),
+          allianceId: c.alliance_membership?.alliance_id ?? null,
         };
         // Phase 1: Use intelligence-based scoring
         const score = calculateTargetScore(
@@ -524,6 +548,205 @@ export class BotExecutorService {
         success: true,
         resultData: {
           bonusType: params.bonusType,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, errorMessage: msg };
+    }
+  }
+
+  private async execCreateAlliance(playerId: string, state: BotGameState): Promise<ActionResult> {
+    try {
+      // Check if already leader of an alliance
+      const existingLeadership = await this.prisma.alliance.findFirst({
+        where: { leader_id: playerId },
+      });
+
+      if (existingLeadership) {
+        return { success: false, errorMessage: 'Already leading an alliance' };
+      }
+
+      // Check if already in 3 alliances
+      const membershipCount = await this.prisma.allianceMembership.count({
+        where: { user_id: playerId },
+      });
+
+      if (membershipCount >= 3) {
+        return { success: false, errorMessage: 'Already in 3 alliances' };
+      }
+
+      // Get bot's strategy from BotConfig
+      const botConfig = await this.prisma.botConfig.findFirst({
+        where: { player_id: playerId, is_active: true },
+      });
+
+      if (!botConfig) {
+        return { success: false, errorMessage: 'Bot configuration not found' };
+      }
+
+      // Generate alliance name based on strategy
+      const nameTemplates: Record<string, string[]> = {
+        WARRIOR: ['War Coalition', 'Battle Legion', 'Steel Vanguard', 'Iron Fist', 'Crimson Raiders'],
+        TURTLE: ['Defensive Pact', 'Shield Alliance', 'Guardian Coalition', 'Fortress League', 'Bastion Unity'],
+        ECONOMIST: ['Trade Consortium', 'Gold League', 'Merchant Alliance', 'Commerce Guild', 'Prosperity Coalition'],
+        SPYMASTER: ['Shadow Network', 'Intel Syndicate', 'Covert Alliance', 'Silent Order', 'Dark Brotherhood'],
+        BALANCED: ['Unity Alliance', 'Balanced Federation', 'Harmony Coalition', 'Equilibrium League', 'Synergy Pact'],
+      };
+
+      const templates = nameTemplates[botConfig.strategy] ?? nameTemplates['BALANCED']!;
+      const baseName = templates[Math.floor(Math.random() * templates.length)]!;
+
+      // Try to find a unique name (append number if needed)
+      let allianceName = baseName;
+      let attempt = 0;
+      let isUnique = false;
+
+      while (!isUnique && attempt < 10) {
+        const existing = await this.prisma.alliance.findFirst({
+          where: { name: allianceName },
+        });
+
+        if (!existing) {
+          isUnique = true;
+        } else {
+          attempt++;
+          allianceName = `${baseName} ${attempt}`;
+        }
+      }
+
+      if (!isUnique) {
+        return { success: false, errorMessage: 'Could not generate unique alliance name' };
+      }
+
+      // Create the alliance via transaction (mirrors AllianceService.createAlliance logic)
+      const alliance = await this.prisma.$transaction(async (tx) => {
+        const newAlliance = await tx.alliance.create({
+          data: {
+            name: allianceName,
+            motto: `Founded by ${botConfig.strategy} bot`,
+            is_public: true,
+            allow_bots: true, // Always allow bots
+            closed_enrollment: false,
+            leader_id: playerId,
+          },
+        });
+
+        // Create Leader role
+        const leaderRole = await tx.allianceRole.create({
+          data: {
+            name: 'Leader',
+            alliance_id: newAlliance.id,
+            permissions: JSON.stringify(['MANAGE_ALLIANCE', 'INVITE', 'KICK', 'MANAGE_ROLES']),
+          },
+        });
+
+        // Create Member role
+        await tx.allianceRole.create({
+          data: {
+            name: 'Member',
+            alliance_id: newAlliance.id,
+            permissions: JSON.stringify([]),
+          },
+        });
+
+        // Add bot as leader
+        await tx.allianceMembership.create({
+          data: {
+            alliance_id: newAlliance.id,
+            user_id: playerId,
+            role_id: leaderRole.id,
+          },
+        });
+
+        return newAlliance;
+      });
+
+      return {
+        success: true,
+        resultData: {
+          allianceId: alliance.id,
+          allianceName: alliance.name,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, errorMessage: msg };
+    }
+  }
+
+  private async execJoinAlliance(playerId: string, state: BotGameState): Promise<ActionResult> {
+    try {
+      // Find alliances that allow bots, are not full, and are within level range
+      const alliances = await this.prisma.alliance.findMany({
+        where: {
+          allow_bots: true,
+          closed_enrollment: false,
+        },
+        include: {
+          _count: { select: { memberships: true } },
+          leader: {
+            select: {
+              id: true,
+              display_name: true,
+              stats: { select: { experience: true } },
+            },
+          },
+        },
+      });
+
+      if (alliances.length === 0) {
+        // No alliances available — bot should create one (handled in separate action)
+        return { success: false, errorMessage: 'No alliances available for bots' };
+      }
+
+      // Filter alliances within reasonable level range (±10 levels)
+      const suitableAlliances = alliances.filter((a) => {
+        const leaderLevel = a.leader.stats
+          ? getLevelForXP(Number(a.leader.stats.experience))
+          : 1;
+        return Math.abs(leaderLevel - state.level) <= 10;
+      });
+
+      if (suitableAlliances.length === 0) {
+        return { success: false, errorMessage: 'No suitable alliances found (level range)' };
+      }
+
+      // Pick a random suitable alliance
+      const selectedAlliance = suitableAlliances[Math.floor(Math.random() * suitableAlliances.length)]!;
+
+      // Check if already in 3 alliances
+      const membershipCount = await this.prisma.allianceMembership.count({
+        where: { user_id: playerId },
+      });
+
+      if (membershipCount >= 3) {
+        return { success: false, errorMessage: 'Already in 3 alliances' };
+      }
+
+      // Find the "Member" role
+      const memberRole = await this.prisma.allianceRole.findFirst({
+        where: { alliance_id: selectedAlliance.id, name: 'Member' },
+      });
+
+      if (!memberRole) {
+        return { success: false, errorMessage: 'Alliance configuration error: no Member role' };
+      }
+
+      // Join the alliance
+      await this.prisma.allianceMembership.create({
+        data: {
+          alliance_id: selectedAlliance.id,
+          user_id: playerId,
+          role_id: memberRole.id,
+        },
+      });
+
+      return {
+        success: true,
+        resultData: {
+          allianceId: selectedAlliance.id,
+          allianceName: selectedAlliance.name,
         },
       };
     } catch (err) {
