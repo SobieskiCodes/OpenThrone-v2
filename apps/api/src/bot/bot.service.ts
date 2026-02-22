@@ -550,6 +550,20 @@ export class BotService {
 
     const actionTypesUsedToday = new Set(todayLogs.map((l) => l.action_type));
 
+    // Calculate proficiency points (Phase 0: Bot Intelligence)
+    const bonusPointsArray = player.bonus_points || [];
+    const bonusPoints = {
+      OFFENSE: bonusPointsArray.filter((bp) => bp.bonus_type === 'OFFENSE').length,
+      DEFENSE: bonusPointsArray.filter((bp) => bp.bonus_type === 'DEFENSE').length,
+      RECRUITING: bonusPointsArray.filter((bp) => bp.bonus_type === 'RECRUITING').length,
+      CASUALTY: bonusPointsArray.filter((bp) => bp.bonus_type === 'CASUALTY').length,
+      INTEL: bonusPointsArray.filter((bp) => bp.bonus_type === 'INTEL').length,
+      INCOME: bonusPointsArray.filter((bp) => bp.bonus_type === 'INCOME').length,
+      PRICES: bonusPointsArray.filter((bp) => bp.bonus_type === 'PRICES').length,
+    };
+    const currentLevel = getLevelForXP(player.stats?.experience ?? 0);
+    const availablePoints = currentLevel - bonusPointsArray.length; // 1 point per level
+
     return {
       playerId,
       gold: Number(player.economy?.gold ?? BigInt(0)),
@@ -577,11 +591,13 @@ export class BotService {
       offenseUpgradeLevel: getUpgradeLevel('OFFENSE'),
       spyUpgradeLevel: getUpgradeLevel('SPY'),
       sentryUpgradeLevel: getUpgradeLevel('SENTRY'),
-      level: getLevelForXP(player.stats?.experience ?? 0),
+      availablePoints,
+      bonusPoints,
+      level: currentLevel,
       experience: Number(player.stats?.experience ?? 0),
       offense: player.stats?.offense ?? 0,
       defense: player.stats?.defense ?? 0,
-      spy: player.stats?.spy ?? 0,
+      spy: player.stats?.sentry ?? 0,
       sentry: player.stats?.sentry ?? 0,
       canAutoRecruit: (() => {
         if (!player.economy?.last_auto_recruit) return true;

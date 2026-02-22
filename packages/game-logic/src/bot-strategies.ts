@@ -53,6 +53,18 @@ export interface BotGameState {
   spyUpgradeLevel: number;
   sentryUpgradeLevel: number;
 
+  // Proficiency points (Phase 0: Bot Intelligence)
+  availablePoints: number;
+  bonusPoints: {
+    OFFENSE: number;
+    DEFENSE: number;
+    RECRUITING: number;
+    CASUALTY: number;
+    INTEL: number;
+    INCOME: number;
+    PRICES: number;
+  };
+
   // Player stats
   level: number;
   experience: number;
@@ -121,6 +133,14 @@ interface StrategyWeights {
   // Cosmetics & Mercenaries
   purchaseCosmetic: number;
   hireMercenaries: number;
+  // Proficiency point allocation (Phase 0: Bot Intelligence)
+  allocateOffense: number;
+  allocateDefense: number;
+  allocateRecruiting: number;
+  allocateCasualty: number;
+  allocateIntel: number;
+  allocateIncome: number;
+  allocatePrices: number;
 }
 
 const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
@@ -154,6 +174,14 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     // Cosmetics & Mercenaries
     purchaseCosmetic: 1,
     hireMercenaries: 7, // Warriors love mercenaries for offense
+    // Proficiency point allocation
+    allocateOffense: 10,
+    allocateDefense: 3,
+    allocateRecruiting: 2,
+    allocateCasualty: 5,
+    allocateIntel: 1,
+    allocateIncome: 2,
+    allocatePrices: 1,
   },
   TURTLE: {
     autoRecruit: 10,
@@ -185,6 +213,14 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     // Cosmetics & Mercenaries
     purchaseCosmetic: 1,
     hireMercenaries: 3, // Some defense mercs, low priority
+    // Proficiency point allocation
+    allocateOffense: 2,
+    allocateDefense: 10,
+    allocateRecruiting: 4,
+    allocateCasualty: 3,
+    allocateIntel: 2,
+    allocateIncome: 5,
+    allocatePrices: 2,
   },
   ECONOMIST: {
     autoRecruit: 10,
@@ -216,6 +252,14 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     // Cosmetics & Mercenaries
     purchaseCosmetic: 2, // Economists have gold to spare
     hireMercenaries: 1, // Very low priority for economists
+    // Proficiency point allocation
+    allocateOffense: 1,
+    allocateDefense: 2,
+    allocateRecruiting: 4,
+    allocateCasualty: 1,
+    allocateIntel: 2,
+    allocateIncome: 10,
+    allocatePrices: 6,
   },
   SPYMASTER: {
     autoRecruit: 10,
@@ -247,6 +291,14 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     // Cosmetics & Mercenaries
     purchaseCosmetic: 1,
     hireMercenaries: 2, // Low priority for spymasters
+    // Proficiency point allocation
+    allocateOffense: 2,
+    allocateDefense: 3,
+    allocateRecruiting: 3,
+    allocateCasualty: 2,
+    allocateIntel: 10,
+    allocateIncome: 4,
+    allocatePrices: 3,
   },
   BALANCED: {
     autoRecruit: 10,
@@ -278,6 +330,14 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     // Cosmetics & Mercenaries
     purchaseCosmetic: 1,
     hireMercenaries: 4, // Balanced approach to mercenaries
+    // Proficiency point allocation
+    allocateOffense: 5,
+    allocateDefense: 5,
+    allocateCasualty: 3,
+    allocateRecruiting: 3,
+    allocateIntel: 3,
+    allocateIncome: 5,
+    allocatePrices: 3,
   },
 };
 
@@ -395,6 +455,34 @@ export function prioritizeActions(
     weights.equipDefense = Math.min(weights.equipDefense, 2);
     weights.equipSpy = Math.min(weights.equipSpy, 1);
     weights.equipSentry = Math.min(weights.equipSentry, 1);
+  }
+
+  // ── Allocate Proficiency Points (HIGHEST PRIORITY — Phase 0: Bot Intelligence) ──
+  if (state.availablePoints > 0) {
+    // Determine best bonus type based on strategy weights
+    const bonusOptions: { type: string; weight: number }[] = [
+      { type: 'OFFENSE', weight: weights.allocateOffense },
+      { type: 'DEFENSE', weight: weights.allocateDefense },
+      { type: 'RECRUITING', weight: weights.allocateRecruiting },
+      { type: 'CASUALTY', weight: weights.allocateCasualty },
+      { type: 'INTEL', weight: weights.allocateIntel },
+      { type: 'INCOME', weight: weights.allocateIncome },
+      { type: 'PRICES', weight: weights.allocatePrices },
+    ];
+
+    // Sort by weight descending
+    bonusOptions.sort((a, b) => b.weight - a.weight);
+
+    // Pick top 3 options and randomize slightly to add variety
+    const topOptions = bonusOptions.slice(0, 3);
+    const selected = topOptions[Math.floor(rng() * topOptions.length)]!;
+
+    actions.push({
+      type: 'ALLOCATE_BONUS_POINTS',
+      weight: 1000, // VERY HIGH PRIORITY (always spend points immediately)
+      reasoning: `Has ${state.availablePoints} unspent proficiency point${state.availablePoints > 1 ? 's' : ''} — allocate to ${selected.type} (strategy: ${strategy}).`,
+      params: { bonusType: selected.type },
+    });
   }
 
   // ── Auto-Recruit (critical for growth — always top priority if not done today) ──

@@ -6,6 +6,7 @@ import { ArmoryService } from '../armory/armory.service';
 import { StructuresService } from '../structures/structures.service';
 import { BattleService } from '../battle/battle.service';
 import { ShopService } from '../shop/shop.service';
+import { PlayerService } from '../player/player.service';
 import { scoreTarget } from '@openthrone/game-logic';
 import type { PrioritizedAction, BotGameState } from '@openthrone/game-logic';
 
@@ -27,6 +28,7 @@ export class BotExecutorService {
     private readonly structuresService: StructuresService,
     private readonly battleService: BattleService,
     private readonly shopService: ShopService,
+    private readonly playerService: PlayerService,
   ) {}
 
   async executeAction(
@@ -39,6 +41,8 @@ export class BotExecutorService {
       switch (action.type) {
         case 'AUTO_RECRUIT':
           return await this.execAutoRecruit(playerId);
+        case 'ALLOCATE_BONUS_POINTS':
+          return await this.execAllocateBonusPoints(playerId, action.params!);
         case 'BANK_DEPOSIT':
           return await this.execBankDeposit(playerId, action.params!);
         case 'TRAIN_UNITS':
@@ -399,6 +403,24 @@ export class BotExecutorService {
           hired: toBuy,
           unitType: merc.unitType,
           totalCost: toBuy * merc.cost,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, errorMessage: msg };
+    }
+  }
+
+  private async execAllocateBonusPoints(playerId: string, params: any): Promise<ActionResult> {
+    try {
+      await this.playerService.allocateBonusPoints(playerId, {
+        bonusType: params.bonusType,
+      });
+
+      return {
+        success: true,
+        resultData: {
+          bonusType: params.bonusType,
         },
       };
     } catch (err) {
