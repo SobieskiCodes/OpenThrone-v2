@@ -98,6 +98,7 @@ const adminNavItems = [
       { label: 'Bots', href: '/admin/bots' },
       { label: 'Jobs', href: '/admin/jobs' },
       { label: 'Combat Sim', href: '/admin/combat-sim' },
+      { label: 'Settings', href: '/admin/settings' },
     ],
   },
 ];

@@ -24,6 +24,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { ActivityModule } from './activity/activity.module';
 import { GameModule } from './game/game.module';
 import { ShopModule } from './shop/shop.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { ShopModule } from './shop/shop.module';
     SchedulerModule,
     ActivityModule,
     ShopModule,
+    SettingsModule,
   ],
   providers: [
     {

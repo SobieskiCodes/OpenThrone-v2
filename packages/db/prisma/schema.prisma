@@ -797,3 +797,16 @@ model PlayerCosmetic {
   @@index([player_id, equipped])
   @@map("player_cosmetics")
 }
+
+// ─── Game Settings (global configuration) ──────────────────────────────
+
+model GameSettings {
+  id                Int      @id @default(autoincrement())
+  key               String   @unique // Setting key (e.g., 'bot_chat_enabled', 'turns_per_tick')
+  value             String   // JSON-encoded value
+  description       String?  // Human-readable description
+  updated_at        DateTime @default(now()) @updatedAt
+  updated_by_user_id String?  // Admin who last updated this setting
+
+  @@map("game_settings")
+}

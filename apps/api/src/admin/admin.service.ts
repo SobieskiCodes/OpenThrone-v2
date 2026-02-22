@@ -453,13 +453,9 @@ export class AdminService {
       }
     }
 
-    // Automatically reseed the database
-    const { seedDatabase } = await import('@openthrone/db');
-    await seedDatabase(this.prisma);
-
     return {
       success: true,
-      message: 'Database reset and reseeded! You can now log in with testplayer1@openthrone.dev / password123 (admin account).',
+      message: 'Database reset complete! Run "pnpm db:seed" to reseed test data.',
     };
   }
 }

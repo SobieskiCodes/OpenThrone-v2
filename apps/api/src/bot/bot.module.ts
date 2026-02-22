@@ -5,6 +5,8 @@ import { ArmoryModule } from '../armory/armory.module';
 import { StructuresModule } from '../structures/structures.module';
 import { BattleModule } from '../battle/battle.module';
 import { RecruitmentModule } from '../recruitment/recruitment.module';
+import { ChatModule } from '../chat/chat.module';
+import { SettingsModule } from '../settings/settings.module';
 import { BotController } from './bot.controller';
 import { BotService } from './bot.service';
 import { BotBrainService } from './bot-brain.service';
@@ -12,6 +14,7 @@ import { BotExecutorService } from './bot-executor.service';
 import { BotSchedulerService } from './bot-scheduler.service';
 import { BotSnapshotService } from './bot-snapshot.service';
 import { BotSimulationService } from './bot-simulation.service';
+import { BotChatService } from './bot-chat.service';
 
 @Module({
   imports: [
@@ -21,6 +24,8 @@ import { BotSimulationService } from './bot-simulation.service';
     StructuresModule,
     BattleModule,
     RecruitmentModule,
+    ChatModule,
+    SettingsModule,
   ],
   controllers: [BotController],
   providers: [
@@ -30,6 +35,7 @@ import { BotSimulationService } from './bot-simulation.service';
     BotSchedulerService,
     BotSnapshotService,
     BotSimulationService,
+    BotChatService,
   ],
   exports: [BotService],
 })

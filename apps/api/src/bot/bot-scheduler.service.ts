@@ -7,6 +7,7 @@ import { BotService } from './bot.service';
 import { BotBrainService } from './bot-brain.service';
 import { BotExecutorService } from './bot-executor.service';
 import { BotSnapshotService } from './bot-snapshot.service';
+import { BotChatService } from './bot-chat.service';
 import {
   BotSessionStartedEvent,
   BotSessionCompletedEvent,
@@ -27,6 +28,7 @@ export class BotSchedulerService {
     private readonly botBrain: BotBrainService,
     private readonly botExecutor: BotExecutorService,
     private readonly snapshotService: BotSnapshotService,
+    private readonly botChat: BotChatService,
   ) {}
 
   /**
@@ -221,12 +223,25 @@ export class BotSchedulerService {
       // Small delay between actions (0.5-2s)
       await this.sleep(500 + Math.random() * 1500);
 
+      // Taunt before attacking (20% chance)
+      if (action.type === 'ATTACK_PLAYER') {
+        await this.botChat.sendTauntMessage(playerId);
+      }
+
       const result = await this.botExecutor.executeAction(
         action,
         playerId,
         state,
         strategy,
       );
+
+      // Chat triggers based on action result
+      if (result.success && action.type === 'ATTACK_PLAYER' && result.resultData) {
+        // Boast after winning attack (30% chance)
+        const targetName = result.resultData.targetName || 'Unknown';
+        const goldStolen = result.resultData.goldStolen || 0;
+        await this.botChat.sendBoastMessage(playerId, targetName, goldStolen);
+      }
 
       // Log the action
       await this.prisma.botActionLog.create({
