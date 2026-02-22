@@ -608,17 +608,29 @@ async findAttackTargets(playerId: string): Promise<Player[]> {
 
 ### Deliverables
 
-- [ ] Add `BotIntelCache` and `BotBattleMemory` tables to schema
-- [ ] Add `BotThreatTracking` table for tracking who attacked the bot
-- [ ] Create `BotMemoryService` with event listeners for battle/spy outcomes
-- [ ] Update `loadBotGameState()` to include intel reports, battle history, recent attackers
-- [ ] Add `GET /battle/targets` endpoint for fetching attack candidates
-- [ ] Implement `getAttackTargetCandidates()` with scoring logic
-- [ ] Update `ATTACK_PLAYER` action to use target selection
-- [ ] Update `SPY_MISSION` action to prioritize intel gathering before attacks
-- [ ] Add admin UI to view bot intel cache and battle memory
+- [x] Add `BotIntelCache` and `BotBattleMemory` tables to schema
+- [x] Add `BotThreatTracking` table for tracking who attacked the bot
+- [x] Create `BotMemoryService` with event listeners for battle/spy outcomes
+- [x] Update `loadBotGameState()` to include intel reports, battle history, recent attackers
+- [x] Implement `calculateTargetScore()` with intelligence-based scoring logic
+- [x] Update `pickBestTarget()` to use intelligence-based scoring (`calculateTargetScore`)
+- [x] Update `SPY_MISSION` action to prioritize intel gathering (new `findSpyTarget` method)
+  - Prioritizes revenge targets without intel
+  - Then targets without any intel
+  - Then targets with stale intel (>7 days)
+- [ ] Add `GET /battle/targets` endpoint for fetching attack candidates (deferred — not needed, using existing player queries)
+- [ ] Add admin UI to view bot intel cache and battle memory (deferred to Phase 5)
+
+**Implementation Notes:**
+- Intelligence tables store last 50 intel reports, 100 battle memories, 50 threat records per bot
+- Event listeners automatically populate tables when bots spy/battle
+- `calculateTargetScore()` applies bonuses for: recent intel (+30), revenge targets (+50 within 24h), past wins (+10 each), and penalties for: no intel (-15), past losses (-15 each), attacking blind (-15)
+- Spy target selection prioritizes gathering NEW intel vs re-spying known targets
+- SPYMASTER bots get -30 penalty for attacking without intel (forces them to spy first)
 
 **Estimated Effort:** 2-3 days
+
+**Status:** ✅ **COMPLETE**
 
 ---
 
@@ -1136,8 +1148,8 @@ if (detectStuckPattern(state.battleHistory)) {
 | Phase | Effort | Priority | Dependencies | Status |
 |-------|--------|----------|--------------|--------|
 | **Phase 0** | Low (0.5 days) | **CRITICAL** | None — foundation | ✅ **DONE** (commit: 0b87872) |
-| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ⏳ **NEXT** |
-| **Phase 2** | Low (1 day) | High | Equipment API endpoints | ⏳ |
+| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ✅ **DONE** (uncommitted) |
+| **Phase 2** | Low (1 day) | High | Equipment API endpoints | ⏳ **NEXT** |
 | **Phase 3** | Medium (1-2 days) | High | Phase 1 (target scoring needs intel) | ⏳ |
 | **Phase 4** | Medium (1-2 days) | Medium | Alliance system | ⏳ |
 | **Phase 5** | High (2-3 days) | Low | Phase 1-4 complete (needs data) | ⏳ |

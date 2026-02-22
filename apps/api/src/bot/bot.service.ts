@@ -516,6 +516,19 @@ export class BotService {
         fortification: true,
         bonus_points: true,
         bot_config: true,
+        // Phase 1: Bot Intelligence
+        bot_intel_cache: {
+          orderBy: { spied_at: 'desc' },
+          take: 50, // Keep last 50 intel reports
+        },
+        bot_battle_memory: {
+          orderBy: { timestamp: 'desc' },
+          take: 100, // Keep last 100 battles for pattern detection
+        },
+        bot_threats: {
+          orderBy: { timestamp: 'desc' },
+          take: 50, // Keep last 50 attackers
+        },
       },
     });
 
@@ -564,6 +577,35 @@ export class BotService {
     const currentLevel = getLevelForXP(player.stats?.experience ?? 0);
     const availablePoints = currentLevel - bonusPointsArray.length; // 1 point per level
 
+    // Transform intelligence data (Phase 1: Bot Intelligence)
+    const intelReports = (player.bot_intel_cache || []).map((intel) => ({
+      targetId: intel.target_id,
+      targetName: intel.target_name,
+      targetLevel: intel.target_level,
+      goldAmount: intel.gold_amount ? Number(intel.gold_amount) : null,
+      offenseStrength: intel.offense_strength,
+      defenseStrength: intel.defense_strength,
+      spiedAt: intel.spied_at,
+      revealPercent: intel.reveal_percent,
+    }));
+
+    const battleHistory = (player.bot_battle_memory || []).map((battle) => ({
+      targetId: battle.target_id,
+      targetName: battle.target_name,
+      isWin: battle.is_win,
+      goldStolen: Number(battle.gold_stolen),
+      unitsLost: battle.units_lost,
+      timestamp: battle.timestamp,
+    }));
+
+    const recentAttackers = (player.bot_threats || []).map((threat) => ({
+      attackerId: threat.attacker_id,
+      attackerName: threat.attacker_name,
+      attackerLevel: threat.attacker_level,
+      timestamp: threat.timestamp,
+      goldLost: Number(threat.gold_lost),
+    }));
+
     return {
       playerId,
       gold: Number(player.economy?.gold ?? BigInt(0)),
@@ -597,8 +639,11 @@ export class BotService {
       experience: Number(player.stats?.experience ?? 0),
       offense: player.stats?.offense ?? 0,
       defense: player.stats?.defense ?? 0,
-      spy: player.stats?.sentry ?? 0,
+      spy: player.stats?.spy ?? 0,
       sentry: player.stats?.sentry ?? 0,
+      intelReports,
+      battleHistory,
+      recentAttackers,
       canAutoRecruit: (() => {
         if (!player.economy?.last_auto_recruit) return true;
         const todayStartUTC = new Date();

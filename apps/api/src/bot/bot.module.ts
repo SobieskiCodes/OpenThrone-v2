@@ -16,6 +16,7 @@ import { BotSchedulerService } from './bot-scheduler.service';
 import { BotSnapshotService } from './bot-snapshot.service';
 import { BotSimulationService } from './bot-simulation.service';
 import { BotChatService } from './bot-chat.service';
+import { BotMemoryService } from './bot-memory.service';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { BotChatService } from './bot-chat.service';
     BotSnapshotService,
     BotSimulationService,
     BotChatService,
+    BotMemoryService,
   ],
   exports: [BotService],
 })

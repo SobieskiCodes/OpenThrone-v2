@@ -7,7 +7,7 @@ import { StructuresService } from '../structures/structures.service';
 import { BattleService } from '../battle/battle.service';
 import { ShopService } from '../shop/shop.service';
 import { PlayerService } from '../player/player.service';
-import { scoreTarget } from '@openthrone/game-logic';
+import { scoreTarget, calculateTargetScore } from '@openthrone/game-logic';
 import type { PrioritizedAction, BotGameState } from '@openthrone/game-logic';
 
 interface ActionResult {
@@ -219,7 +219,8 @@ export class BotExecutorService {
     strategy: string,
     params: Record<string, any>,
   ): Promise<ActionResult> {
-    const target = await this.findAttackTarget(playerId, state, strategy);
+    // Phase 1: Use spy-specific target selection (prioritize gathering intel)
+    const target = await this.findSpyTarget(playerId, state, strategy);
     if (!target) {
       return { success: false, errorMessage: 'No suitable spy target found' };
     }
@@ -301,9 +302,10 @@ export class BotExecutorService {
             0,
           ),
         };
-        const score = scoreTarget(
+        // Phase 1: Use intelligence-based scoring
+        const score = calculateTargetScore(
           strategy as any,
-          { offense: state.offense, level: state.level },
+          state,
           target,
         );
         return { ...target, score };
@@ -317,6 +319,102 @@ export class BotExecutorService {
     const topN = scored.slice(0, Math.min(5, scored.length));
     const pick = topN[Math.floor(Math.random() * topN.length)]!;
     return { id: pick.id, displayName: pick.displayName };
+  }
+
+  /**
+   * Phase 1: Find spy target prioritizing intelligence gathering.
+   * Preference order:
+   * 1. Revenge targets we haven't spied yet
+   * 2. Targets with no intel
+   * 3. Targets with stale intel (>7 days old)
+   */
+  private async findSpyTarget(
+    playerId: string,
+    state: BotGameState,
+    strategy: string,
+  ): Promise<{ id: string; displayName: string } | null> {
+    const candidates = await this.prisma.player.findMany({
+      where: {
+        status: 'ACTIVE',
+        id: { not: playerId },
+        is_bot: false,
+      },
+      include: {
+        stats: true,
+        fortification: true,
+        units: true,
+      },
+      take: 50,
+    });
+
+    if (candidates.length === 0) return null;
+
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+    // Categorize targets
+    const revengeTargetsNoIntel: any[] = [];
+    const targetsNoIntel: any[] = [];
+    const targetsStaleIntel: any[] = [];
+    const targetsRecentIntel: any[] = [];
+
+    for (const c of candidates) {
+      const isRevengeTarget = state.recentAttackers.some(
+        (a) => a.attackerId === c.id,
+      );
+      const intel = state.intelReports.find((r) => r.targetId === c.id);
+
+      if (!intel) {
+        // No intel on this target
+        if (isRevengeTarget) {
+          revengeTargetsNoIntel.push(c);
+        } else {
+          targetsNoIntel.push(c);
+        }
+      } else {
+        // Has intel - check if stale
+        const intelAge = now - intel.spiedAt.getTime();
+        if (intelAge > SEVEN_DAYS_MS) {
+          targetsStaleIntel.push(c);
+        } else {
+          targetsRecentIntel.push(c);
+        }
+      }
+    }
+
+    // Priority 1: Revenge targets without intel
+    if (revengeTargetsNoIntel.length > 0) {
+      const pick =
+        revengeTargetsNoIntel[
+          Math.floor(Math.random() * revengeTargetsNoIntel.length)
+        ]!;
+      return { id: pick.id, displayName: pick.display_name };
+    }
+
+    // Priority 2: Targets without intel
+    if (targetsNoIntel.length > 0) {
+      const pick =
+        targetsNoIntel[Math.floor(Math.random() * targetsNoIntel.length)]!;
+      return { id: pick.id, displayName: pick.display_name };
+    }
+
+    // Priority 3: Targets with stale intel
+    if (targetsStaleIntel.length > 0) {
+      const pick =
+        targetsStaleIntel[Math.floor(Math.random() * targetsStaleIntel.length)]!;
+      return { id: pick.id, displayName: pick.display_name };
+    }
+
+    // Fallback: Pick from targets with recent intel (better than nothing)
+    if (targetsRecentIntel.length > 0) {
+      const pick =
+        targetsRecentIntel[
+          Math.floor(Math.random() * targetsRecentIntel.length)
+        ]!;
+      return { id: pick.id, displayName: pick.display_name };
+    }
+
+    return null;
   }
 
   private async execPurchaseCosmetic(playerId: string, params: any): Promise<ActionResult> {

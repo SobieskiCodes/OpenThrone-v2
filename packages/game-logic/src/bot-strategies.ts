@@ -73,6 +73,35 @@ export interface BotGameState {
   spy: number;
   sentry: number;
 
+  // Intelligence tracking (Phase 1: Bot Intelligence)
+  intelReports: {
+    targetId: string;
+    targetName: string;
+    targetLevel: number;
+    goldAmount: number | null; // Null if not revealed
+    offenseStrength: number;
+    defenseStrength: number;
+    spiedAt: Date;
+    revealPercent: number;
+  }[];
+
+  battleHistory: {
+    targetId: string;
+    targetName: string;
+    isWin: boolean;
+    goldStolen: number;
+    unitsLost: number;
+    timestamp: Date;
+  }[];
+
+  recentAttackers: {
+    attackerId: string;
+    attackerName: string;
+    attackerLevel: number;
+    timestamp: Date;
+    goldLost: number;
+  }[];
+
   // Flags
   canAutoRecruit: boolean;
   /** True if bot already recruited during a prior session today */
@@ -716,6 +745,7 @@ export function calculateBankAmount(
 
 /**
  * Score a potential attack target. Higher = more desirable.
+ * Basic scoring without intelligence data.
  */
 export function scoreTarget(
   strategy: Strategy,
@@ -744,6 +774,106 @@ export function scoreTarget(
   const fortPenalty = target.fortLevel * 2;
 
   return advantageScore + strategyBonus - levelPenalty - fortPenalty;
+}
+
+/**
+ * Phase 1: Intelligence-based target scoring.
+ * Uses intel reports, battle history, and threat tracking to make smarter decisions.
+ */
+export function calculateTargetScore(
+  strategy: Strategy,
+  state: BotGameState,
+  target: BotTarget,
+): number {
+  let score = 0;
+
+  // Base score from standard scoring
+  score += scoreTarget(strategy, { offense: state.offense, level: state.level }, target);
+
+  // ── Intel-based bonuses ──
+  const intel = state.intelReports.find((r) => r.targetId === target.id);
+  if (intel) {
+    // +30 bonus for having recent intel (we know what we're attacking)
+    score += 30;
+
+    // +20 bonus if intel reveals gold (profitable target)
+    if (intel.goldAmount !== null && intel.goldAmount > 10000) {
+      score += 20;
+    }
+
+    // +10 bonus for high reveal percentage (confident intel)
+    if (intel.revealPercent >= 70) {
+      score += 10;
+    }
+
+    // Adjust advantage score based on actual intel data
+    if (intel.offenseStrength > 0 && intel.defenseStrength > 0) {
+      const intelAdvantage = state.offense / intel.defenseStrength;
+      if (intelAdvantage > 1.5) {
+        score += 15; // Strong advantage based on intel
+      } else if (intelAdvantage < 0.8) {
+        score -= 20; // Likely to lose based on intel
+      }
+    }
+  } else {
+    // -15 penalty for no intel (attacking blind)
+    score -= 15;
+  }
+
+  // ── Battle history bonuses/penalties ──
+  const pastBattles = state.battleHistory.filter((b) => b.targetId === target.id);
+  if (pastBattles.length > 0) {
+    const recentBattles = pastBattles.slice(0, 3); // Last 3 battles
+    const wins = recentBattles.filter((b) => b.isWin).length;
+    const losses = recentBattles.length - wins;
+
+    if (wins > losses) {
+      // +10 per win (we've beaten them before)
+      score += wins * 10;
+    } else {
+      // -15 per loss (they beat us before, avoid)
+      score -= losses * 15;
+    }
+
+    // Penalty for attacking same target too often (diminishing returns)
+    if (pastBattles.length > 5) {
+      score -= 10;
+    }
+  }
+
+  // ── Revenge bonus (HIGHEST PRIORITY for recent attacks) ──
+  const revengeTarget = state.recentAttackers.find((a) => a.attackerId === target.id);
+  if (revengeTarget) {
+    const hoursSinceAttack = (Date.now() - revengeTarget.timestamp.getTime()) / (1000 * 60 * 60);
+
+    if (hoursSinceAttack < 24) {
+      // +50 MASSIVE bonus for revenge within 24 hours
+      score += 50;
+
+      // Extra bonus based on gold lost (more gold lost = higher revenge priority)
+      if (revengeTarget.goldLost > 50000) {
+        score += 20;
+      } else if (revengeTarget.goldLost > 20000) {
+        score += 10;
+      }
+    } else if (hoursSinceAttack < 72) {
+      // +20 bonus for revenge within 3 days
+      score += 20;
+    }
+  }
+
+  // ── Strategy-specific intelligence preferences ──
+  if (strategy === 'WARRIOR' && intel) {
+    // Warriors prefer targets with known gold (profitable raids)
+    if (intel.goldAmount !== null && intel.goldAmount > 50000) {
+      score += 10;
+    }
+  } else if (strategy === 'SPYMASTER' && !intel) {
+    // Spymasters heavily penalized for attacking without intel
+    score -= 30;
+  }
+
+  return Math.round(score);
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
