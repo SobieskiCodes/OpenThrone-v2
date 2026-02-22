@@ -7,7 +7,16 @@ on:
         description: 'Branch to deploy'
         required: true
         default: 'master'
-        type: string
+        type: choice
+        options:
+          - master
+          - dev
+          - feature/chat-widget-cosmetics
+      run_seed:
+        description: 'Run database seeding after deployment?'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   deploy:
@@ -20,11 +29,12 @@ jobs:
         env:
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
           DEPLOY_BRANCH: ${{ inputs.branch }}
+          RUN_SEED: ${{ inputs.run_seed }}
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          envs: PRODUCTION_ENV,DEPLOY_BRANCH
+          envs: PRODUCTION_ENV,DEPLOY_BRANCH,RUN_SEED
           script: |
             set -euo pipefail
 
@@ -90,6 +100,13 @@ jobs:
 
             echo "==> Restoring Prisma schema (keep sqlite for git)"
             git checkout packages/db/prisma/schema.prisma
+
+            if [ "$RUN_SEED" = "true" ]; then
+              echo "==> Running database seed"
+              pnpm db:seed
+            else
+              echo "==> Skipping database seed (not requested)"
+            fi
 
             echo "==> Starting PM2 processes"
             pm2 start ecosystem.config.cjs
