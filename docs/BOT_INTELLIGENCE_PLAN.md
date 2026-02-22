@@ -256,6 +256,8 @@ private async execAllocateBonusPoints(playerId: string, params: any): Promise<Ac
 
 **Impact:** HUGE — Bots will be competitive with humans of the same level instead of being systematically weaker.
 
+**Testing:** Deferred to end of Phase 1 (test proficiency + combat intelligence together)
+
 ---
 
 ## Phase 1: Combat Intelligence & Target Selection
