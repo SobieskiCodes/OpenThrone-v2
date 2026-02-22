@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { ALL_COSMETICS } from '@openthrone/game-logic';
 
 const RACES = ['HUMAN', 'ELF', 'GOBLIN', 'UNDEAD'] as const;
 const CLASSES = ['FIGHTER', 'CLERIC', 'ASSASSIN', 'THIEF'] as const;
@@ -356,6 +357,31 @@ export async function seedDatabase(prisma: PrismaClient) {
   });
 
   console.log(`Granted ADMINISTRATOR to ${players[0]!.displayName}`);
+
+  // Seed cosmetics shop
+  console.log('\nSeeding cosmetics shop...');
+  for (const cosmetic of ALL_COSMETICS) {
+    await prisma.cosmetic.upsert({
+      where: { id: cosmetic.id },
+      update: {
+        type: cosmetic.type,
+        name: cosmetic.name,
+        value: cosmetic.value,
+        price: cosmetic.price,
+        description: cosmetic.description || null,
+      },
+      create: {
+        id: cosmetic.id,
+        type: cosmetic.type,
+        name: cosmetic.name,
+        value: cosmetic.value,
+        price: cosmetic.price,
+        description: cosmetic.description || null,
+      },
+    });
+  }
+  console.log(`Seeded ${ALL_COSMETICS.length} cosmetics`);
+
   console.log('\n=== Login Credentials ===');
   console.log('All passwords: password123');
   console.log(`Admin: ${TEST_PLAYERS[0]!.email}`);
