@@ -3,7 +3,7 @@
  * No framework or DB dependencies.
  */
 
-import { ItemType, ItemUsage, UnitType } from '@openthrone/shared';
+import { ItemType, ItemUsage, UnitType, BuildingType } from '@openthrone/shared';
 import { getUnitByTypeAndLevel } from './units';
 import { getItemDefinition } from './items';
 import { getFortificationByLevel } from './fortifications';
@@ -15,6 +15,7 @@ import {
   getArmoryUpgradeByLevel,
   getHouseUpgradeByLevel,
 } from './structure-upgrades';
+import { getNextBuildingLevel, getMaxBuildingLevel } from './buildings';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -29,21 +30,38 @@ export interface BotGameState {
   defenseUnits: number;
   spyUnits: number;
   sentryUnits: number;
-  fortLevel: number;
-  fortHP: number;
-  fortMaxHP: number;
-  houseLevel: number;
-  economyLevel: number;
+
+  // Buildings (new system)
+  buildings: {
+    FORTIFICATION: number;
+    ARMORY: number;
+    MINE: number;
+    SPY_ACADEMY: number;
+    HOUSING: number;
+    MERCENARY_CAMP: number;
+  };
+
+  // Fortification details
+  fortification: {
+    level: number;
+    hitpoints: number;
+    maxHitpoints: number;
+  };
+
+  // Proficiency upgrades (old system, still in use)
   offenseUpgradeLevel: number;
   spyUpgradeLevel: number;
   sentryUpgradeLevel: number;
-  armoryLevel: number;
+
+  // Player stats
   level: number;
   experience: number;
   offense: number;
   defense: number;
   spy: number;
   sentry: number;
+
+  // Flags
   canAutoRecruit: boolean;
   /** True if bot already recruited during a prior session today */
   recruitedToday: boolean;
@@ -85,15 +103,24 @@ interface StrategyWeights {
   equipDefense: number;
   equipSpy: number;
   equipSentry: number;
-  upgradeEconomy: number;
-  upgradeHouse: number;
+  // Building upgrades
+  upgradeFortification: number;
+  upgradeArmory: number;
+  upgradeMine: number;
+  upgradeSpyAcademy: number;
+  upgradeHousing: number;
+  upgradeMercCamp: number;
+  // Proficiency upgrades
   upgradeOffense: number;
   upgradeSpy: number;
   upgradeSentry: number;
-  upgradeArmory: number;
+  // Other actions
   repairFort: number;
   attackPlayer: number;
   spyMission: number;
+  // Cosmetics & Mercenaries
+  purchaseCosmetic: number;
+  hireMercenaries: number;
 }
 
 const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
@@ -109,15 +136,24 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     equipDefense: 2,
     equipSpy: 1,
     equipSentry: 1,
-    upgradeEconomy: 3,
-    upgradeHouse: 3,
+    // Building upgrades
+    upgradeFortification: 5,
+    upgradeArmory: 4,
+    upgradeMine: 3,
+    upgradeSpyAcademy: 1,
+    upgradeHousing: 3,
+    upgradeMercCamp: 6,
+    // Proficiency upgrades
     upgradeOffense: 8,
     upgradeSpy: 1,
     upgradeSentry: 1,
-    upgradeArmory: 4,
+    // Other actions
     repairFort: 4,
     attackPlayer: 10,
     spyMission: 2,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 1,
+    hireMercenaries: 7, // Warriors love mercenaries for offense
   },
   TURTLE: {
     autoRecruit: 10,
@@ -131,15 +167,24 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     equipDefense: 9,
     equipSpy: 1,
     equipSentry: 6,
-    upgradeEconomy: 6,
-    upgradeHouse: 5,
+    // Building upgrades
+    upgradeFortification: 10,
+    upgradeArmory: 4,
+    upgradeMine: 6,
+    upgradeSpyAcademy: 2,
+    upgradeHousing: 5,
+    upgradeMercCamp: 2,
+    // Proficiency upgrades
     upgradeOffense: 2,
     upgradeSpy: 2,
     upgradeSentry: 7,
-    upgradeArmory: 4,
+    // Other actions
     repairFort: 10,
     attackPlayer: 2,
     spyMission: 1,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 1,
+    hireMercenaries: 3, // Some defense mercs, low priority
   },
   ECONOMIST: {
     autoRecruit: 10,
@@ -153,15 +198,24 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     equipDefense: 3,
     equipSpy: 1,
     equipSentry: 2,
-    upgradeEconomy: 10,
-    upgradeHouse: 10,
+    // Building upgrades
+    upgradeFortification: 4,
+    upgradeArmory: 2,
+    upgradeMine: 10,
+    upgradeSpyAcademy: 1,
+    upgradeHousing: 10,
+    upgradeMercCamp: 1,
+    // Proficiency upgrades
     upgradeOffense: 1,
     upgradeSpy: 1,
     upgradeSentry: 2,
-    upgradeArmory: 2,
+    // Other actions
     repairFort: 5,
     attackPlayer: 1,
     spyMission: 1,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 2, // Economists have gold to spare
+    hireMercenaries: 1, // Very low priority for economists
   },
   SPYMASTER: {
     autoRecruit: 10,
@@ -175,15 +229,24 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     equipDefense: 2,
     equipSpy: 10,
     equipSentry: 5,
-    upgradeEconomy: 4,
-    upgradeHouse: 4,
+    // Building upgrades
+    upgradeFortification: 3,
+    upgradeArmory: 3,
+    upgradeMine: 4,
+    upgradeSpyAcademy: 10,
+    upgradeHousing: 4,
+    upgradeMercCamp: 2,
+    // Proficiency upgrades
     upgradeOffense: 1,
     upgradeSpy: 10,
     upgradeSentry: 6,
-    upgradeArmory: 3,
+    // Other actions
     repairFort: 4,
     attackPlayer: 3,
     spyMission: 10,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 1,
+    hireMercenaries: 2, // Low priority for spymasters
   },
   BALANCED: {
     autoRecruit: 10,
@@ -197,15 +260,24 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     equipDefense: 5,
     equipSpy: 3,
     equipSentry: 3,
-    upgradeEconomy: 5,
-    upgradeHouse: 5,
+    // Building upgrades
+    upgradeFortification: 5,
+    upgradeArmory: 4,
+    upgradeMine: 5,
+    upgradeSpyAcademy: 4,
+    upgradeHousing: 5,
+    upgradeMercCamp: 4,
+    // Proficiency upgrades
     upgradeOffense: 5,
     upgradeSpy: 3,
     upgradeSentry: 3,
-    upgradeArmory: 4,
+    // Other actions
     repairFort: 6,
     attackPlayer: 5,
     spyMission: 4,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 1,
+    hireMercenaries: 4, // Balanced approach to mercenaries
   },
 };
 
@@ -309,8 +381,8 @@ export function prioritizeActions(
     // Boost economic foundation
     weights.trainWorkers = Math.max(weights.trainWorkers, 10);
     weights.trainDefense = Math.max(weights.trainDefense, 7);
-    weights.upgradeEconomy = Math.max(weights.upgradeEconomy, 7);
-    weights.upgradeHouse = Math.max(weights.upgradeHouse, 7);
+    weights.upgradeMine = Math.max(weights.upgradeMine, 7);
+    weights.upgradeHousing = Math.max(weights.upgradeHousing, 7);
     weights.bankDeposit = Math.max(weights.bankDeposit, 6);
     // Cap aggressive training below workers so budget goes to economy first
     weights.trainOffense = Math.min(weights.trainOffense, 5);
@@ -389,21 +461,21 @@ export function prioritizeActions(
   }
 
   // ── Repair Fort (high priority when damaged) ──
-  if (state.fortHP < state.fortMaxHP) {
-    const fortDef = getFortificationByLevel(state.fortLevel);
+  if (state.fortification.hitpoints < state.fortification.maxHitpoints) {
+    const fortDef = getFortificationByLevel(state.fortification.level);
     const costPerHP = fortDef?.costPerRepairPoint ?? 5;
-    const needed = state.fortMaxHP - state.fortHP;
+    const needed = state.fortification.maxHitpoints - state.fortification.hitpoints;
     const affordable = Math.floor(state.gold / costPerHP);
     const repairPoints = Math.min(needed, affordable);
     if (repairPoints > 0) {
       const totalCost = repairPoints * costPerHP;
-      const hpPct = state.fortHP / state.fortMaxHP;
+      const hpPct = state.fortification.hitpoints / state.fortification.maxHitpoints;
       // Scale urgency: <30% HP = +10 (critical), <60% = +5, <100% = +2
       const urgencyBoost = hpPct < 0.3 ? 10 : hpPct < 0.6 ? 5 : 2;
       actions.push({
         type: 'REPAIR_FORT',
         weight: weights.repairFort + rng() * 2 + urgencyBoost,
-        reasoning: `Fort at ${state.fortHP}/${state.fortMaxHP} HP (${Math.round(hpPct * 100)}%) — repair ${repairPoints} pts (${totalCost.toLocaleString()} gold at ${costPerHP}/HP).${hpPct < 0.3 ? ' CRITICAL!' : ''}`,
+        reasoning: `Fort at ${state.fortification.hitpoints}/${state.fortification.maxHitpoints} HP (${Math.round(hpPct * 100)}%) — repair ${repairPoints} pts (${totalCost.toLocaleString()} gold at ${costPerHP}/HP).${hpPct < 0.3 ? ' CRITICAL!' : ''}`,
         params: { points: repairPoints },
       });
     }
@@ -431,6 +503,37 @@ export function prioritizeActions(
       reasoning: `Has ${state.spyUnits} spy units and ${state.gold.toLocaleString()} gold — run intel mission (3,000 gold).`,
       params: { type: 'INTEL', spiesSent: Math.min(state.spyUnits, 3) },
     });
+  }
+
+  // ── Purchase Cosmetics (very low priority — wealth flex when rich) ──
+  if (!isEarlyGame && state.gold > 100000 && rng() > 0.7) {
+    // Only 30% chance to even consider cosmetics per session
+    // Pick a random cosmetic type to purchase
+    const cosmeticTypes = ['NAME_COLOR', 'AVATAR_ICON'];
+    const cosmeticType = cosmeticTypes[Math.floor(rng() * cosmeticTypes.length)];
+    actions.push({
+      type: 'PURCHASE_COSMETIC',
+      weight: weights.purchaseCosmetic + rng(),
+      reasoning: `Very wealthy (${state.gold.toLocaleString()} gold) — consider purchasing cosmetics for style.`,
+      params: { cosmeticType },
+    });
+  }
+
+  // ── Hire Mercenaries (if mercenary camp is built and bot has gold) ──
+  if (!isEarlyGame && state.buildings.MERCENARY_CAMP > 0 && state.gold > 50000) {
+    const campLevel = state.buildings.MERCENARY_CAMP;
+    const maxMercs = campLevel * 5; // Level 1: 5 mercs, Level 2: 10, Level 3: 15
+    const goldPerMerc = 10000; // Estimated cost per mercenary
+    const affordable = Math.floor(state.gold / goldPerMerc);
+    const quantity = Math.min(maxMercs, affordable, 10); // Cap at 10 per session
+    if (quantity > 0) {
+      actions.push({
+        type: 'HIRE_MERCENARIES',
+        weight: weights.hireMercenaries + rng() * 2,
+        reasoning: `Mercenary Camp Lv${campLevel} available — hire ${quantity} mercenaries for upcoming battles (est. ${(quantity * goldPerMerc).toLocaleString()} gold).`,
+        params: { quantity },
+      });
+    }
   }
 
   // Sort by weight descending
@@ -599,7 +702,8 @@ function getStructureUpgradeActions(
 ): PrioritizedAction[] {
   const actions: PrioritizedAction[] = [];
 
-  const upgrades: {
+  // Proficiency upgrades (old system, still active)
+  const proficiencyUpgrades: {
     type: string;
     currentLevel: number;
     maxLevel: number;
@@ -607,15 +711,12 @@ function getStructureUpgradeActions(
     lookup: (level: number) => { cost: number; name: string } | undefined;
     label: string;
   }[] = [
-    { type: 'ECONOMY', currentLevel: state.economyLevel, maxLevel: 7, wKey: 'upgradeEconomy', lookup: getEconomyUpgradeByLevel, label: 'Economy' },
-    { type: 'HOUSE', currentLevel: state.houseLevel, maxLevel: 7, wKey: 'upgradeHouse', lookup: getHouseUpgradeByLevel, label: 'House' },
     { type: 'OFFENSE', currentLevel: state.offenseUpgradeLevel, maxLevel: 22, wKey: 'upgradeOffense', lookup: getOffensiveUpgradeByLevel, label: 'Offense' },
     { type: 'SPY', currentLevel: state.spyUpgradeLevel, maxLevel: 22, wKey: 'upgradeSpy', lookup: getSpyUpgradeByLevel, label: 'Spy' },
     { type: 'SENTRY', currentLevel: state.sentryUpgradeLevel, maxLevel: 22, wKey: 'upgradeSentry', lookup: getSentryUpgradeByLevel, label: 'Sentry' },
-    { type: 'ARMORY', currentLevel: state.armoryLevel, maxLevel: 6, wKey: 'upgradeArmory', lookup: getArmoryUpgradeByLevel, label: 'Armory' },
   ];
 
-  for (const u of upgrades) {
+  for (const u of proficiencyUpgrades) {
     if (u.currentLevel >= u.maxLevel) continue;
     const nextDef = u.lookup(u.currentLevel + 1);
     if (!nextDef || nextDef.cost <= 0) continue;
@@ -625,6 +726,35 @@ function getStructureUpgradeActions(
       weight: weights[u.wKey] + rng() * 2,
       reasoning: `${u.label} Lv${u.currentLevel} → ${nextDef.name} (${nextDef.cost.toLocaleString()} gold).`,
       params: { upgradeType: u.type },
+    });
+  }
+
+  // Building upgrades (new system)
+  const buildingUpgrades: {
+    buildingType: BuildingType;
+    currentLevel: number;
+    wKey: keyof StrategyWeights;
+    label: string;
+  }[] = [
+    { buildingType: BuildingType.FORTIFICATION, currentLevel: state.buildings.FORTIFICATION, wKey: 'upgradeFortification', label: 'Fortification' },
+    { buildingType: BuildingType.ARMORY, currentLevel: state.buildings.ARMORY, wKey: 'upgradeArmory', label: 'Armory' },
+    { buildingType: BuildingType.MINE, currentLevel: state.buildings.MINE, wKey: 'upgradeMine', label: 'Mine' },
+    { buildingType: BuildingType.SPY_ACADEMY, currentLevel: state.buildings.SPY_ACADEMY, wKey: 'upgradeSpyAcademy', label: 'Spy Academy' },
+    { buildingType: BuildingType.HOUSING, currentLevel: state.buildings.HOUSING, wKey: 'upgradeHousing', label: 'Housing' },
+    { buildingType: BuildingType.MERCENARY_CAMP, currentLevel: state.buildings.MERCENARY_CAMP, wKey: 'upgradeMercCamp', label: 'Mercenary Camp' },
+  ];
+
+  for (const b of buildingUpgrades) {
+    const maxLevel = getMaxBuildingLevel(b.buildingType);
+    if (b.currentLevel >= maxLevel) continue;
+    const nextDef = getNextBuildingLevel(b.buildingType, b.currentLevel);
+    if (!nextDef || nextDef.cost <= 0) continue;
+    if (state.gold < nextDef.cost) continue; // Can't afford
+    actions.push({
+      type: 'UPGRADE_BUILDING',
+      weight: weights[b.wKey] + rng() * 2,
+      reasoning: `${b.label} Lv${b.currentLevel} → Lv${nextDef.level} (${nextDef.cost.toLocaleString()} gold).`,
+      params: { buildingType: b.buildingType },
     });
   }
 

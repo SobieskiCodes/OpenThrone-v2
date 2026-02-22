@@ -61,6 +61,9 @@ export default function BattleUpgradesPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
+  // Get gold from Zustand store (always current)
+  const goldFromStore = usePlayerStore((state) => state.getGold());
+
   const { data: status, isLoading } = useQuery<StructuresStatus>({
     queryKey: ['structures', 'status'],
     queryFn: () => api.get('/structures/status'),
@@ -123,7 +126,7 @@ export default function BattleUpgradesPage() {
     );
   }
 
-  const gold = Number(status.gold);
+  const gold = Number(goldFromStore);
 
   /** Get unit count for a specific type + level */
   const getUnitCount = (uType: string, level: number): number => {

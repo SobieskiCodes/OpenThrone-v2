@@ -16,6 +16,9 @@ import {
   Menu,
   ActionIcon,
   Indicator,
+  Avatar,
+  Modal,
+  Tabs,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -27,6 +30,8 @@ import { useApi } from '@/hooks/use-api';
 import { useGameSync } from '@/hooks/use-game-sync';
 import { RaceThemeProvider } from '@/context/race-theme';
 import { usePlayerStore } from '@/stores/player-store';
+import { ChatWidget } from '@/components/chat-widget';
+import { SettingsModal } from '@/components/settings';
 import {
   IconHome,
   IconShield,
@@ -38,6 +43,7 @@ import {
   IconMail,
   IconTrophy,
   IconHammer,
+  IconUser,
 } from '@tabler/icons-react';
 
 const navItems = [
@@ -92,6 +98,7 @@ const adminNavItems = [
       { label: 'Bots', href: '/admin/bots' },
       { label: 'Jobs', href: '/admin/jobs' },
       { label: 'Combat Sim', href: '/admin/combat-sim' },
+      { label: 'Settings', href: '/admin/settings' },
     ],
   },
 ];
@@ -130,6 +137,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { api, isReady } = useApi();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
+  const [settingsOpened, { open: openSettings, close: closeSettings }] = useDisclosure();
 
   // Connect to WebSocket for real-time state sync
   useGameSync();
@@ -368,24 +376,6 @@ function GameShell({ children }: { children: React.ReactNode }) {
       <AppShell.Navbar className="ot-navbar" p={{ base: 'xs', sm: 4 }}>
         {/* ── Mobile: Full sidebar (burger toggle) ── */}
         <Stack hiddenFrom="sm" gap={0} h="100%">
-          {session?.user?.name && (
-            <Stack gap={4} p="xs" mb={0}>
-              <Text
-                component={Link}
-                href={`/profile/${(session as any).user.id}`}
-                fw={600}
-                size="sm"
-                className="ot-text-accent"
-                style={{ textDecoration: 'none' }}
-              >
-                {session.user.name}
-              </Text>
-              <Text size="xs" className="ot-text-dim">
-                {session.user.email}
-              </Text>
-            </Stack>
-          )}
-          <Box className="ot-divider" mb="xs" />
           <ScrollArea style={{ flex: 1 }} scrollbarSize={6}>
             <Stack gap={2}>
               {allNavItems.map((item) => {
@@ -459,9 +449,67 @@ function GameShell({ children }: { children: React.ReactNode }) {
             </Stack>
           </ScrollArea>
           <Box className="ot-divider" mt="xs" mb="xs" />
-          <Button variant="subtle" fullWidth color="red" onClick={handleLogout}>
-            Logout
-          </Button>
+
+          {/* User Menu */}
+          <Menu position="top" withArrow>
+            <Menu.Target>
+              <Group
+                gap="sm"
+                p="xs"
+                style={{
+                  cursor: 'pointer',
+                  borderRadius: 'var(--mantine-radius-md)',
+                  transition: 'background-color 0.2s',
+                }}
+                className="ot-hover-bg"
+              >
+                <Avatar
+                  size="md"
+                  radius="xl"
+                  color="var(--ot-color-primary)"
+                  style={{ flexShrink: 0 }}
+                >
+                  {session?.user?.name?.charAt(0).toUpperCase() ?? 'U'}
+                </Avatar>
+                <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+                  <Text size="sm" fw={600} truncate>
+                    {session?.user?.name ?? 'User'}
+                  </Text>
+                  <Text size="xs" className="ot-text-dim" truncate>
+                    {session?.user?.email ?? ''}
+                  </Text>
+                </Stack>
+              </Group>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item
+                leftSection={<IconUser size={16} />}
+                component={Link}
+                href={`/profile/${(session as any)?.user?.id}`}
+                onClick={() => toggleMobile()}
+              >
+                View My Profile
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconSettings size={16} />}
+                onClick={() => {
+                  openSettings();
+                  toggleMobile();
+                }}
+              >
+                Settings
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item
+                leftSection={<IconLogout size={16} />}
+                color="red"
+                onClick={handleLogout}
+              >
+                Logout
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+
           <Text
             size="xs"
             ta="center"
@@ -548,11 +596,47 @@ function GameShell({ children }: { children: React.ReactNode }) {
               );
             })}
           </Stack>
-          <Tooltip label="Logout" position="right" withArrow>
-            <ActionIcon variant="subtle" color="red" size="xl" onClick={handleLogout}>
-              <IconLogout size={22} />
-            </ActionIcon>
-          </Tooltip>
+
+          {/* User Avatar Menu */}
+          <Menu position="right" withArrow>
+            <Menu.Target>
+              <Tooltip label={session?.user?.name ?? 'User'} position="right" withArrow>
+                <Avatar
+                  size="lg"
+                  radius="xl"
+                  color="var(--ot-color-primary)"
+                  style={{ cursor: 'pointer' }}
+                >
+                  {session?.user?.name?.charAt(0).toUpperCase() ?? 'U'}
+                </Avatar>
+              </Tooltip>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>{session?.user?.name ?? 'User'}</Menu.Label>
+              <Menu.Item
+                leftSection={<IconUser size={16} />}
+                component={Link}
+                href={`/profile/${(session as any)?.user?.id}`}
+              >
+                View My Profile
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconSettings size={16} />}
+                onClick={openSettings}
+              >
+                Settings
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item
+                leftSection={<IconLogout size={16} />}
+                color="red"
+                onClick={handleLogout}
+              >
+                Logout
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+
           <Text
             size="9px"
             className="ot-text-dim"
@@ -574,6 +658,12 @@ function GameShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </AppShell.Main>
+
+      {/* ── Chat Widget ─────────────────────────────────── */}
+      <ChatWidget />
+
+      {/* ── Settings Modal ──────────────────────────────── */}
+      <SettingsModal opened={settingsOpened} onClose={closeSettings} />
     </AppShell>
   );
 }

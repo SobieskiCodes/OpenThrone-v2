@@ -123,6 +123,9 @@ export default function TrainingPage() {
     },
   });
 
+  // Get gold from Zustand store (always current, updates instantly)
+  const goldFromStore = usePlayerStore((state) => state.getGold());
+
   if (isLoading || !status) {
     return (
       <Container size="lg">
@@ -135,7 +138,7 @@ export default function TrainingPage() {
     );
   }
 
-  const gold = Number(status.gold);
+  const gold = Number(goldFromStore);
   const { citizens, fortLevel } = status;
 
   const getKey = (unitType: string, level: number) => `${unitType}_${level}`;

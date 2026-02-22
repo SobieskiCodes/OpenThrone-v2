@@ -11,8 +11,10 @@ import {
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
+import { OnEvent } from '@nestjs/event-emitter';
 import { ChatService } from './chat.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MessageSentEvent } from '@openthrone/events';
 
 @WebSocketGateway({
   cors: {
@@ -54,6 +56,14 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
       // Attach player ID to socket data
       client.data.playerId = playerId;
+
+      // Ensure player is in general room (database + auto-join)
+      try {
+        const generalRoom = await this.chatService.autoJoinGeneral(playerId);
+        client.join(`room:${generalRoom.id}`);
+      } catch (err) {
+        this.logger.error(`Failed to auto-join general room for ${playerId}:`, err);
+      }
 
       // Auto-join player to all their room channels
       const participations = await this.prisma.chatRoomParticipant.findMany({
@@ -118,7 +128,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         data.replyToId,
       );
 
-      this.server.to(`room:${data.roomId}`).emit('newMessage', message);
+      // Don't broadcast here - the event listener handles it
+      // This prevents double messages
       return { event: 'messageSent', data: { id: message.id } };
     } catch (err: any) {
       return { event: 'error', data: { message: err.message } };
@@ -213,6 +224,77 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       return { event: 'messagesRead', data: { count: messageIds.length } };
     } catch (err: any) {
       return { event: 'error', data: { message: err.message } };
+    }
+  }
+
+  /**
+   * Listen to MessageSentEvent and broadcast to room
+   * Handles both player messages and system messages
+   */
+  @OnEvent('chat.messageSent')
+  async handleMessageSentEvent(event: MessageSentEvent) {
+    try {
+      // Fetch the full message details
+      const message = await this.prisma.chatMessage.findUnique({
+        where: { id: event.messageId },
+        include: {
+          sender: {
+            select: { id: true, display_name: true },
+          },
+          reply_to: {
+            include: {
+              sender: { select: { id: true, display_name: true } },
+            },
+          },
+          reactions: {
+            include: {
+              user: {
+                select: { id: true, display_name: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!message) {
+        this.logger.warn(`Message ${event.messageId} not found for broadcast`);
+        return;
+      }
+
+      // Format message for broadcast
+      const formattedMessage = {
+        id: message.id,
+        content: message.content,
+        messageType: message.message_type,
+        sender: {
+          id: message.sender.id,
+          displayName: message.sender.display_name,
+        },
+        senderColor: message.sender_color,
+        senderIcon: message.sender_icon,
+        replyTo: message.reply_to
+          ? {
+              id: message.reply_to.id,
+              content: message.reply_to.content,
+              sender: {
+                id: message.reply_to.sender.id,
+                displayName: message.reply_to.sender.display_name,
+              },
+            }
+          : null,
+        reactions: message.reactions.map((r) => ({
+          reaction: r.reaction,
+          user: { id: r.user.id, displayName: r.user.display_name },
+        })),
+        sentAt: message.sent_at,
+      };
+
+      // Broadcast to all clients in this room
+      this.server.to(`room:${event.roomId}`).emit('newMessage', formattedMessage);
+
+      this.logger.debug(`Broadcasted message ${event.messageId} to room ${event.roomId}`);
+    } catch (err) {
+      this.logger.error(`Failed to broadcast message ${event.messageId}:`, err);
     }
   }
 }

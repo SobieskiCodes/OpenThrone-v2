@@ -25,6 +25,7 @@ export class BotSnapshotService {
             units: true,
             items: true,
             fortification: true,
+            buildings: true,
           },
         },
       },
@@ -79,6 +80,26 @@ export class BotSnapshotService {
       .filter((i) => i.item_type === 'ARMOR' && i.level === 3)
       .reduce((sum, i) => sum + i.quantity, 0);
 
+    // Extract building levels
+    const buildings = player.buildings || [];
+    const fortificationLevel = buildings.find((b) => b.building_type === 'FORTIFICATION')?.level ?? 1;
+    const armoryLevel = buildings.find((b) => b.building_type === 'ARMORY')?.level ?? 0;
+    const mineLevel = buildings.find((b) => b.building_type === 'MINE')?.level ?? 0;
+    const spyAcademyLevel = buildings.find((b) => b.building_type === 'SPY_ACADEMY')?.level ?? 0;
+    const housingLevel = buildings.find((b) => b.building_type === 'HOUSING')?.level ?? 0;
+    const mercenaryCampLevel = buildings.find((b) => b.building_type === 'MERCENARY_CAMP')?.level ?? 0;
+
+    // Count chat messages sent since last snapshot
+    const lastSnapshot = await this.getLatestSnapshot(botConfigId);
+    const chatMessagesSent = await this.prisma.chatMessage.count({
+      where: {
+        sender_id: player.id,
+        sent_at: lastSnapshot
+          ? { gt: lastSnapshot.snapshot_date }
+          : undefined,
+      },
+    });
+
     // Create snapshot
     const snapshot = await this.prisma.botSnapshot.create({
       data: {
@@ -113,6 +134,17 @@ export class BotSnapshotService {
         fort_max_hp: player.fortification?.fort_level
           ? player.fortification.fort_level * 100
           : 50,
+
+        // Buildings
+        fortification_level: fortificationLevel,
+        armory_level: armoryLevel,
+        mine_level: mineLevel,
+        spy_academy_level: spyAcademyLevel,
+        housing_level: housingLevel,
+        mercenary_camp_level: mercenaryCampLevel,
+
+        // Chat activity
+        chat_messages_sent: chatMessagesSent,
 
         // Equipment
         weapons_t1: weaponsT1,

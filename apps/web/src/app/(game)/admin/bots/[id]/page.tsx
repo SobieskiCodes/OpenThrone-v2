@@ -399,6 +399,76 @@ export default function BotDetailPage() {
                 </OTCard>
               </SimpleGrid>
 
+              {/* Buildings Section */}
+              <OTCard>
+                <Stack gap="sm">
+                  <Text size="xs" fw={700} style={{ color: 'var(--ot-text-dim)' }}>
+                    BUILDINGS
+                  </Text>
+                  <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
+                    <Group justify="space-between">
+                      <Text size="sm">Fortification</Text>
+                      <Badge size="sm" variant="light">Lv {(bot.player as any).fortificationLevel || 1}</Badge>
+                    </Group>
+                    <Group justify="space-between">
+                      <Text size="sm">Armory</Text>
+                      <Badge size="sm" variant="light">Lv {(bot.player as any).armoryLevel || 0}</Badge>
+                    </Group>
+                    <Group justify="space-between">
+                      <Text size="sm">Mine</Text>
+                      <Badge size="sm" variant="light">Lv {(bot.player as any).mineLevel || 0}</Badge>
+                    </Group>
+                    <Group justify="space-between">
+                      <Text size="sm">Spy Academy</Text>
+                      <Badge size="sm" variant="light">Lv {(bot.player as any).spyAcademyLevel || 0}</Badge>
+                    </Group>
+                    <Group justify="space-between">
+                      <Text size="sm">Housing</Text>
+                      <Badge size="sm" variant="light">Lv {(bot.player as any).housingLevel || 0}</Badge>
+                    </Group>
+                    <Group justify="space-between">
+                      <Text size="sm">Merc Camp</Text>
+                      <Badge size="sm" variant="light">Lv {(bot.player as any).mercenaryCampLevel || 0}</Badge>
+                    </Group>
+                  </SimpleGrid>
+                </Stack>
+              </OTCard>
+
+              {/* Cosmetics & Chat Activity */}
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                <OTCard>
+                  <Stack gap="sm">
+                    <Text size="xs" fw={700} style={{ color: 'var(--ot-text-dim)' }}>
+                      COSMETICS
+                    </Text>
+                    <Group justify="space-between">
+                      <Text size="sm">Owned</Text>
+                      <Text size="sm" fw={600}>{(bot.player as any).cosmeticsOwned || 0}</Text>
+                    </Group>
+                    <Group justify="space-between">
+                      <Text size="sm">Equipped</Text>
+                      <Text size="sm" fw={600}>{(bot.player as any).cosmeticsEquipped || 0}</Text>
+                    </Group>
+                  </Stack>
+                </OTCard>
+
+                <OTCard>
+                  <Stack gap="sm">
+                    <Text size="xs" fw={700} style={{ color: 'var(--ot-text-dim)' }}>
+                      CHAT ACTIVITY
+                    </Text>
+                    <Group justify="space-between">
+                      <Text size="sm">Messages Today</Text>
+                      <Text size="sm" fw={600}>{(bot.player as any).chatMessagesToday || 0}</Text>
+                    </Group>
+                    <Group justify="space-between">
+                      <Text size="sm">Total Messages</Text>
+                      <Text size="sm" fw={600}>{(bot.player as any).chatMessagesTotal || 0}</Text>
+                    </Group>
+                  </Stack>
+                </OTCard>
+              </SimpleGrid>
+
               <Text size="xs" style={{ color: 'var(--ot-text-dim)' }}>
                 Personality Seed: {bot.personalitySeed} | Created: {new Date(bot.createdAt).toLocaleString()}
               </Text>
@@ -662,6 +732,95 @@ export default function BotDetailPage() {
                           name="Success Rate"
                         />
                       </LineChart>
+                    </ResponsiveContainer>
+                  </Paper>
+
+                  {/* Building Progression */}
+                  <Paper p="md" withBorder>
+                    <Text size="sm" fw={600} mb="sm">Building Progression</Text>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <LineChart data={analyticsData.snapshots}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-5)" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={(val) => new Date(val).toLocaleDateString()}
+                          stroke="var(--mantine-color-dark-3)"
+                        />
+                        <YAxis stroke="var(--mantine-color-dark-3)" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--mantine-color-dark-7)',
+                            border: '1px solid var(--mantine-color-dark-5)'
+                          }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="fortificationLevel"
+                          stroke="#8b7355"
+                          strokeWidth={2}
+                          name="Fortification"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="armoryLevel"
+                          stroke="#ff4444"
+                          strokeWidth={2}
+                          name="Armory"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="mineLevel"
+                          stroke="#f39c12"
+                          strokeWidth={2}
+                          name="Mine"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="spyAcademyLevel"
+                          stroke="#9b59b6"
+                          strokeWidth={2}
+                          name="Spy Academy"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="housingLevel"
+                          stroke="#4c9eff"
+                          strokeWidth={2}
+                          name="Housing"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="mercenaryCampLevel"
+                          stroke="#82ca9d"
+                          strokeWidth={2}
+                          name="Merc Camp"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Paper>
+
+                  {/* Chat Activity */}
+                  <Paper p="md" withBorder>
+                    <Text size="sm" fw={600} mb="sm">Chat Activity</Text>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={analyticsData.snapshots}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-5)" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={(val) => new Date(val).toLocaleDateString()}
+                          stroke="var(--mantine-color-dark-3)"
+                        />
+                        <YAxis stroke="var(--mantine-color-dark-3)" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--mantine-color-dark-7)',
+                            border: '1px solid var(--mantine-color-dark-5)'
+                          }}
+                        />
+                        <Legend />
+                        <Bar dataKey="chatMessagesSent" fill="#4c9eff" name="Messages Sent" />
+                      </BarChart>
                     </ResponsiveContainer>
                   </Paper>
                 </>

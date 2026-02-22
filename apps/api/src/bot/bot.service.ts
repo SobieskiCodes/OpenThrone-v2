@@ -341,6 +341,7 @@ export class BotService {
             economy: true,
             units: true,
             fortification: true,
+            buildings: true,
           },
         },
       },
@@ -349,6 +350,23 @@ export class BotService {
     if (!config) throw new NotFoundException('Bot not found');
 
     const fortDef = getFortificationByLevel(config.player.fortification?.fort_level ?? 1);
+
+    // Extract building levels
+    const buildings = config.player.buildings || [];
+    const getBuildingLevel = (type: string) => buildings.find((b) => b.building_type === type)?.level ?? 0;
+
+    // Count cosmetics and chat messages
+    const [cosmeticsOwned, cosmeticsEquipped, chatMessagesTotal, chatMessagesToday] = await Promise.all([
+      this.prisma.playerCosmetic.count({ where: { player_id: config.player_id } }),
+      this.prisma.playerCosmetic.count({ where: { player_id: config.player_id, equipped: true } }),
+      this.prisma.chatMessage.count({ where: { sender_id: config.player_id } }),
+      this.prisma.chatMessage.count({
+        where: {
+          sender_id: config.player_id,
+          sent_at: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+        },
+      }),
+    ]);
 
     return {
       id: config.id,
@@ -366,7 +384,7 @@ export class BotService {
       createdAt: config.created_at,
       player: {
         level: getLevelForXP(config.player.stats?.experience ?? 0),
-        experience: config.player.stats?.experience ?? 0,
+        experience: (config.player.stats?.experience ?? BigInt(0)).toString(),
         offense: config.player.stats?.offense ?? 0,
         defense: config.player.stats?.defense ?? 0,
         spy: config.player.stats?.spy ?? 0,
@@ -378,6 +396,16 @@ export class BotService {
         fortHP: config.player.fortification?.hitpoints ?? 50,
         fortMaxHP: fortDef?.hitpoints ?? 50,
         population: config.player.units.reduce((sum, u) => sum + u.quantity, 0),
+        fortificationLevel: getBuildingLevel('FORTIFICATION') || 1,
+        armoryLevel: getBuildingLevel('ARMORY'),
+        mineLevel: getBuildingLevel('MINE'),
+        spyAcademyLevel: getBuildingLevel('SPY_ACADEMY'),
+        housingLevel: getBuildingLevel('HOUSING'),
+        mercenaryCampLevel: getBuildingLevel('MERCENARY_CAMP'),
+        cosmeticsOwned,
+        cosmeticsEquipped,
+        chatMessagesTotal,
+        chatMessagesToday,
       },
     };
   }
@@ -533,15 +561,22 @@ export class BotService {
       defenseUnits: getUnitQty('DEFENSE'),
       spyUnits: getUnitQty('SPY'),
       sentryUnits: getUnitQty('SENTRY'),
-      fortLevel: player.fortification?.fort_level ?? 1,
-      fortHP: player.fortification?.hitpoints ?? 50,
-      fortMaxHP: fortDef?.hitpoints ?? 50,
-      houseLevel: getBuildingLevel('HOUSING'),
-      economyLevel: getBuildingLevel('MINE'),
+      buildings: {
+        FORTIFICATION: getBuildingLevel('FORTIFICATION'),
+        ARMORY: getBuildingLevel('ARMORY'),
+        MINE: getBuildingLevel('MINE'),
+        SPY_ACADEMY: getBuildingLevel('SPY_ACADEMY'),
+        HOUSING: getBuildingLevel('HOUSING'),
+        MERCENARY_CAMP: getBuildingLevel('MERCENARY_CAMP'),
+      },
+      fortification: {
+        level: player.fortification?.fort_level ?? 1,
+        hitpoints: player.fortification?.hitpoints ?? 50,
+        maxHitpoints: fortDef?.hitpoints ?? 50,
+      },
       offenseUpgradeLevel: getUpgradeLevel('OFFENSE'),
       spyUpgradeLevel: getUpgradeLevel('SPY'),
       sentryUpgradeLevel: getUpgradeLevel('SENTRY'),
-      armoryLevel: getBuildingLevel('ARMORY'),
       level: getLevelForXP(player.stats?.experience ?? 0),
       experience: Number(player.stats?.experience ?? 0),
       offense: player.stats?.offense ?? 0,
