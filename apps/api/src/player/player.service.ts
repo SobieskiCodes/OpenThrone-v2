@@ -138,7 +138,7 @@ export class PlayerService {
       })),
       stats: player.stats
         ? {
-            experience: player.stats.experience,
+            experience: player.stats.experience.toString(),
             rank: player.stats.rank,
             offense: player.stats.offense,
             defense: player.stats.defense,

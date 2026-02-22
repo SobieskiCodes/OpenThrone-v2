@@ -18,7 +18,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
-import { updatePlayerCache } from '@/lib/cache-sync';
+import { usePlayerStore } from '@/stores/player-store';
 import { OTCard } from '@/components/ui';
 import { toLocale } from '@openthrone/game-logic';
 import type { PlayerStateSnapshot } from '@openthrone/shared';
@@ -147,10 +147,12 @@ export default function BuildingsPage() {
     mutationFn: (buildingType: string) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/structures/buildings/upgrade', { buildingType }),
     onSuccess: (data) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, data.playerState);
+      // Update Zustand store INSTANTLY (includes level, XP, gold, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
+      }
 
-      // Still invalidate buildings queries
+      // Still invalidate buildings queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['structures', 'buildings'] });
 
       notifications.show({

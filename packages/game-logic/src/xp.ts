@@ -19,11 +19,13 @@ export const levelXPArray: LevelXP[] = generateXPCurve();
 /**
  * Returns the level corresponding to the given cumulative XP.
  * Level 1 starts at 0 XP, max level is 1000.
+ * Accepts both number and bigint for compatibility with Prisma types.
  */
-export function getLevelForXP(xp: number): number {
+export function getLevelForXP(xp: number | bigint): number {
+  const xpNum = typeof xp === 'bigint' ? Number(xp) : xp;
   for (let i = levelXPArray.length - 1; i >= 0; i--) {
     const entry = levelXPArray[i];
-    if (entry && xp >= entry.xp) {
+    if (entry && xpNum >= entry.xp) {
       return entry.level;
     }
   }
@@ -42,11 +44,12 @@ export function getXPForLevel(level: number): number {
  * Returns the amount of XP needed to advance from the current XP to the next level.
  * Returns 0 if already at or beyond max level.
  */
-export function getXPToNextLevel(currentXP: number): number {
+export function getXPToNextLevel(currentXP: number | bigint): number {
   const currentLevel = getLevelForXP(currentXP);
+  const xpNum = typeof currentXP === 'bigint' ? Number(currentXP) : currentXP;
   const nextEntry = levelXPArray.find((e) => e.level === currentLevel + 1);
   if (!nextEntry) {
     return 0;
   }
-  return Math.max(0, nextEntry.xp - currentXP);
+  return Math.max(0, nextEntry.xp - xpNum);
 }

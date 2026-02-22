@@ -2,6 +2,37 @@
 
 > **Goal:** Build a comprehensive bot monitoring and analytics system that uses bots as 24/7 QA agents to balance the game, find bottlenecks, and validate long-term economy scaling.
 
+## 📊 Current Progress
+
+| Phase | Status | Commit |
+|-------|--------|--------|
+| **Phase 0: Foundation** | ✅ Complete | 8a740ed, 8086fb5 |
+| **Phase 1: Time-Series Charts** | ✅ Complete | 8a740ed |
+| **Phase 2: Equipment & Efficiency** | ⏳ Not Started | - |
+| **Phase 3: Strategy Comparison** | ✅ Complete | 8a740ed |
+| **Phase 4: Simulation** | ✅ Complete | 8a740ed |
+| **Phase 5: Advanced Analytics** | ⏳ Not Started | - |
+| **Phase 6: Global Dashboard** | 🟡 Partial | 8a740ed |
+
+**Overall: 4/6 phases complete, 1 partial**
+
+### What's Working Now
+
+✅ **You can:**
+- Generate 100 bots with `POST /admin/bots/generate`
+- Run 6-month simulation: `POST /admin/bots/simulation/start` with `{days: 180, sessionsPerDay: 5}`
+- View global analytics at `/admin/bots/dashboard` with time range filters
+- See individual bot progression charts at `/admin/bots/:id` (Analytics tab)
+- Compare strategies side-by-side on dashboard
+- Track top performers by gold and level
+- Stop running simulations with UI button
+- Use all search features on both SQLite (dev) and PostgreSQL (prod)
+
+### Recent Fixes (8626420)
+- ✅ Database-agnostic search queries (SQLite + PostgreSQL compatible)
+- ✅ Fixed hydration errors on battle page
+- ✅ Proper level calculation using `getLevelForXP()` throughout system
+
 ## Overview
 
 Bots will serve as automated playtesters that reveal:
@@ -119,6 +150,11 @@ Modify `BotSchedulerService.runSingleBot()` to update snapshot metrics after eac
 - ✅ Session-end snapshot updates
 - ✅ Database migration
 
+**Status: ✅ COMPLETE**
+- Implemented in commits 8a740ed, 8086fb5
+- Snapshot service includes optional date parameter for simulation support
+- Uses `getLevelForXP()` for accurate level calculation (not rank field)
+
 ---
 
 ## Phase 1: Bot Detail Page — Time-Series Charts
@@ -205,6 +241,12 @@ Add new tab: **"Analytics"**
 - ✅ Time range selector
 - ✅ Summary metrics cards
 
+**Status: ✅ COMPLETE**
+- Implemented in commit 8a740ed
+- Endpoint: `GET /admin/bots/:id/analytics?period=7d|30d|3m|6m|1y|all`
+- Charts include gold, level/XP, population, combat, and action success
+- Summary metrics: gold/XP growth rates, avg actions/session, win rate, success rate
+
 ---
 
 ## Phase 2: Equipment Inventory & Efficiency Metrics
@@ -254,10 +296,12 @@ async getBotEfficiency(@Param('id') id: string)
 ```
 
 **Deliverables:**
-- ✅ Equipment inventory tab
-- ✅ Efficiency score card
-- ✅ API endpoints for equipment & efficiency
-- ✅ Actionable recommendations
+- [ ] Equipment inventory tab
+- [ ] Efficiency score card
+- [ ] API endpoints for equipment & efficiency
+- [ ] Actionable recommendations
+
+**Status: ⏳ NOT STARTED**
 
 ---
 
@@ -323,6 +367,14 @@ async compareStrategies(
 - ✅ At-a-glance stats table
 - ✅ Add link to admin nav
 
+**Status: ✅ COMPLETE**
+- Implemented in commit 8a740ed
+- Endpoint: `GET /admin/bots/analytics/global?period=7d|30d|3m|6m|1y|all`
+- Page: `apps/web/src/app/(game)/admin/bots/dashboard/page.tsx`
+- Shows top 10 bots by gold, strategy comparison with aggregated metrics
+- Auto-refreshes every 5 seconds during simulation
+- Includes summary (total bots, gold, population) and top performers by gold/level
+
 ---
 
 ## Phase 4: Simulation & Fast-Forward
@@ -384,6 +436,16 @@ Add **"Simulate 10/50/100 Sessions"** button:
 - ✅ Frontend simulate button & modal
 - ✅ Before/after comparison view
 
+**Status: ✅ COMPLETE**
+- Implemented in commit 8a740ed
+- Service: `BotSimulationService` in `apps/api/src/bot/bot-simulation.service.ts`
+- Endpoints:
+  - `POST /admin/bots/simulation/start` - Start simulation with configurable days & sessions/day
+  - `GET /admin/bots/simulation/status` - Check simulation progress
+  - `POST /admin/bots/simulation/cancel` - Stop running simulation
+- Frontend: Simulation modal with progress tracking, persistent banner during run
+- Supports proper date progression for time-series analytics (simulated dates span historical range)
+
 ---
 
 ## Phase 5: Advanced Analytics & Insights
@@ -432,10 +494,12 @@ Add "Export to CSV" button to download:
 - Strategy comparison data
 
 **Deliverables:**
-- ✅ Bottleneck detection service
-- ✅ Strategy recommendation engine
-- ✅ Timeline view component
-- ✅ CSV export functionality
+- [ ] Bottleneck detection service
+- [ ] Strategy recommendation engine
+- [ ] Timeline view component
+- [ ] CSV export functionality
+
+**Status: ⏳ NOT STARTED**
 
 ---
 
@@ -480,30 +544,34 @@ Multi-bot charts:
 
 **Deliverables:**
 - ✅ Global dashboard page
-- ✅ Economy health monitoring
-- ✅ Alert system for imbalances
-- ✅ Multi-bot overlay charts
+- [ ] Economy health monitoring
+- [ ] Alert system for imbalances
+- [ ] Multi-bot overlay charts
+
+**Status: 🟡 PARTIALLY COMPLETE**
+- Basic global dashboard implemented (shows top 10, strategy comparison, summary stats)
+- Still needed: Economy health alerts, inflation tracking, multi-bot overlay charts
 
 ---
 
 ## Implementation Order (Recommended)
 
-| Phase | Effort | Priority | Dependencies |
-|-------|--------|----------|--------------|
-| **Phase 0** | Medium | **Critical** | None — foundation for all analytics |
-| **Phase 1** | Medium | High | Phase 0 |
-| **Phase 2** | Low | Medium | Phase 1 |
-| **Phase 3** | Medium | High | Phase 0, 1 |
-| **Phase 4** | High | Medium | Phase 0 |
-| **Phase 5** | High | Low | Phase 0, 1 |
-| **Phase 6** | Medium | Low | Phase 0, 1, 3 |
+| Phase | Effort | Priority | Dependencies | Status |
+|-------|--------|----------|--------------|--------|
+| **Phase 0** | Medium | **Critical** | None — foundation for all analytics | ✅ Complete |
+| **Phase 1** | Medium | High | Phase 0 | ✅ Complete |
+| **Phase 2** | Low | Medium | Phase 1 | ⏳ Not Started |
+| **Phase 3** | Medium | High | Phase 0, 1 | ✅ Complete |
+| **Phase 4** | High | Medium | Phase 0 | ✅ Complete |
+| **Phase 5** | High | Low | Phase 0, 1 | ⏳ Not Started |
+| **Phase 6** | Medium | Low | Phase 0, 1, 3 | 🟡 Partial |
 
-**Suggested sprint plan:**
-1. **Sprint 1:** Phase 0 (foundation)
-2. **Sprint 2:** Phase 1 (bot detail charts)
-3. **Sprint 3:** Phase 2 + Phase 3 (equipment & comparison)
-4. **Sprint 4:** Phase 4 (simulation)
-5. **Sprint 5:** Phase 5 + 6 (advanced analytics)
+**Actual sprint progress:**
+1. ✅ **Sprint 1:** Phase 0 (foundation) — Snapshot system with date progression support
+2. ✅ **Sprint 2:** Phase 1 (bot detail charts) — Time-series analytics with Recharts
+3. ✅ **Sprint 3:** Phase 3 + 4 (comparison & simulation) — Global dashboard + fast-forward sim
+4. ⏳ **Sprint 4:** Phase 2 (equipment & efficiency) — Next up
+5. ⏳ **Sprint 5:** Phase 5 + 6 completion (advanced analytics + economy monitoring)
 
 ---
 
@@ -551,7 +619,59 @@ After implementation, we'll be able to answer:
 - Seed test data with 30 days of fake snapshots
 - Load test: 100 bots × 365 snapshots = 36,500 rows (should be fast)
 
+### Implementation Learnings
+
+**Database Compatibility:**
+- All search queries use conditional `mode: 'insensitive'` only for PostgreSQL
+- SQLite doesn't support this flag, so we detect `DATABASE_URL` type at runtime
+- Applied to: player search, admin search, battle player search
+
+**Level vs Rank Confusion:**
+- `rank` field = leaderboard position (#1, #61, etc.)
+- `level` = calculated from experience using `getLevelForXP()`
+- ALWAYS use `getLevelForXP(stats.experience)` for bot analytics, never `stats.rank`
+
+**Simulation Date Progression:**
+- Snapshot service accepts optional `snapshotDate` parameter
+- Simulation calculates simulated dates spanning historical range (e.g., 180 days ago → today)
+- This ensures proper time-series charts instead of all data collapsing to current date
+
+**Frontend Performance:**
+- Dashboard auto-refreshes every 5s during simulation
+- Shows top 10 bots instead of all 100 for readability
+- Battle page filters load from localStorage in `useEffect` to avoid hydration errors
+
 ---
+
+## Next Steps
+
+### Immediate Actions
+1. **Run 100-bot simulation** — Test the completed system with real data
+   - Generate 100 bots across all 5 strategies
+   - Run 6-month simulation (180 days, 5 sessions/day)
+   - Review global analytics dashboard for balance insights
+   - Identify which strategies dominate at different level ranges
+
+2. **Address BACKLOG balance issues**
+   - Casualties at 10x turns feel too high
+   - Sabotage destroying 3–5 items is negligible (should be percentage-based)
+   - Proficiency limits needed (cap at 25 or 50)
+
+### Recommended Phase Order
+1. **Phase 2: Equipment & Efficiency** (Low effort, high value)
+   - Shows resource inefficiencies (unequipped units, untrained citizens)
+   - Helps identify why bots stall at certain levels
+
+2. **Phase 6 Completion: Economy Monitoring** (Medium effort)
+   - Inflation tracking alerts
+   - Gold distribution analysis
+   - Multi-bot overlay charts
+
+3. **Phase 5: Advanced Analytics** (High effort, nice-to-have)
+   - Bottleneck detection
+   - Strategy recommendations
+   - Timeline view
+   - CSV export
 
 ## Conclusion
 
@@ -562,3 +682,7 @@ This bot analytics system transforms bots from simple NPCs into a sophisticated 
 - Catch bugs and exploits through unusual bot behavior patterns
 
 **The bots become our 24/7 QA team, constantly stress-testing the game's economy and balance.**
+
+---
+
+**Current status:** Core analytics system is functional and ready for large-scale testing. Run a 100-bot simulation to validate game balance before moving to Phase 2.

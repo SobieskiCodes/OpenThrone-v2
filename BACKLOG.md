@@ -83,10 +83,15 @@ barracks is citizen per tick - maybe?
 
 should level play a small role in over all power? it coulda kinda discourage level holding
 
-mercenaries takes you to the old building buy page, not mercenaries for sale lmao
-
 Should we add a player compare rankings thing
 
 Fort repair button on dashboard
 
 Upgrade button in armory, higher tier items should take equip precendence
+
+need to keep track of which pages need to return cache - its still annoying as shit.
+
+
+can this be ported to a mobile app - or do we need to revist the design lol
+
+admin ui can set starting gold in bank + cits per turn (and any otehr configurable)

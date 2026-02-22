@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import {
   AppShell,
   Group,
@@ -17,12 +18,15 @@ import {
   Indicator,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useApi } from '@/hooks/use-api';
+import { useGameSync } from '@/hooks/use-game-sync';
 import { RaceThemeProvider } from '@/context/race-theme';
+import { usePlayerStore } from '@/stores/player-store';
 import {
   IconHome,
   IconShield,
@@ -31,6 +35,9 @@ import {
   IconWorld,
   IconSettings,
   IconLogout,
+  IconMail,
+  IconTrophy,
+  IconHammer,
 } from '@tabler/icons-react';
 
 const navItems = [
@@ -90,15 +97,19 @@ const adminNavItems = [
 ];
 
 interface MeData {
+  id?: string;
+  displayName?: string;
+  race?: string;
   availablePoints?: number;
   availableUpgrades?: number;
   economy?: {
     gold: string;
+    goldInBank: string;
     attackTurns: number;
   };
   stats?: {
     rank: number;
-    experience: number;
+    experience: string; // BigInt as string
   };
   units?: { unitType: string; level: number; quantity: number }[];
   level?: number;
@@ -119,6 +130,9 @@ function GameShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { api, isReady } = useApi();
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
+
+  // Connect to WebSocket for real-time state sync
+  useGameSync();
 
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ['mail', 'unread-count'],
@@ -149,6 +163,155 @@ function GameShell({ children }: { children: React.ReactNode }) {
     (b) => b.buildingType === 'MERCENARY_CAMP' && b.currentLevel > 0
   ) ?? false;
 
+  // ─── Hydrate Zustand Store ──────────────────────────────────────
+  useEffect(() => {
+    if (meData) {
+      // Calculate total units
+      const totalUnits = meData.units?.reduce((sum, u) => sum + u.quantity, 0) ?? 0;
+
+      // Build unitsByType map
+      const unitsByType = meData.units?.reduce((acc, u) => {
+        acc[u.unitType] = u.quantity;
+        return acc;
+      }, {} as Record<string, number>) ?? {};
+
+      // Build buildings map
+      const buildings = buildingsData?.buildings?.reduce((acc, b) => {
+        acc[b.buildingType] = b.currentLevel;
+        return acc;
+      }, {} as Record<string, number>) ?? {};
+
+      // Hydrate store (gold stored as strings)
+      usePlayerStore.getState().setState({
+        id: meData.id ?? '',
+        displayName: meData.displayName ?? '',
+        level: meData.level ?? 1,
+        experience: meData.stats?.experience ?? '0',
+        race: meData.race ?? 'UNDEAD',
+        gold: meData.economy?.gold ?? '0',
+        goldInBank: meData.economy?.goldInBank ?? '0',
+        attackTurns: meData.economy?.attackTurns ?? 0,
+        totalUnits,
+        unitsByType,
+        buildings,
+        availablePoints: meData.availablePoints ?? 0,
+        availableUpgrades: meData.availableUpgrades ?? 0,
+        unreadMail: unreadCount,
+        proficiencies: {}, // TODO: add when proficiencies are in meData
+        equippedItems: [], // TODO: add when equipped items are in meData
+      });
+    }
+  }, [meData, buildingsData, unreadCount]);
+
+  // ─── Notification Handlers ───────────────────────────────────────
+  const notificationsShown = useRef(false);
+  const lastLevel = useRef(0);
+  const lastAvailablePoints = useRef<number | null>(null);
+  const lastAvailableUpgrades = useRef<number | null>(null);
+  const lastUnreadMail = useRef<number | null>(null);
+
+  // Initial notifications on login
+  useEffect(() => {
+    if (notificationsShown.current || !meData) return;
+
+    const unreadMail = usePlayerStore.getState().unreadMail;
+    const availablePoints = usePlayerStore.getState().availablePoints;
+    const availableUpgrades = usePlayerStore.getState().availableUpgrades;
+
+    if (unreadMail > 0) {
+      notifications.show({
+        id: 'unread-mail',
+        title: 'Unread Messages',
+        message: `You have ${unreadMail} unread message${unreadMail > 1 ? 's' : ''}`,
+        color: 'blue',
+        icon: <IconMail size={20} />,
+        autoClose: 5000,
+      });
+    }
+
+    if (availablePoints > 0) {
+      notifications.show({
+        id: 'available-points',
+        title: 'Proficiency Points Available',
+        message: `You have ${availablePoints} proficiency point${availablePoints > 1 ? 's' : ''} to spend`,
+        color: 'green',
+        icon: <IconTrophy size={20} />,
+        autoClose: 5000,
+      });
+    }
+
+    if (availableUpgrades > 0) {
+      notifications.show({
+        id: 'available-upgrades',
+        title: 'Building Upgrades Available',
+        message: `You have ${availableUpgrades} building upgrade${availableUpgrades > 1 ? 's' : ''} available`,
+        color: 'yellow',
+        icon: <IconHammer size={20} />,
+        autoClose: 5000,
+      });
+    }
+
+    notificationsShown.current = true;
+  }, [meData]);
+
+  // Watch for real-time state changes and show notifications
+  useEffect(() => {
+    const unsubscribe = usePlayerStore.subscribe((state) => {
+      // Track level changes
+      if (lastLevel.current > 0 && state.level > lastLevel.current) {
+        notifications.show({
+          id: 'level-up',
+          title: `🎉 Level Up!`,
+          message: `You reached level ${state.level}!`,
+          color: 'green',
+          autoClose: 8000,
+        });
+      }
+      lastLevel.current = state.level;
+
+      // Track proficiency points (notify if increased, including 0 → 1)
+      if (lastAvailablePoints.current !== null && state.availablePoints > lastAvailablePoints.current) {
+        notifications.show({
+          id: 'new-proficiency-points',
+          title: 'Proficiency Points Earned',
+          message: `You have ${state.availablePoints} proficiency point${state.availablePoints > 1 ? 's' : ''} to spend`,
+          color: 'green',
+          icon: <IconTrophy size={20} />,
+          autoClose: 5000,
+        });
+      }
+      lastAvailablePoints.current = state.availablePoints;
+
+      // Track building upgrades (notify if increased, including 0 → 1)
+      if (lastAvailableUpgrades.current !== null && state.availableUpgrades > lastAvailableUpgrades.current) {
+        notifications.show({
+          id: 'new-building-upgrades',
+          title: 'Building Upgrades Available',
+          message: `You have ${state.availableUpgrades} building upgrade${state.availableUpgrades > 1 ? 's' : ''} available`,
+          color: 'yellow',
+          icon: <IconHammer size={20} />,
+          autoClose: 5000,
+        });
+      }
+      lastAvailableUpgrades.current = state.availableUpgrades;
+
+      // Track unread mail (notify if increased, including 0 → 1)
+      if (lastUnreadMail.current !== null && state.unreadMail > lastUnreadMail.current) {
+        notifications.show({
+          id: 'new-mail',
+          title: 'New Message',
+          message: `You have ${state.unreadMail} unread message${state.unreadMail > 1 ? 's' : ''}`,
+          color: 'blue',
+          icon: <IconMail size={20} />,
+          autoClose: 5000,
+        });
+      }
+      lastUnreadMail.current = state.unreadMail;
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const permissions: string[] = (session as any)?.permissions ?? [];
   const isAdmin = permissions.includes('ADMINISTRATOR');
 
@@ -168,13 +331,19 @@ function GameShell({ children }: { children: React.ReactNode }) {
 
   const allNavItems = isAdmin ? [...dynamicNavItems, ...adminNavItems] : dynamicNavItems;
 
-  // Badge counts keyed by child href
+  // Badge counts keyed by child href - read from Zustand store for instant updates
+  const storeUnreadMail = usePlayerStore((state) => state.unreadMail);
+  const storeAvailablePoints = usePlayerStore((state) => state.availablePoints);
+  const storeAvailableUpgrades = usePlayerStore((state) => state.availableUpgrades);
+
   const badgeCounts: Record<string, number> = {};
-  if (unreadCount > 0) badgeCounts['/messaging'] = unreadCount;
-  if (availablePoints > 0) badgeCounts['/battle/proficiencies'] = availablePoints;
-  if (availableUpgrades > 0) badgeCounts['/structures/buildings'] = availableUpgrades;
+  if (storeUnreadMail > 0) badgeCounts['/messaging'] = storeUnreadMail;
+  if (storeAvailablePoints > 0) badgeCounts['/battle/proficiencies'] = storeAvailablePoints;
+  if (storeAvailableUpgrades > 0) badgeCounts['/structures/buildings'] = storeAvailableUpgrades;
 
   const handleLogout = async () => {
+    // Reset Zustand store on logout
+    usePlayerStore.getState().reset();
     await signOut({ redirect: false });
     router.push('/login');
   };

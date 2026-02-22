@@ -25,7 +25,7 @@ import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { useApi } from '@/hooks/use-api';
-import { updatePlayerCache } from '@/lib/cache-sync';
+import { usePlayerStore } from '@/stores/player-store';
 import type { PlayerStateSnapshot } from '@openthrone/shared';
 
 interface PlayerEntry {
@@ -108,11 +108,15 @@ function SpyPageContent() {
     mutationFn: (body: { type: string; spiesSent: number; targetUnitType?: string }) =>
       api.post(`/battle/spy/${selectedTarget!.id}`, body) as Promise<SpyResult>,
     onSuccess: (data: SpyResult) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, data.playerState);
+      // Update Zustand store INSTANTLY (includes level, XP, gold, turns, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
+      }
 
-      // Still invalidate battle queries (history, etc.)
+      // Invalidate queries to refetch player data (proficiency points, buildings, mail)
       queryClient.invalidateQueries({ queryKey: ['battle'] });
+      queryClient.invalidateQueries({ queryKey: ['player'] });
+      queryClient.invalidateQueries({ queryKey: ['mail'] });
 
       setResult(data);
       notifications.show({

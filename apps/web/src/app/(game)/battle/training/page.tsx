@@ -19,7 +19,7 @@ import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
-import { updatePlayerCache } from '@/lib/cache-sync';
+import { usePlayerStore } from '@/stores/player-store';
 import { toLocale } from '@openthrone/game-logic';
 import type { UnitDefinition, PlayerStateSnapshot } from '@openthrone/shared';
 import { UnitType } from '@openthrone/shared';
@@ -83,10 +83,12 @@ export default function TrainingPage() {
     mutationFn: (units: Array<{ unitType: string; level: number; quantity: number }>) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/training/train', { units }),
     onSuccess: (data) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, data.playerState);
+      // Update Zustand store INSTANTLY (includes level, XP, gold, units, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
+      }
 
-      // Still invalidate training queries
+      // Still invalidate training queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['training'] });
 
       setTrainQty({});
@@ -103,10 +105,12 @@ export default function TrainingPage() {
     mutationFn: (units: Array<{ unitType: string; level: number; quantity: number }>) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/training/untrain', { units }),
     onSuccess: (data) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, data.playerState);
+      // Update Zustand store INSTANTLY (includes level, XP, gold, units, etc.)
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
+      }
 
-      // Still invalidate training queries
+      // Still invalidate training queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['training'] });
 
       setUntrainQty({});

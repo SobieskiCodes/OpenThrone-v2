@@ -543,7 +543,7 @@ export class BotService {
       sentryUpgradeLevel: getUpgradeLevel('SENTRY'),
       armoryLevel: getBuildingLevel('ARMORY'),
       level: getLevelForXP(player.stats?.experience ?? 0),
-      experience: player.stats?.experience ?? 0,
+      experience: Number(player.stats?.experience ?? 0),
       offense: player.stats?.offense ?? 0,
       defense: player.stats?.defense ?? 0,
       spy: player.stats?.spy ?? 0,

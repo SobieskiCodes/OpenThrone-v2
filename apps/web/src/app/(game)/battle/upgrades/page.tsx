@@ -19,7 +19,7 @@ import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
-import { updatePlayerCache } from '@/lib/cache-sync';
+import { usePlayerStore } from '@/stores/player-store';
 import { toLocale, getUnitByTypeAndLevel } from '@openthrone/game-logic';
 import type { BattleUpgradeDefinition, PlayerStateSnapshot } from '@openthrone/shared';
 import { BattleUpgradeType, UnitType } from '@openthrone/shared';
@@ -71,10 +71,12 @@ export default function BattleUpgradesPage() {
     mutationFn: (data: { upgradeType: string; level: number; quantity: number }) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/structures/battle-upgrade', data),
     onSuccess: (response) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, response.playerState);
+      // Update Zustand store INSTANTLY (includes level, XP, gold, etc.)
+      if (response.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(response.playerState);
+      }
 
-      // Still invalidate structures queries
+      // Still invalidate structures queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['structures'] });
 
       setQuantities({});
@@ -91,10 +93,12 @@ export default function BattleUpgradesPage() {
     mutationFn: (data: { upgradeType: string; level: number; quantity: number }) =>
       api.post<{ playerState: PlayerStateSnapshot }>('/structures/sell-battle-upgrade', data),
     onSuccess: (response) => {
-      // Update cache with fresh state (instant feedback!)
-      updatePlayerCache(queryClient, response.playerState);
+      // Update Zustand store INSTANTLY (includes level, XP, gold, etc.)
+      if (response.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(response.playerState);
+      }
 
-      // Still invalidate structures queries
+      // Still invalidate structures queries for background re-sync
       queryClient.invalidateQueries({ queryKey: ['structures'] });
 
       setQuantities({});

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlayerRecruitedEvent, AutoRecruitEvent } from '@openthrone/events';
+import { PlayerStateChangedEvent } from '../game/events';
 import {
   RECRUIT_LINK_CITIZENS_BONUS,
   RECRUIT_LINK_IP_COOLDOWN_HOURS,
@@ -321,6 +322,27 @@ export class RecruitmentService {
     this.eventEmitter.emit(
       'recruitment.auto',
       new AutoRecruitEvent(playerId, citizensGained, economy.house_level || 1),
+    );
+
+    // Emit WebSocket event for real-time state sync
+    const autoRecruitUnits = await this.prisma.playerUnit.findMany({
+      where: { player_id: playerId },
+    });
+
+    const autoRecruitUnitsByType: Record<string, number> = {};
+    let autoRecruitTotalUnits = 0;
+    for (const u of autoRecruitUnits) {
+      autoRecruitUnitsByType[u.unit_type] = (autoRecruitUnitsByType[u.unit_type] || 0) + u.quantity;
+      autoRecruitTotalUnits += u.quantity;
+    }
+
+    this.eventEmitter.emit(
+      'player.state.changed',
+      new PlayerStateChangedEvent({
+        playerId,
+        totalUnits: autoRecruitTotalUnits,
+        unitsByType: autoRecruitUnitsByType,
+      }),
     );
 
     const playerState = await buildPlayerSnapshot(this.prisma, playerId);

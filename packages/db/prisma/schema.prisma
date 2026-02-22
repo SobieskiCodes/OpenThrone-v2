@@ -200,7 +200,7 @@ model PlayerBonusPoint {
 model PlayerStats {
   id            Int      @id @default(autoincrement())
   player_id     String   @unique
-  experience    Int      @default(0)
+  experience    BigInt   @default(0)
   rank          Int      @default(0)
   previous_rank Int      @default(0) // Rank from last daily snapshot (for movement arrows)
   offense       Int      @default(0)
