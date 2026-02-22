@@ -202,7 +202,9 @@ export class BotSimulationService {
     await this.prisma.botActionLog.create({
       data: {
         bot_config_id: botId,
+        session_id: sessionId,
         action_type: 'SESSION_START',
+        action_data: {},
         reasoning: `Starting bot session (strategy: ${strategy})`,
         success: true,
         created_at: new Date(),
@@ -221,7 +223,9 @@ export class BotSimulationService {
       await this.prisma.botActionLog.create({
         data: {
           bot_config_id: botId,
+          session_id: sessionId,
           action_type: action.type,
+          action_data: action.params || {},
           reasoning: action.reasoning,
           success: result.success,
           error_message: result.errorMessage || null,
@@ -238,7 +242,9 @@ export class BotSimulationService {
     await this.prisma.botActionLog.create({
       data: {
         bot_config_id: botId,
+        session_id: sessionId,
         action_type: 'SESSION_END',
+        action_data: { actionsPerformed, totalActions: actions.length },
         reasoning: `Session complete: ${actionsPerformed}/${actions.length} actions succeeded`,
         success: true,
         created_at: new Date(),
