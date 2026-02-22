@@ -115,6 +115,23 @@ export function SettingsModal({ opened, onClose }: SettingsModalProps) {
       size="xl"
       centered
     >
+      {/* Hidden dummy fields to catch browser autofill */}
+      <input
+        type="text"
+        name="username"
+        autoComplete="username"
+        style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px' }}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+      <input
+        type="password"
+        name="password"
+        autoComplete="current-password"
+        style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px' }}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
       <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
           <Tabs.Tab value="cosmetics">Cosmetics</Tabs.Tab>
@@ -301,14 +318,17 @@ export function SettingsModal({ opened, onClose }: SettingsModalProps) {
             <PasswordInput
               label="Current Password"
               placeholder="Enter current password"
+              autoComplete="off"
             />
             <PasswordInput
               label="New Password"
               placeholder="Enter new password"
+              autoComplete="new-password"
             />
             <PasswordInput
               label="Confirm New Password"
               placeholder="Confirm new password"
+              autoComplete="new-password"
             />
             <Button variant="filled" disabled>
               Change Password (Coming Soon)

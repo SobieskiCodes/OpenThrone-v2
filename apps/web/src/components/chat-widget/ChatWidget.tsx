@@ -330,6 +330,10 @@ export function ChatWidget() {
                 style={{ flex: 1 }}
                 size="sm"
                 disabled={!isConnected}
+                autoComplete="new-password"
+                name="chat-message"
+                data-form-type="other"
+                data-lpignore="true"
               />
               <ActionIcon
                 variant="filled"
