@@ -126,7 +126,15 @@ export class BotSimulationService {
           }
         }
 
-        // End-of-day processing
+        // Run turn ticks (simulate every 30 min = 48 ticks per day)
+        // For performance, do fewer ticks with scaled income
+        const turnsPerTick = 6; // Normal turn tick gives 6 turns
+        const ticksPerDay = 8; // 8 ticks = every 3 hours
+        for (let tick = 0; tick < ticksPerDay; tick++) {
+          await this.runTurnTick(bots, turnsPerTick);
+        }
+
+        // End-of-day processing (citizen generation, daily resets)
         await this.runDailyTick(bots);
 
         // Calculate simulated date for this day
@@ -186,19 +194,63 @@ export class BotSimulationService {
     // Brain decides actions
     const actions = this.botBrain.decideActions(strategy, state, seed);
 
-    // Execute actions
+    // Execute actions and LOG them
     let actionsPerformed = 0;
+    const sessionId = `sim-${Date.now()}-${botId}`;
+
+    // Log session start
+    await this.prisma.botActionLog.create({
+      data: {
+        bot_config_id: botId,
+        session_id: sessionId,
+        action_type: 'SESSION_START',
+        action_data: JSON.stringify({}),
+        reasoning: `Starting bot session (strategy: ${strategy})`,
+        success: true,
+        created_at: new Date(),
+      },
+    });
+
     for (const action of actions) {
       const result = await this.botExecutor.executeAction(
         action,
         playerId,
         state,
         strategy,
+        true, // skipRateLimits during simulation
       );
+
+      // Log the action
+      await this.prisma.botActionLog.create({
+        data: {
+          bot_config_id: botId,
+          session_id: sessionId,
+          action_type: action.type,
+          action_data: JSON.stringify(action.params || {}),
+          reasoning: action.reasoning,
+          success: result.success,
+          error_message: result.errorMessage || null,
+          created_at: new Date(),
+        },
+      });
+
       if (result.success) {
         actionsPerformed++;
       }
     }
+
+    // Log session end
+    await this.prisma.botActionLog.create({
+      data: {
+        bot_config_id: botId,
+        session_id: sessionId,
+        action_type: 'SESSION_END',
+        action_data: JSON.stringify({ actionsPerformed, totalActions: actions.length }),
+        reasoning: `Session complete: ${actionsPerformed}/${actions.length} actions succeeded`,
+        success: true,
+        created_at: new Date(),
+      },
+    });
 
     // Update snapshot metrics
     await this.snapshotService.updateSessionMetrics(
@@ -230,12 +282,11 @@ export class BotSimulationService {
         const fortIncome = fortLevel * 250; // 250 gold per fort level
         const totalIncome = workerIncome + fortIncome;
 
-        // Update economy
+        // Update economy (daily income only - turns handled by turn ticks)
         await this.prisma.playerEconomy.update({
           where: { player_id: player.id },
           data: {
             gold: { increment: BigInt(totalIncome) },
-            attack_turns: 50, // Reset turns
           },
         });
 
@@ -272,6 +323,46 @@ export class BotSimulationService {
         }
       } catch (err) {
         this.logger.error(`Daily tick failed for bot ${bot.id}: ${err}`);
+      }
+    }
+  }
+
+  /**
+   * Run turn tick for all bots (attack turns + gold income)
+   */
+  private async runTurnTick(bots: any[], turnsToAdd: number) {
+    for (const bot of bots) {
+      try {
+        const player = await this.prisma.player.findUnique({
+          where: { id: bot.player_id },
+          include: { economy: true, units: true, fortification: true },
+        });
+
+        if (!player?.economy) continue;
+
+        // Calculate turn tick income (same formula as real turn tick)
+        const workers = player.units.find((u) => u.unit_type === 'WORKER')?.quantity ?? 0;
+        const buildings = await this.prisma.playerBuilding.findMany({
+          where: { player_id: player.id },
+        });
+        const mineLevel = buildings.find((b) => b.building_type === 'MINE')?.level ?? 0;
+        const fortLevel = player.fortification?.fort_level ?? 1;
+
+        const workerIncome = workers * 5; // 5 gold per worker per turn
+        const mineIncome = mineLevel * 500; // 500 gold per mine level per turn
+        const fortIncome = fortLevel * 25; // 25 gold per fort level per turn
+        const totalIncome = workerIncome + mineIncome + fortIncome;
+
+        // Update economy
+        await this.prisma.playerEconomy.update({
+          where: { player_id: player.id },
+          data: {
+            gold: { increment: BigInt(totalIncome) },
+            attack_turns: { increment: turnsToAdd },
+          },
+        });
+      } catch (err) {
+        this.logger.error(`Turn tick failed for bot ${bot.id}: ${err}`);
       }
     }
   }

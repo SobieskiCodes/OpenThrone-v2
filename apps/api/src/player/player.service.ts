@@ -650,15 +650,21 @@ export class PlayerService {
     );
 
     if (!bonusEntry) {
-      throw new NotFoundException(
-        `Bonus point entry for type ${dto.bonusType} not found`,
-      );
+      // Create new bonus point entry if it doesn't exist
+      await this.prisma.playerBonusPoint.create({
+        data: {
+          player_id: playerId,
+          bonus_type: dto.bonusType,
+          level: 1,
+        },
+      });
+    } else {
+      // Increment existing entry
+      await this.prisma.playerBonusPoint.update({
+        where: { id: bonusEntry.id },
+        data: { level: bonusEntry.level + 1 },
+      });
     }
-
-    await this.prisma.playerBonusPoint.update({
-      where: { id: bonusEntry.id },
-      data: { level: bonusEntry.level + 1 },
-    });
 
     const updatedBonusPoints = await this.prisma.playerBonusPoint.findMany({
       where: { player_id: playerId },

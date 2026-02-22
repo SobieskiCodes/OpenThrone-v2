@@ -74,6 +74,8 @@ model Player {
   mail_sent           Mail[]
   mail_received       MailRecipient[]
 
+  saved_simulations   SavedSimulation[]
+
   mercenary_purchases MercenaryDailyPurchase[]
 
   intel_targets  AllianceIntel[] @relation("intel_target")
@@ -86,6 +88,11 @@ model Player {
 
   is_bot     Boolean @default(false)
   bot_config BotConfig?
+
+  // Bot Intelligence (Phase 1)
+  bot_intel_cache    BotIntelCache[]    @relation("BotIntelReports")
+  bot_battle_memory  BotBattleMemory[]  @relation("BotBattleHistory")
+  bot_threats        BotThreatTracking[] @relation("BotThreats")
 
   @@index([created_at])
   @@map("players")
@@ -373,6 +380,7 @@ model Alliance {
   is_public         Boolean  @default(true)
   require_auth      Boolean  @default(false)
   closed_enrollment Boolean  @default(false)
+  allow_bots        Boolean  @default(false) // Allow bots to auto-join this alliance
   gold_in_bank      BigInt?  @default(0)
   slug              String?
   banner_img        String?
@@ -820,4 +828,76 @@ model GameSettings {
   updated_by_user_id String?  // Admin who last updated this setting
 
   @@map("game_settings")
+}
+
+// ─── Saved Combat Simulations ───────────────────────────────────────────────
+
+model SavedSimulation {
+  id         String   @id @default(uuid())
+  player_id  String
+  title      String   // User-friendly title
+  notes      String?  // Optional notes/observations
+  input      String   // JSON: full battle configuration (attacker, defender, config, turnsUsed)
+  result     String   // JSON: battle result (single or batch)
+  runs       Int      @default(1) // 1 for single, 100/1000/10000 for batch
+  created_at DateTime @default(now())
+
+  player Player @relation(fields: [player_id], references: [id], onDelete: Cascade)
+
+  @@index([player_id, created_at(sort: Desc)])
+  @@map("saved_simulations")
+}
+
+// ─── Bot Intelligence (Phase 1) ─────────────────────────────────────────────
+
+model BotIntelCache {
+  id               String   @id @default(uuid())
+  bot_id           String
+  target_id        String
+  target_name      String
+  target_level     Int
+  gold_amount      BigInt?  // Null if not revealed (spy/sentry ratio < 1.1x)
+  offense_strength Int      // Estimated from units seen
+  defense_strength Int      // Estimated from units seen
+  spied_at         DateTime
+  reveal_percent   Float    // How much info was revealed (0-100)
+
+  bot Player @relation("BotIntelReports", fields: [bot_id], references: [id], onDelete: Cascade)
+
+  @@unique([bot_id, target_id])
+  @@index([bot_id, spied_at])
+  @@map("bot_intel_cache")
+}
+
+model BotBattleMemory {
+  id          String   @id @default(uuid())
+  bot_id      String
+  target_id   String
+  target_name String
+  is_win      Boolean
+  gold_stolen BigInt
+  units_lost  Int
+  timestamp   DateTime @default(now())
+
+  bot Player @relation("BotBattleHistory", fields: [bot_id], references: [id], onDelete: Cascade)
+
+  @@index([bot_id, timestamp])
+  @@index([bot_id, target_id, timestamp])
+  @@map("bot_battle_memory")
+}
+
+model BotThreatTracking {
+  id             String   @id @default(uuid())
+  bot_id         String
+  attacker_id    String
+  attacker_name  String
+  attacker_level Int
+  gold_lost      BigInt
+  timestamp      DateTime @default(now())
+
+  bot Player @relation("BotThreats", fields: [bot_id], references: [id], onDelete: Cascade)
+
+  @@index([bot_id, timestamp])
+  @@index([bot_id, attacker_id, timestamp])
+  @@map("bot_threat_tracking")
 }

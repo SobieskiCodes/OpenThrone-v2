@@ -243,18 +243,26 @@ private async execAllocateBonusPoints(playerId: string, params: any): Promise<Ac
 
 ### Deliverables
 
-- [ ] Add `availablePoints` and `bonusPoints` to `BotGameState` interface
-- [ ] Update `loadBotGameState()` to calculate available points and current allocations
-- [ ] Add proficiency allocation weights to all 5 bot strategies
-- [ ] Add `ALLOCATE_BONUS_POINTS` action with very high priority (1000 weight)
-- [ ] Add executor method calling `playerService.allocateBonusPoints()`
-- [ ] Test: New bot at level 10 should have 10 bonus points allocated within first few sessions
-- [ ] Test: WARRIOR bots should have majority of points in OFFENSE/CASUALTY
-- [ ] Test: ECONOMIST bots should have majority in INCOME/PRICES
+- [x] Add `availablePoints` and `bonusPoints` to `BotGameState` interface
+- [x] Update `loadBotGameState()` to calculate available points and current allocations
+- [x] Add proficiency allocation weights to all 5 bot strategies
+- [x] Add `ALLOCATE_BONUS_POINTS` action with very high priority (1000 weight)
+- [x] Add executor method calling `playerService.allocateBonusPoints()`
+- [ ] Test: New bot at level 10 should have 10 bonus points allocated within first few sessions (deferred)
+- [ ] Test: WARRIOR bots should have majority of points in OFFENSE/CASUALTY (deferred)
+- [ ] Test: ECONOMIST bots should have majority in INCOME/PRICES (deferred)
+
+**Commits:**
+- `0b87872` - Phase 0: Proficiency Point Allocation (complete implementation)
+- `b2f56ab` - Fix: PlayerModule import (added after Phase 1 - dependency for bonus points)
 
 **Estimated Effort:** 0.5 days (4 hours)
 
 **Impact:** HUGE — Bots will be competitive with humans of the same level instead of being systematically weaker.
+
+**Status:** ✅ **COMPLETE** (build tested)
+
+**Testing:** Deferred to end of Phase 1 (test proficiency + combat intelligence together)
 
 ---
 
@@ -606,17 +614,45 @@ async findAttackTargets(playerId: string): Promise<Player[]> {
 
 ### Deliverables
 
-- [ ] Add `BotIntelCache` and `BotBattleMemory` tables to schema
-- [ ] Add `BotThreatTracking` table for tracking who attacked the bot
-- [ ] Create `BotMemoryService` with event listeners for battle/spy outcomes
-- [ ] Update `loadBotGameState()` to include intel reports, battle history, recent attackers
-- [ ] Add `GET /battle/targets` endpoint for fetching attack candidates
-- [ ] Implement `getAttackTargetCandidates()` with scoring logic
-- [ ] Update `ATTACK_PLAYER` action to use target selection
-- [ ] Update `SPY_MISSION` action to prioritize intel gathering before attacks
-- [ ] Add admin UI to view bot intel cache and battle memory
+- [x] Add `BotIntelCache` and `BotBattleMemory` tables to schema
+- [x] Add `BotThreatTracking` table for tracking who attacked the bot
+- [x] Create `BotMemoryService` with event listeners for battle/spy outcomes
+- [x] Update `loadBotGameState()` to include intel reports, battle history, recent attackers
+- [x] Implement `calculateTargetScore()` with intelligence-based scoring logic
+- [x] Update `pickBestTarget()` to use intelligence-based scoring (`calculateTargetScore`)
+- [x] Update `SPY_MISSION` action to prioritize intel gathering (new `findSpyTarget` method)
+  - Prioritizes revenge targets without intel
+  - Then targets without any intel
+  - Then targets with stale intel (>7 days)
+- [ ] Add `GET /battle/targets` endpoint for fetching attack candidates (deferred — not needed, using existing player queries)
+- [ ] Add admin UI to view bot intel cache and battle memory (deferred to Phase 5)
+
+**Implementation Notes:**
+- Intelligence tables store last 50 intel reports, 100 battle memories, 50 threat records per bot
+- Event listeners automatically populate tables when bots spy/battle
+- `calculateTargetScore()` applies bonuses for: recent intel (+30), revenge targets (+50 within 24h), past wins (+10 each), and penalties for: no intel (-15), past losses (-15 each), attacking blind (-15)
+- Spy target selection prioritizes gathering NEW intel vs re-spying known targets
+- SPYMASTER bots get -30 penalty for attacking without intel (forces them to spy first)
+- **Fix applied:** Added `PlayerModule` import to `BotModule` for `PlayerService` dependency (needed for bonus point allocation in Phase 0)
+
+**Commits:**
+- `8e0f115` - Phase 1.1: Database tables (BotIntelCache, BotBattleMemory, BotThreatTracking)
+- `6e49e70` - Phase 1: Combat Intelligence & Smart Target Selection (event listeners, target scoring, spy selection)
+- `b2f56ab` - Fix: PlayerModule import for BotExecutorService dependency
 
 **Estimated Effort:** 2-3 days
+
+**Status:** ✅ **COMPLETE** (build tested, server running, uncommitted)
+
+**Bugs Fixed During Testing:**
+- ✅ Fixed proficiency allocation bug (was using array length instead of sum of levels) - Commit: 18d2c49
+- ✅ Fixed intel cache case mismatch ('intel' vs 'INTEL') - Commit: 18d2c49
+- ✅ Fixed wrong XP-to-level formula (exponential vs linear) - used `getLevelForXP()` - Commit: 18d2c49
+- ✅ Rebalanced strategy weights (prioritize worker training over banking) - Commit: 18d2c49
+- ✅ Bot chat system integration with admin settings - Commit: 18d2c49
+
+**What's Next:**
+Bot analytics dashboard is being built to monitor Phase 1 effectiveness (see `BOT_DASHBOARD_PLAN.md`). Once analytics are complete, we'll circle back to Phase 2 with data-driven insights about bot behavior.
 
 ---
 
@@ -751,44 +787,33 @@ if (shouldUpgradeEquipment(state)) {
 
 **Goal:** Bots understand workers = income, scale workers strategically, and target wealthy players for gold theft.
 
-### 3.1 Income Optimization
+### 3.1 Percentage-Based Worker Targets
+
+**Design Philosophy:**
+Instead of fixed gold income targets (e.g., WARRIOR: 5k/turn, ECONOMIST: 15k/turn) that don't scale with level progression, we use **percentage-based worker allocation** that scales naturally:
+
+- Level 1 (100 pop): WARRIOR has 20 workers, ECONOMIST has 65 workers
+- Level 50 (5000 pop): WARRIOR has 1000 workers, ECONOMIST has 3250 workers
+
+This approach:
+- ✅ Auto-scales with level (more population = more workers)
+- ✅ Easy to tune (just change percentages)
+- ✅ Directly observable in analytics dashboard (unit composition tab)
+- ✅ Enforces strategy differentiation (ECONOMIST visibly has more workers)
 
 ```typescript
-interface EconomicTarget {
-  targetWorkerCount: number;
-  currentIncome: number; // Gold per turn tick
-  targetIncome: number;
-  workerDeficit: number;
-}
-
-function calculateEconomicTarget(state: BotGameState, strategy: Strategy): EconomicTarget {
-  // Income calculation: workers * baseIncome * fortBonus * mineBonus
-  const baseIncome = 10; // Per worker
-  const fortBonus = 1 + (state.fortification.level * 0.1); // +10% per fort level
-  const mineBonus = 1 + (state.buildings.MINE * 0.15); // +15% per mine level
-
-  const currentIncome = state.workerUnits * baseIncome * fortBonus * mineBonus;
-
-  // Target income based on strategy
-  const targetIncomeByStrategy: Record<Strategy, number> = {
-    WARRIOR: 5000,   // Low income, focus on offense
-    TURTLE: 8000,    // Moderate income for fort repairs
-    ECONOMIST: 15000, // High income, maximize workers
-    SPYMASTER: 7000, // Moderate income for spy missions
-    BALANCED: 10000, // Balanced approach
-  };
-
-  const targetIncome = targetIncomeByStrategy[strategy] ?? 10000;
-  const targetWorkerCount = Math.ceil(targetIncome / (baseIncome * fortBonus * mineBonus));
-  const workerDeficit = Math.max(0, targetWorkerCount - state.workerUnits);
-
-  return {
-    targetWorkerCount,
-    currentIncome,
-    targetIncome,
-    workerDeficit,
-  };
-}
+/**
+ * Worker Target Percentages — Phase 3: Economic Strategy
+ * Defines what % of total population should be workers for each strategy.
+ * This scales naturally with level (more pop = more workers).
+ */
+const WORKER_TARGET_PERCENTAGES: Record<Strategy, number> = {
+  WARRIOR: 20,      // 20% workers (low income, focus on military)
+  TURTLE: 35,       // 35% workers (moderate income for fort repairs)
+  ECONOMIST: 65,    // 65% workers (HIGH income maximization)
+  SPYMASTER: 40,    // 40% workers (need income for spy missions)
+  BALANCED: 45,     // 45% workers (balanced approach)
+};
 ```
 
 ### 3.2 Worker Scaling Actions
@@ -796,97 +821,100 @@ function calculateEconomicTarget(state: BotGameState, strategy: Strategy): Econo
 ```typescript
 // In prioritizeActions():
 
-const economicTarget = calculateEconomicTarget(state, strategy);
+// Phase 3: Economic Strategy — Enforce worker percentage targets
+const workerTargetPercent = WORKER_TARGET_PERCENTAGES[strategy];
+const workerTarget = Math.floor(totalPop * (workerTargetPercent / 100));
+const workerDeficit = Math.max(0, workerTarget - state.workers);
 
-// ── Train Workers (if below target) ──
-if (economicTarget.workerDeficit > 0 && state.citizens > 10) {
-  const trainCount = Math.min(
-    economicTarget.workerDeficit,
-    state.citizens,
-    Math.floor(state.citizens * 0.3), // Don't convert ALL citizens at once
-  );
-
-  actions.push({
-    type: 'TRAIN_UNITS',
-    weight: weights.trainWorkers + rng() * 2,
-    reasoning: `Income: ${economicTarget.currentIncome.toLocaleString()}/turn (target: ${economicTarget.targetIncome.toLocaleString()}) — train ${trainCount} workers.`,
-    params: { type: 'WORKER', count: trainCount },
-  });
+if (workerDeficit > 0 && state.citizens >= 10) {
+  // Train workers to hit percentage target (high priority)
+  const trainCount = Math.min(workerDeficit, state.citizens, 50);
+  const workerDef = getUnitByTypeAndLevel('WORKER', 1);
+  if (workerDef) {
+    const costPer = workerDef.cost;
+    const affordable = Math.min(trainCount, Math.floor(state.gold / costPer));
+    if (affordable > 0) {
+      actions.push({
+        type: 'TRAIN_UNITS',
+        weight: weights.trainWorkers + rng() * 2 + trainBoost + 3, // +3 bonus for hitting target
+        reasoning: `Need ${workerDeficit} more workers to hit ${workerTargetPercent}% target (${state.workers}/${workerTarget}) — train ${affordable} at ${costPer.toLocaleString()}/ea.`,
+        params: { units: [{ unitType: 'WORKER', level: 1, quantity: affordable }] },
+      });
+    }
+  }
 }
 
 // ── Prioritize Mine Upgrades (increase income multiplier) ──
+// ECONOMIST strategy already has upgradeMine weight = 10 (highest)
+// Mine upgrades boost income: +15% per level (stacks multiplicatively)
 if (state.buildings.MINE < 4 && state.gold > 50000) {
   const nextLevel = state.buildings.MINE + 1;
-  const mineDef = getBuildingLevel('MINE', nextLevel);
-  if (mineDef) {
+  const nextDef = getNextBuildingLevel('MINE', state.buildings.MINE);
+  if (nextDef) {
     actions.push({
       type: 'UPGRADE_BUILDING',
-      weight: weights.upgradeEconomy + 5, // Higher weight for ECONOMIST strategy
-      reasoning: `Mine Lv${state.buildings.MINE} → Lv${nextLevel} increases income by 15% (current: ${economicTarget.currentIncome.toLocaleString()}/turn).`,
+      weight: weights.upgradeMine + rng() * 2, // ECONOMIST has weight=10 for this
+      reasoning: `Mine Lv${state.buildings.MINE} → Lv${nextLevel} increases income by 15% per worker.`,
       params: { buildingType: 'MINE' },
     });
   }
 }
 ```
 
-### 3.3 Gold Theft Targeting
+### 3.3 Wealth-Based Targeting (Enhanced)
+
+**Phase 3 Enhancement:** Target scoring now scales bonuses with revealed gold amount, making wealthy targets MUCH more attractive:
 
 ```typescript
-// Enhance target scoring with wealth consideration
-function calculateTargetScore(target: Player, botState: BotGameState): number {
-  let score = 100;
+// In calculateTargetScore():
 
-  const intel = botState.intelReports.find(r => r.targetId === target.id);
-
-  if (intel) {
-    // If gold is revealed and high, boost score significantly
-    if (intel.goldAmount && intel.goldAmount > 100000) {
-      score += 50; // Juicy target
-    } else if (intel.goldAmount && intel.goldAmount > 50000) {
-      score += 25;
-    }
-
-    // If defense is weak AND gold is high, massive bonus
-    if (intel.defenseStrength < botState.offenseUnits * 0.6 && intel.goldAmount && intel.goldAmount > 100000) {
-      score += 75; // Jackpot: weak defense + rich
-    }
+// Phase 3: Prioritize wealthy targets revealed by intel (SCALED bonuses)
+if (intel.goldAmount !== null) {
+  if (intel.goldAmount > 500000) {
+    score += 60; // MASSIVE bonus for very wealthy targets (500k+)
+  } else if (intel.goldAmount > 200000) {
+    score += 40; // Large bonus for wealthy targets (200k+)
+  } else if (intel.goldAmount > 100000) {
+    score += 30; // Good bonus for targets with 100k+
+  } else if (intel.goldAmount > 50000) {
+    score += 20; // Moderate bonus for targets with 50k+
+  } else if (intel.goldAmount > 10000) {
+    score += 10; // Small bonus for targets with 10k+
   }
+}
 
-  // ... rest of scoring logic ...
-
-  return score;
+// ── Strategy-specific wealth preferences ──
+if (strategy === 'WARRIOR' && intel) {
+  // Warriors prefer targets with known gold (profitable raids)
+  if (intel.goldAmount !== null && intel.goldAmount > 50000) {
+    score += 15; // Extra bonus for warriors attacking wealthy targets
+  }
+} else if (strategy === 'ECONOMIST' && intel) {
+  // Phase 3: Economists RARELY attack, but when they do, they want BIG payouts
+  if (intel.goldAmount !== null && intel.goldAmount > 200000) {
+    score += 25; // Extra bonus for economists hitting jackpot targets
+  } else if (intel.goldAmount !== null && intel.goldAmount < 50000) {
+    score -= 30; // Heavily penalize economists attacking poor targets (not worth the risk)
+  }
 }
 ```
 
-### 3.4 Strategy-Based Economic Behavior
-
-```typescript
-// Different strategies have different worker/soldier ratios
-const STRATEGY_ECONOMIC_RATIOS: Record<Strategy, { workers: number; soldiers: number }> = {
-  WARRIOR: { workers: 1, soldiers: 3 },   // 25% workers, 75% military
-  TURTLE: { workers: 1, soldiers: 2 },    // 33% workers, 67% military (need income for fort repairs)
-  ECONOMIST: { workers: 3, soldiers: 1 }, // 75% workers, 25% military
-  SPYMASTER: { workers: 1, soldiers: 1 }, // 50/50 (need income for spy missions)
-  BALANCED: { workers: 2, soldiers: 3 },  // 40% workers, 60% military
-};
-
-function shouldPrioritizeWorkers(state: BotGameState, strategy: Strategy): boolean {
-  const ratio = STRATEGY_ECONOMIC_RATIOS[strategy];
-  const currentWorkerRatio = state.workerUnits / (state.workerUnits + state.offenseUnits + state.defenseUnits);
-  const targetWorkerRatio = ratio.workers / (ratio.workers + ratio.soldiers);
-
-  return currentWorkerRatio < targetWorkerRatio;
-}
-```
+**Result:** Bots with good intel will preferentially attack wealthy players, especially ECONOMIST bots (who attack rarely but want big payouts).
 
 ### Deliverables
 
-- [ ] Implement `calculateEconomicTarget()` helper
-- [ ] Update worker training logic to use target income thresholds
-- [ ] Boost Mine upgrade weights for ECONOMIST strategy
-- [ ] Enhance target scoring to prioritize wealthy players (intel reveals gold)
-- [ ] Add strategy-based worker/soldier ratio enforcement
-- [ ] Test: ECONOMIST bots should have 70%+ workers, WARRIOR bots should have 20%
+- [x] Add `WORKER_TARGET_PERCENTAGES` constant with strategy-specific percentages
+- [x] Update worker training logic to enforce percentage targets (auto-scales with population)
+- [x] Verify Mine upgrade weights for ECONOMIST strategy (already at weight=10, highest)
+- [x] Enhance target scoring to prioritize wealthy players with SCALED bonuses (10-60 points based on gold amount)
+- [x] Add ECONOMIST-specific target preferences (jackpot targets +25, poor targets -30)
+- [ ] Test: ECONOMIST bots should have 65%± workers, WARRIOR bots should have 20%± (deferred to testing phase)
+- [ ] Test: Bots with intel should preferentially attack targets with 200k+ gold (deferred)
+
+**Commits:**
+- (Uncommitted) - Phase 3: Percentage-based worker allocation + wealth-based targeting
+
+**Status:** ✅ **COMPLETE** (implementation done, testing deferred)
 
 **Estimated Effort:** 1-2 days
 
@@ -1118,14 +1146,17 @@ if (detectStuckPattern(state.battleHistory)) {
 
 ### Deliverables
 
-- [ ] Implement `calculatePerformanceMetrics()` helper
-- [ ] Add `adaptStrategyWeights()` logic with performance-based adjustments
-- [ ] Implement `detectStuckPattern()` to identify repetitive behavior
-- [ ] Add temporary target blacklist when stuck in loop
-- [ ] Create admin UI to view bot performance metrics
-- [ ] Test: Bot with low win rate should boost defense training
+- [x] Implement `calculatePerformanceMetrics()` helper
+- [x] Add `adaptStrategyWeights()` logic with performance-based adjustments
+- [x] Implement `detectStuckPattern()` to identify repetitive behavior
+- [x] Add temporary target blacklist when stuck in loop
+- [x] Integrate `getAdaptedWeights()` into `prioritizeActions()`
+- [x] Apply blacklist filtering in bot-executor target selection
+- [ ] Create admin UI to view bot performance metrics (deferred — low priority)
+- [ ] Test: Bot with low win rate should boost defense training (requires live testing)
 
 **Estimated Effort:** 2-3 days
+**Actual Effort:** 1 day (Phase 5 core logic complete)
 
 ---
 
@@ -1133,21 +1164,40 @@ if (detectStuckPattern(state.battleHistory)) {
 
 | Phase | Effort | Priority | Dependencies | Status |
 |-------|--------|----------|--------------|--------|
-| **Phase 0** | Low (0.5 days) | **CRITICAL** | None — foundation | ⏳ **START HERE** |
-| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ⏳ |
-| **Phase 2** | Low (1 day) | High | Equipment API endpoints | ⏳ |
-| **Phase 3** | Medium (1-2 days) | High | Phase 1 (target scoring needs intel) | ⏳ |
-| **Phase 4** | Medium (1-2 days) | Medium | Alliance system | ⏳ |
-| **Phase 5** | High (2-3 days) | Low | Phase 1-4 complete (needs data) | ⏳ |
+| **Phase 0** | Low (0.5 days) | **CRITICAL** | None — foundation | ✅ **DONE** (commit: 0b87872) |
+| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ✅ **DONE** (commit: 18d2c49, uncommitted) |
+| **Analytics Dashboard** | Medium (1 week) | **High** | Phase 1 complete (needs battle data) | ✅ **DONE** (3 tabs: battles, units, equipment) |
+| **Phase 3** | Low (0.5 days) | High | Phase 1 (target scoring needs intel) | ✅ **DONE** (percentage-based workers, wealth targeting) |
+| **Phase 2** | Low (1 day) | Medium | Equipment API endpoints, Analytics | **DEFERRED** (low priority per user) |
+| **Phase 4** | Medium (1-2 days) | Medium | Alliance system | ✅ **DONE** (uncommitted) |
+| **Phase 5** | High (2-3 days) | Low | Phase 1-4 complete (needs data) | ✅ **DONE** (uncommitted) |
 
-**Recommended Sprint Order:**
-1. **Sprint 1:** Phase 0 (Proficiency Points) — Quick win, huge impact (4 hours)
-2. **Sprint 2:** Phase 1 (Combat Intelligence) — Biggest impact, forces good API
-3. **Sprint 3:** Phase 2 (Equipment) + Phase 3 (Economy) — Related optimizations
-4. **Sprint 4:** Phase 4 (Alliances) + Phase 5 (Adaptation) — Advanced features
-5. **Sprint 5:** Testing & tuning with 100-bot simulation
+**Actual Sprint Progress:**
+1. ✅ **Sprint 1:** Phase 0 (Proficiency Points) — COMPLETE
+2. ✅ **Sprint 2:** Phase 1 (Combat Intelligence) — COMPLETE with bug fixes
+3. ✅ **Sprint 3:** Analytics Dashboard (see `BOT_DASHBOARD_PLAN.md`) — COMPLETE
+   - Built 3 tabs: Battle Analytics, Unit Composition, Equipment
+   - Outlier detection (CRITICAL/WARNING/GOOD badges)
+   - Strategy performance comparison
+   - Time-series unit composition tracking
+   - Equipment coverage metrics
+4. ✅ **Sprint 4:** Phase 3 (Economic Strategy) — COMPLETE
+   - Percentage-based worker targets (scales with level automatically)
+   - Enhanced wealth-based targeting (60+ bonus for 500k+ gold targets)
+   - ECONOMIST strategy preferences (jackpot hunting)
+   - Mine upgrade already prioritized (weight=10)
+5. ✅ **Sprint 5:** Phase 4 (Alliances) — COMPLETE
+   - Bots can CREATE alliances (when none available)
+   - Bots can JOIN alliances (open enrollment + allow_bots)
+   - Weighted action prioritization based on strategy
+6. ✅ **Sprint 6:** Phase 5 (Adaptive Strategy) — COMPLETE
+   - Performance metrics calculation (win rate, gold flow)
+   - Stuck pattern detection (tunnel vision, low win rate)
+   - Temporary target blacklist to force diversification
+   - Dynamic weight adaptation based on performance
+   - Integrated into prioritizeActions() and target selection
 
-**Total estimated time: 8-11 days**
+**Total time spent: ~8 days** (Phase 0-3 + Analytics complete)
 
 ---
 
@@ -1174,11 +1224,13 @@ After implementation, bots should:
 - Sell excess items when count > units + 20%
 - Upgrade to higher tiers when wealthy (>200k gold)
 
-✅ **Economic Strategy:**
-- ECONOMIST bots have 70%+ workers
-- WARRIOR bots have <30% workers
-- Income scales with Mine upgrades
-- Target wealthy players revealed by intel
+✅ **Economic Strategy (Phase 3 — COMPLETE):**
+- ECONOMIST bots have 65%± workers (target: exactly 65% via WORKER_TARGET_PERCENTAGES)
+- WARRIOR bots have 20%± workers (target: exactly 20%)
+- TURTLE: 35%, SPYMASTER: 40%, BALANCED: 45%
+- Worker count scales with level (auto-adjusts as population grows)
+- Target wealthy players revealed by intel (60 point bonus for 500k+ gold)
+- ECONOMIST bots get +25 bonus for jackpot targets (200k+), -30 penalty for poor targets (<50k)
 
 ✅ **Alliance Play:**
 - 60%+ of bots join alliances by level 10
@@ -1217,32 +1269,62 @@ After implementation, bots should:
 
 ## Next Steps
 
-1. ⏳ **Phase 1: Combat Intelligence**
-   - Add DB tables (BotIntelCache, BotBattleMemory, BotThreatTracking)
-   - Implement event listeners for battle/spy outcomes
-   - Build target scoring & selection logic
-   - Update attack flow to prioritize spied targets
-   - Add `GET /battle/targets` API endpoint
+### Immediate: Phase 4 — Alliance System (Current Sprint)
 
-2. ⏳ **Phase 2 & 3: Equipment + Economy** (can run in parallel)
-   - Equipment needs calculation
-   - Sell excess items logic
-   - Worker scaling based on target income
-   - Wealth-based target prioritization
+**Status:** Ready to implement. `allow_bots` toggle already added to alliances in previous commit.
 
-3. ⏳ **Phase 4: Alliances**
-   - Add `allow_bots` toggle to alliance creation
-   - Implement auto-join logic for bots
-   - Exclude alliance members from attacks
+**What's Left:**
+1. **Bot Auto-Join Logic**
+   - Add `JOIN_ALLIANCE` action to bot decision engine
+   - Fetch joinable alliances (allow_bots=true, not full, within level range)
+   - Select best alliance based on size/activity preferences
+   - Execute join via existing `POST /alliances/:id/join` endpoint
 
-4. ⏳ **Phase 5: Adaptation**
-   - Performance metrics calculation
+2. **Bot Alliance Creation (Fallback)**
+   - If no human alliances allow bots, create "Bot Alliance"
+   - Set allow_bots=true so other bots can join
+   - Bots can create up to 1 alliance as leader
+
+3. **Alliance-Aware Combat**
+   - ✅ Already implemented: `calculateTargetScore()` uses BotGameState (can add alliance check)
+   - Update target filtering to exclude alliance members
+   - Never attack players in same alliance
+
+4. **Intel Sharing (Optional — defer to Phase 5)**
+   - Event listener: when bot spies successfully, share intel with alliance
+   - Alliance members see bot-gathered intel reports
+
+**Estimated Effort:** 1-2 days
+
+### Completed Work
+
+1. ✅ **Phase 0: Proficiency Points** — COMPLETE
+2. ✅ **Phase 1: Combat Intelligence** — COMPLETE (monitoring via analytics)
+3. ✅ **Analytics Dashboard** — COMPLETE (3 tabs, outlier detection, time-series tracking)
+4. ✅ **Phase 3: Economic Strategy** — COMPLETE
+   - Percentage-based worker targets (auto-scales with level)
+   - Wealth-based targeting (prioritize 200k+ gold targets)
+   - ECONOMIST strategy differentiation (jackpot hunting)
+
+### After Phase 4: Remaining Work
+
+1. **Phase 2: Equipment Optimization** (Low Priority — Analytics Only)
+   - ~~Buy/sell logic~~ (explicitly deferred per user feedback — "find other things to spend gold on")
+   - Equipment analytics already built (coverage %, tier tracking)
+   - Population will naturally balance via mercenary purchases
+
+2. **Phase 5: Adaptation** (Final Phase)
+   - Performance metrics calculation (using analytics data!)
    - Strategy weight adjustments based on metrics
    - Pattern detection & stuck prevention
+   - Admin UI for performance deep-dive
 
-5. ⏳ **Testing & Tuning**
+3. **Testing & Tuning**
    - Run 100-bot simulation
-   - Analyze metrics (win rate, equipment efficiency, income growth)
-   - Tune weights and thresholds
+   - Use analytics dashboard to monitor in real-time
+   - Identify and fix issues as they appear
+   - Tune weights and thresholds based on data
 
-Once complete, bots will be **competent opponents** that play strategically, learn from mistakes, optimize resources, and challenge human players! 🤖🧠
+Once complete, bots will be **competent opponents** that play strategically, learn from mistakes, optimize resources, coordinate via alliances, and challenge human players! 🤖🧠
+
+**The analytics dashboard makes bots observable — we can see exactly how they're performing and iterate quickly.**

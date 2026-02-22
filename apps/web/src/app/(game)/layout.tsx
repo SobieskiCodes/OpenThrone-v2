@@ -44,6 +44,7 @@ import {
   IconTrophy,
   IconHammer,
   IconUser,
+  IconFlask,
 } from '@tabler/icons-react';
 
 const navItems = [
@@ -86,6 +87,7 @@ const navItems = [
       { label: 'Recruit', href: '/recruit' },
     ],
   },
+  { label: 'Combat Simulator', href: '/tools/combat-sim', icon: IconFlask },
 ];
 
 const adminNavItems = [
@@ -97,7 +99,6 @@ const adminNavItems = [
       { label: 'Players', href: '/admin/players' },
       { label: 'Bots', href: '/admin/bots' },
       { label: 'Jobs', href: '/admin/jobs' },
-      { label: 'Combat Sim', href: '/admin/combat-sim' },
       { label: 'Settings', href: '/admin/settings' },
     ],
   },

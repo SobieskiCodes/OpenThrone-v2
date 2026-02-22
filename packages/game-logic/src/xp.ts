@@ -53,3 +53,24 @@ export function getXPToNextLevel(currentXP: number | bigint): number {
   }
   return Math.max(0, nextEntry.xp - xpNum);
 }
+
+/**
+ * Helper to get player level from stats object with null safety.
+ *
+ * **Use this helper instead of:**
+ * ```typescript
+ * getLevelForXP(Number(player.stats?.experience ?? 0)) // ❌ repetitive, error-prone
+ * ```
+ *
+ * **Instead do:**
+ * ```typescript
+ * getPlayerLevel(player.stats) // ✅ clean, safe
+ * ```
+ *
+ * @param stats - Player stats object (can be null/undefined)
+ * @returns Player level (1 if stats is null/undefined)
+ */
+export function getPlayerLevel(stats: { experience: bigint | number } | null | undefined): number {
+  if (!stats) return 1;
+  return getLevelForXP(stats.experience);
+}

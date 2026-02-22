@@ -82,7 +82,7 @@ export class BattleService {
         where: { player_id: currentPlayerId },
         select: { experience: true },
       });
-      const attackerLevel = getLevelForXP(attackerStats?.experience ?? 0);
+      const attackerLevel = getLevelForXP(Number(attackerStats?.experience ?? 0));
       const minLevel = Math.max(1, attackerLevel - 10);
       const maxLevel = attackerLevel + 10;
       // Level 1 includes players with 0 XP (getLevelForXP defaults to 1),
@@ -204,7 +204,7 @@ export class BattleService {
         displayName: p.display_name,
         race: p.race,
         class: p.player_class,
-        level: getLevelForXP(p.stats?.experience ?? 0),
+        level: getLevelForXP(Number(p.stats?.experience ?? 0)),
         rank: p.stats?.rank ?? 0,
         fortLevel,
         fortHP,
@@ -316,7 +316,7 @@ export class BattleService {
         displayName: s.player.display_name,
         race: s.player.race,
         class: s.player.player_class,
-        level: getLevelForXP(s.experience),
+        level: getLevelForXP(Number(s.experience)),
         isBot: s.player.is_bot,
       };
     });
@@ -486,7 +486,12 @@ export class BattleService {
 
   // ─── Attack ─────────────────────────────────────────────────────────
 
-  async executeAttack(attackerId: string, defenderId: string, turns: number = 1) {
+  async executeAttack(
+    attackerId: string,
+    defenderId: string,
+    turns: number = 1,
+    skipRateLimits: boolean = false,
+  ) {
     if (attackerId === defenderId) {
       throw new BadRequestException('You cannot attack yourself');
     }
@@ -511,8 +516,8 @@ export class BattleService {
     }
 
     // Check level range (±10 levels)
-    const attackerLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
-    const defenderLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
+    const attackerLevel = getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0));
+    const defenderLevel = getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0));
     if (Math.abs(attackerLevel - defenderLevel) > 10) {
       throw new BadRequestException(
         `Target is out of range (your level: ${attackerLevel}, their level: ${defenderLevel}, max difference: 10)`,
@@ -527,20 +532,22 @@ export class BattleService {
       throw new BadRequestException('You have no offense units');
     }
 
-    // Rate limit: max attacks per target per 24h
-    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentAttacks = await this.prisma.attackLog.count({
-      where: {
-        attacker_id: attackerId,
-        defender_id: defenderId,
-        type: 'attack',
-        timestamp: { gte: dayAgo },
-      },
-    });
-    if (recentAttacks >= DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h) {
-      throw new BadRequestException(
-        `Maximum ${DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h} attacks per target per 24 hours`,
-      );
+    // Rate limit: max attacks per target per 24h (skip for simulation)
+    if (!skipRateLimits) {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentAttacks = await this.prisma.attackLog.count({
+        where: {
+          attacker_id: attackerId,
+          defender_id: defenderId,
+          type: 'attack',
+          timestamp: { gte: dayAgo },
+        },
+      });
+      if (recentAttacks >= DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h) {
+        throw new BadRequestException(
+          `Maximum ${DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h} attacks per target per 24 hours`,
+        );
+      }
     }
 
     // Build combat profiles + detailed breakdowns
@@ -630,11 +637,11 @@ export class BattleService {
       // XP
       await tx.playerStats.update({
         where: { player_id: attackerId },
-        data: { experience: { increment: scaledAttackerXP } },
+        data: { experience: { increment: BigInt(Math.round(scaledAttackerXP)) } },
       });
       await tx.playerStats.update({
         where: { player_id: defenderId },
-        data: { experience: { increment: scaledDefenderXP } },
+        data: { experience: { increment: BigInt(Math.round(scaledDefenderXP)) } },
       });
 
       // Create attack log
@@ -665,7 +672,7 @@ export class BattleService {
             attackerMeta: {
               race: attackerPlayer.race,
               playerClass: attackerPlayer.player_class,
-              level: getLevelForXP(attackerPlayer.stats?.experience ?? 0),
+              level: getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0)),
               fortLevel: attackerPlayer.fortification?.fort_level ?? 1,
               fortHP: attackerPlayer.fortification?.hitpoints ?? 0,
               fortMaxHP: getFortificationByLevel(attackerPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
@@ -673,7 +680,7 @@ export class BattleService {
             defenderMeta: {
               race: defenderPlayer.race,
               playerClass: defenderPlayer.player_class,
-              level: getLevelForXP(defenderPlayer.stats?.experience ?? 0),
+              level: getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0)),
               fortLevel: defenderPlayer.fortification?.fort_level ?? 1,
               fortHP: defenderPlayer.fortification?.hitpoints ?? 0,
               fortMaxHP: getFortificationByLevel(defenderPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
@@ -703,7 +710,7 @@ export class BattleService {
     }
 
     // Check for level-ups from XP gained
-    const attackerOldLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
+    const attackerOldLevel = getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0));
     const attackerNewLevel = getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0) + scaledAttackerXP);
     if (attackerNewLevel > attackerOldLevel) {
       this.eventEmitter.emit(
@@ -711,7 +718,7 @@ export class BattleService {
         new LeveledUpEvent(attackerId, attackerOldLevel, attackerNewLevel),
       );
     }
-    const defenderOldLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
+    const defenderOldLevel = getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0));
     const defenderNewLevel = getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0) + scaledDefenderXP);
     if (defenderNewLevel > defenderOldLevel) {
       this.eventEmitter.emit(
@@ -745,7 +752,7 @@ export class BattleService {
         playerId: attackerId,
         gold: attackerEcon?.gold,
         attackTurns: attackerEcon?.attack_turns,
-        level: getLevelForXP(attackerStats?.experience ?? 0),
+        level: getLevelForXP(Number(attackerStats?.experience ?? 0)),
         experience: attackerStats?.experience,
         totalUnits,
         unitsByType,
@@ -768,7 +775,12 @@ export class BattleService {
 
   // ─── Spy Mission ────────────────────────────────────────────────────
 
-  async executeSpyMission(attackerId: string, defenderId: string, dto: SpyMissionDto) {
+  async executeSpyMission(
+    attackerId: string,
+    defenderId: string,
+    dto: SpyMissionDto,
+    skipRateLimits: boolean = false,
+  ) {
     if (attackerId === defenderId) {
       throw new BadRequestException('You cannot spy on yourself');
     }
@@ -812,8 +824,8 @@ export class BattleService {
     }
 
     // Check level range (±10 levels)
-    const attackerLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
-    const defenderLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
+    const attackerLevel = getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0));
+    const defenderLevel = getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0));
     if (Math.abs(attackerLevel - defenderLevel) > 10) {
       throw new BadRequestException(
         `Target is out of range (your level: ${attackerLevel}, their level: ${defenderLevel}, max difference: 10)`,
@@ -846,20 +858,22 @@ export class BattleService {
       );
     }
 
-    // Per-type rate limit
-    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentSpy = await this.prisma.attackLog.count({
-      where: {
-        attacker_id: attackerId,
-        defender_id: defenderId,
-        type: mc.logType,
-        timestamp: { gte: dayAgo },
-      },
-    });
-    if (recentSpy >= mc.rateLimit) {
-      throw new BadRequestException(
-        `Maximum ${mc.rateLimit} ${mc.logType} missions per target per 24 hours`,
-      );
+    // Per-type rate limit (skip for simulation)
+    if (!skipRateLimits) {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentSpy = await this.prisma.attackLog.count({
+        where: {
+          attacker_id: attackerId,
+          defender_id: defenderId,
+          type: mc.logType,
+          timestamp: { gte: dayAgo },
+        },
+      });
+      if (recentSpy >= mc.rateLimit) {
+        throw new BadRequestException(
+          `Maximum ${mc.rateLimit} ${mc.logType} missions per target per 24 hours`,
+        );
+      }
     }
 
     const attackerProfile = this.buildProfile(attackerPlayer);
@@ -1531,7 +1545,7 @@ export class BattleService {
     report.displayName = player.display_name;
     report.race = player.race;
     report.class = player.player_class;
-    report.level = getLevelForXP(player.stats?.experience ?? 0);
+    report.level = getLevelForXP(Number(player.stats?.experience ?? 0));
     report.fortLevel = player.fortification?.fort_level ?? 1;
 
     if (revealPercent >= 20) {

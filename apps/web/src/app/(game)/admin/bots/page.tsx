@@ -176,7 +176,8 @@ export default function BotsPage() {
         message: `Running ${simDays} days of simulation...`,
         color: 'blue',
       });
-      setShowSimulation(true);
+      // Force refetch status to show progress UI
+      queryClient.invalidateQueries({ queryKey: ['admin', 'bots', 'simulation', 'status'] });
     },
     onError: (err: Error) => {
       notifications.show({ title: 'Error', message: err.message, color: 'red' });
@@ -200,6 +201,7 @@ export default function BotsPage() {
       const timer = setTimeout(() => {
         setShowSimulation(false);
         queryClient.invalidateQueries({ queryKey: ['admin', 'bots'] });
+        queryClient.invalidateQueries({ queryKey: ['admin', 'bots', 'simulation', 'status'] });
       }, 3000);
       return () => clearTimeout(timer);
     }
@@ -488,7 +490,7 @@ export default function BotsPage() {
         closeOnEscape={simStatus?.status !== 'running'}
       >
         <Stack gap="md">
-          {!simStatus || simStatus.status === 'idle' ? (
+          {!simStatus || simStatus.status === 'idle' || simStatus.status === 'completed' || simStatus.status === 'cancelled' ? (
             <>
               <Text size="sm" c="dimmed">
                 Run bots through accelerated time to generate months of real gameplay data.
@@ -502,19 +504,47 @@ export default function BotsPage() {
                   label="Days to Simulate"
                   description="180 days = 6 months"
                   value={simDays}
-                  onChange={(val) => setSimDays(Number(val) || 180)}
+                  onChange={(val) => {
+                    if (val === '' || val === undefined) return;
+                    const num = Number(val);
+                    if (!isNaN(num) && num >= 1 && num <= 365) {
+                      setSimDays(num);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !startSimulationMutation.isPending) {
+                      startSimulationMutation.mutate();
+                    }
+                  }}
                   min={1}
                   max={365}
                   w={150}
+                  clampBehavior="strict"
+                  allowNegative={false}
+                  allowDecimal={false}
                 />
                 <NumberInput
                   label="Sessions per Day"
                   description="How many times each bot runs daily"
                   value={simSessionsPerDay}
-                  onChange={(val) => setSimSessionsPerDay(Number(val) || 5)}
+                  onChange={(val) => {
+                    if (val === '' || val === undefined) return;
+                    const num = Number(val);
+                    if (!isNaN(num) && num >= 1 && num <= 10) {
+                      setSimSessionsPerDay(num);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !startSimulationMutation.isPending) {
+                      startSimulationMutation.mutate();
+                    }
+                  }}
                   min={1}
                   max={10}
                   w={150}
+                  clampBehavior="strict"
+                  allowNegative={false}
+                  allowDecimal={false}
                 />
               </Group>
 

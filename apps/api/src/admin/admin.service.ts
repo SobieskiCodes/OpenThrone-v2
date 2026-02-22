@@ -399,7 +399,7 @@ export class AdminService {
           player_items, player_units,
           permission_grants, password_resets, account_status_history,
           player_economy,
-          bot_configs,
+          bot_configs, bot_intel_cache, bot_battle_memory, bot_threat_tracking,
           players
         RESTART IDENTITY CASCADE
       `);
@@ -446,6 +446,9 @@ export class AdminService {
           await tx.accountStatusHistory.deleteMany();
           await tx.playerEconomy.deleteMany();
           await tx.botConfig.deleteMany();
+          await tx.botIntelCache.deleteMany();
+          await tx.botBattleMemory.deleteMany();
+          await tx.botThreatTracking.deleteMany();
           await tx.player.deleteMany();
         });
       } finally {

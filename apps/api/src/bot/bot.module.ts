@@ -8,6 +8,7 @@ import { RecruitmentModule } from '../recruitment/recruitment.module';
 import { ChatModule } from '../chat/chat.module';
 import { SettingsModule } from '../settings/settings.module';
 import { ShopModule } from '../shop/shop.module';
+import { PlayerModule } from '../player/player.module';
 import { BotController } from './bot.controller';
 import { BotService } from './bot.service';
 import { BotBrainService } from './bot-brain.service';
@@ -16,6 +17,7 @@ import { BotSchedulerService } from './bot-scheduler.service';
 import { BotSnapshotService } from './bot-snapshot.service';
 import { BotSimulationService } from './bot-simulation.service';
 import { BotChatService } from './bot-chat.service';
+import { BotMemoryService } from './bot-memory.service';
 
 @Module({
   imports: [
@@ -28,6 +30,7 @@ import { BotChatService } from './bot-chat.service';
     ChatModule,
     SettingsModule,
     ShopModule,
+    PlayerModule,
   ],
   controllers: [BotController],
   providers: [
@@ -38,6 +41,7 @@ import { BotChatService } from './bot-chat.service';
     BotSnapshotService,
     BotSimulationService,
     BotChatService,
+    BotMemoryService,
   ],
   exports: [BotService],
 })

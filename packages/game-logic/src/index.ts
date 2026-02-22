@@ -13,6 +13,7 @@ export {
 export {
   levelXPArray,
   getLevelForXP,
+  getPlayerLevel,
   getXPForLevel,
   getXPToNextLevel,
 } from './xp';
@@ -110,12 +111,20 @@ export {
   calculateTrainingAllocation,
   calculateBankAmount,
   scoreTarget,
+  calculateTargetScore,
   addHumanNoise,
+  // Phase 5: Advanced Intelligence & Adaptive Strategy
+  calculatePerformanceMetrics,
+  detectStuckPattern,
+  getTemporaryBlacklist,
+  adaptStrategyWeights,
+  getAdaptedWeights,
 } from './bot-strategies';
 export type {
   BotGameState,
   BotTarget,
   PrioritizedAction,
+  BotPerformanceMetrics,
 } from './bot-strategies';
 
 // ─── Buildings (new system) ──────────────────────────────────────────
@@ -152,3 +161,20 @@ export {
   getCosmeticsByType,
 } from './cosmetics';
 export type { CosmeticDefinition } from './cosmetics';
+
+// ─── Combat Simulator (detailed battle simulation) ───────────────────
+export {
+  runSingleSimulation,
+  runBatchSimulation,
+  DEFAULT_SIMULATOR_CONFIG,
+} from './combat-simulator';
+export type {
+  SimulatorUnit,
+  SimulatorItem,
+  SimulatorProfile,
+  SimulatorConfig,
+  UnitCasualty,
+  StatBreakdown as SimStatBreakdown,
+  SingleSimResult,
+  BatchSimResult,
+} from './combat-simulator';

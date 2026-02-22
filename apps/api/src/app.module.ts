@@ -25,6 +25,7 @@ import { ActivityModule } from './activity/activity.module';
 import { GameModule } from './game/game.module';
 import { ShopModule } from './shop/shop.module';
 import { SettingsModule } from './settings/settings.module';
+import { SimulatorModule } from './simulator/simulator.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { SettingsModule } from './settings/settings.module';
     ActivityModule,
     ShopModule,
     SettingsModule,
+    SimulatorModule,
   ],
   providers: [
     {

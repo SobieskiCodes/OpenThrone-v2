@@ -6,7 +6,13 @@ import { ArmoryService } from '../armory/armory.service';
 import { StructuresService } from '../structures/structures.service';
 import { BattleService } from '../battle/battle.service';
 import { ShopService } from '../shop/shop.service';
-import { scoreTarget } from '@openthrone/game-logic';
+import { PlayerService } from '../player/player.service';
+import {
+  scoreTarget,
+  calculateTargetScore,
+  getTemporaryBlacklist,
+} from '@openthrone/game-logic';
+import { getLevelForXP } from '@openthrone/game-logic';
 import type { PrioritizedAction, BotGameState } from '@openthrone/game-logic';
 
 interface ActionResult {
@@ -27,6 +33,7 @@ export class BotExecutorService {
     private readonly structuresService: StructuresService,
     private readonly battleService: BattleService,
     private readonly shopService: ShopService,
+    private readonly playerService: PlayerService,
   ) {}
 
   async executeAction(
@@ -34,13 +41,16 @@ export class BotExecutorService {
     playerId: string,
     state: BotGameState,
     strategy: string,
+    skipRateLimits: boolean = false,
   ): Promise<ActionResult> {
     try {
       switch (action.type) {
         case 'AUTO_RECRUIT':
           return await this.execAutoRecruit(playerId);
+        case 'ALLOCATE_BONUS_POINTS':
+          return await this.execAllocateBonusPoints(playerId, action.params!);
         case 'BANK_DEPOSIT':
-          return await this.execBankDeposit(playerId, action.params!);
+          return await this.execBankDeposit(playerId, action.params!, skipRateLimits);
         case 'TRAIN_UNITS':
           return await this.execTrainUnits(playerId, action.params!);
         case 'EQUIP_ITEMS':
@@ -52,13 +62,17 @@ export class BotExecutorService {
         case 'REPAIR_FORT':
           return await this.execRepairFort(playerId, action.params!);
         case 'ATTACK_PLAYER':
-          return await this.execAttackPlayer(playerId, state, strategy, action.params!);
+          return await this.execAttackPlayer(playerId, state, strategy, action.params!, skipRateLimits);
         case 'SPY_MISSION':
-          return await this.execSpyMission(playerId, state, strategy, action.params!);
+          return await this.execSpyMission(playerId, state, strategy, action.params!, skipRateLimits);
         case 'PURCHASE_COSMETIC':
           return await this.execPurchaseCosmetic(playerId, action.params!);
         case 'HIRE_MERCENARIES':
           return await this.execHireMercenaries(playerId, action.params!);
+        case 'CREATE_ALLIANCE':
+          return await this.execCreateAlliance(playerId, state);
+        case 'JOIN_ALLIANCE':
+          return await this.execJoinAlliance(playerId, state);
         default:
           return { success: false, errorMessage: `Unknown action type: ${action.type}` };
       }
@@ -109,6 +123,7 @@ export class BotExecutorService {
   private async execBankDeposit(
     playerId: string,
     params: Record<string, any>,
+    skipRateLimits: boolean = false,
   ): Promise<ActionResult> {
     // Re-check current gold to avoid depositing more than 80% after prior actions spent gold
     const economy = await this.prisma.playerEconomy.findUnique({
@@ -121,7 +136,7 @@ export class BotExecutorService {
     if (amount <= 0) {
       return { success: false, errorMessage: 'Not enough gold to deposit after prior actions' };
     }
-    const result = await this.bankService.deposit(playerId, String(amount));
+    const result = await this.bankService.deposit(playerId, String(amount), skipRateLimits);
     return { success: true, resultData: result };
   }
 
@@ -191,6 +206,7 @@ export class BotExecutorService {
     state: BotGameState,
     strategy: string,
     params: Record<string, any>,
+    skipRateLimits: boolean = false,
   ): Promise<ActionResult> {
     // Find a target: get active non-bot players near our level
     const target = await this.findAttackTarget(playerId, state, strategy);
@@ -202,6 +218,7 @@ export class BotExecutorService {
       playerId,
       target.id,
       params.turns ?? 1,
+      skipRateLimits,
     );
     return {
       success: true,
@@ -214,8 +231,10 @@ export class BotExecutorService {
     state: BotGameState,
     strategy: string,
     params: Record<string, any>,
+    skipRateLimits: boolean = false,
   ): Promise<ActionResult> {
-    const target = await this.findAttackTarget(playerId, state, strategy);
+    // Phase 1: Use spy-specific target selection (prioritize gathering intel)
+    const target = await this.findSpyTarget(playerId, state, strategy);
     if (!target) {
       return { success: false, errorMessage: 'No suitable spy target found' };
     }
@@ -227,6 +246,7 @@ export class BotExecutorService {
         type: params.type ?? 'INTEL',
         spiesSent: params.spiesSent ?? 1,
       },
+      skipRateLimits,
     );
     return {
       success: true,
@@ -250,6 +270,9 @@ export class BotExecutorService {
         stats: true,
         fortification: true,
         units: true,
+        alliance_membership: {
+          select: { alliance_id: true },
+        },
       },
       take: 50,
     });
@@ -265,6 +288,9 @@ export class BotExecutorService {
           stats: true,
           fortification: true,
           units: true,
+          alliance_membership: {
+            select: { alliance_id: true },
+          },
         },
         take: 50,
       });
@@ -280,14 +306,21 @@ export class BotExecutorService {
     state: BotGameState,
     strategy: string,
   ): { id: string; displayName: string } | null {
+    // Phase 5: Get temporary blacklist to avoid targets bot is stuck attacking
+    const blacklist = getTemporaryBlacklist(state);
+    if (blacklist.length > 0) {
+      this.logger.debug(
+        `Blacklisting ${blacklist.length} targets due to stuck pattern`,
+      );
+    }
+
     const scored = candidates
+      .filter((c) => !blacklist.includes(c.id)) // Filter out blacklisted targets
       .map((c) => {
         const target = {
           id: c.id,
           displayName: c.display_name,
-          level: c.stats?.experience
-            ? Math.floor(Math.log2(c.stats.experience + 1))
-            : 1,
+          level: getLevelForXP(Number(c.stats?.experience ?? 0)),
           rank: c.stats?.rank ?? 0,
           offense: c.stats?.offense ?? 0,
           defense: c.stats?.defense ?? 0,
@@ -296,10 +329,12 @@ export class BotExecutorService {
             (sum: number, u: any) => sum + u.quantity,
             0,
           ),
+          allianceId: c.alliance_membership?.alliance_id ?? null,
         };
-        const score = scoreTarget(
+        // Phase 1: Use intelligence-based scoring
+        const score = calculateTargetScore(
           strategy as any,
-          { offense: state.offense, level: state.level },
+          state,
           target,
         );
         return { ...target, score };
@@ -313,6 +348,102 @@ export class BotExecutorService {
     const topN = scored.slice(0, Math.min(5, scored.length));
     const pick = topN[Math.floor(Math.random() * topN.length)]!;
     return { id: pick.id, displayName: pick.displayName };
+  }
+
+  /**
+   * Phase 1: Find spy target prioritizing intelligence gathering.
+   * Preference order:
+   * 1. Revenge targets we haven't spied yet
+   * 2. Targets with no intel
+   * 3. Targets with stale intel (>7 days old)
+   */
+  private async findSpyTarget(
+    playerId: string,
+    state: BotGameState,
+    strategy: string,
+  ): Promise<{ id: string; displayName: string } | null> {
+    const candidates = await this.prisma.player.findMany({
+      where: {
+        status: 'ACTIVE',
+        id: { not: playerId },
+        is_bot: false,
+      },
+      include: {
+        stats: true,
+        fortification: true,
+        units: true,
+      },
+      take: 50,
+    });
+
+    if (candidates.length === 0) return null;
+
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+    // Categorize targets
+    const revengeTargetsNoIntel: any[] = [];
+    const targetsNoIntel: any[] = [];
+    const targetsStaleIntel: any[] = [];
+    const targetsRecentIntel: any[] = [];
+
+    for (const c of candidates) {
+      const isRevengeTarget = state.recentAttackers.some(
+        (a) => a.attackerId === c.id,
+      );
+      const intel = state.intelReports.find((r) => r.targetId === c.id);
+
+      if (!intel) {
+        // No intel on this target
+        if (isRevengeTarget) {
+          revengeTargetsNoIntel.push(c);
+        } else {
+          targetsNoIntel.push(c);
+        }
+      } else {
+        // Has intel - check if stale
+        const intelAge = now - intel.spiedAt.getTime();
+        if (intelAge > SEVEN_DAYS_MS) {
+          targetsStaleIntel.push(c);
+        } else {
+          targetsRecentIntel.push(c);
+        }
+      }
+    }
+
+    // Priority 1: Revenge targets without intel
+    if (revengeTargetsNoIntel.length > 0) {
+      const pick =
+        revengeTargetsNoIntel[
+          Math.floor(Math.random() * revengeTargetsNoIntel.length)
+        ]!;
+      return { id: pick.id, displayName: pick.display_name };
+    }
+
+    // Priority 2: Targets without intel
+    if (targetsNoIntel.length > 0) {
+      const pick =
+        targetsNoIntel[Math.floor(Math.random() * targetsNoIntel.length)]!;
+      return { id: pick.id, displayName: pick.display_name };
+    }
+
+    // Priority 3: Targets with stale intel
+    if (targetsStaleIntel.length > 0) {
+      const pick =
+        targetsStaleIntel[Math.floor(Math.random() * targetsStaleIntel.length)]!;
+      return { id: pick.id, displayName: pick.display_name };
+    }
+
+    // Fallback: Pick from targets with recent intel (better than nothing)
+    if (targetsRecentIntel.length > 0) {
+      const pick =
+        targetsRecentIntel[
+          Math.floor(Math.random() * targetsRecentIntel.length)
+        ]!;
+      return { id: pick.id, displayName: pick.display_name };
+    }
+
+    return null;
   }
 
   private async execPurchaseCosmetic(playerId: string, params: any): Promise<ActionResult> {
@@ -399,6 +530,223 @@ export class BotExecutorService {
           hired: toBuy,
           unitType: merc.unitType,
           totalCost: toBuy * merc.cost,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, errorMessage: msg };
+    }
+  }
+
+  private async execAllocateBonusPoints(playerId: string, params: any): Promise<ActionResult> {
+    try {
+      await this.playerService.allocateBonusPoints(playerId, {
+        bonusType: params.bonusType,
+      });
+
+      return {
+        success: true,
+        resultData: {
+          bonusType: params.bonusType,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, errorMessage: msg };
+    }
+  }
+
+  private async execCreateAlliance(playerId: string, state: BotGameState): Promise<ActionResult> {
+    try {
+      // Check if already leader of an alliance
+      const existingLeadership = await this.prisma.alliance.findFirst({
+        where: { leader_id: playerId },
+      });
+
+      if (existingLeadership) {
+        return { success: false, errorMessage: 'Already leading an alliance' };
+      }
+
+      // Check if already in 3 alliances
+      const membershipCount = await this.prisma.allianceMembership.count({
+        where: { user_id: playerId },
+      });
+
+      if (membershipCount >= 3) {
+        return { success: false, errorMessage: 'Already in 3 alliances' };
+      }
+
+      // Get bot's strategy from BotConfig
+      const botConfig = await this.prisma.botConfig.findFirst({
+        where: { player_id: playerId, is_active: true },
+      });
+
+      if (!botConfig) {
+        return { success: false, errorMessage: 'Bot configuration not found' };
+      }
+
+      // Generate alliance name based on strategy
+      const nameTemplates: Record<string, string[]> = {
+        WARRIOR: ['War Coalition', 'Battle Legion', 'Steel Vanguard', 'Iron Fist', 'Crimson Raiders'],
+        TURTLE: ['Defensive Pact', 'Shield Alliance', 'Guardian Coalition', 'Fortress League', 'Bastion Unity'],
+        ECONOMIST: ['Trade Consortium', 'Gold League', 'Merchant Alliance', 'Commerce Guild', 'Prosperity Coalition'],
+        SPYMASTER: ['Shadow Network', 'Intel Syndicate', 'Covert Alliance', 'Silent Order', 'Dark Brotherhood'],
+        BALANCED: ['Unity Alliance', 'Balanced Federation', 'Harmony Coalition', 'Equilibrium League', 'Synergy Pact'],
+      };
+
+      const templates = nameTemplates[botConfig.strategy] ?? nameTemplates['BALANCED']!;
+      const baseName = templates[Math.floor(Math.random() * templates.length)]!;
+
+      // Try to find a unique name (append number if needed)
+      let allianceName = baseName;
+      let attempt = 0;
+      let isUnique = false;
+
+      while (!isUnique && attempt < 10) {
+        const existing = await this.prisma.alliance.findFirst({
+          where: { name: allianceName },
+        });
+
+        if (!existing) {
+          isUnique = true;
+        } else {
+          attempt++;
+          allianceName = `${baseName} ${attempt}`;
+        }
+      }
+
+      if (!isUnique) {
+        return { success: false, errorMessage: 'Could not generate unique alliance name' };
+      }
+
+      // Create the alliance via transaction (mirrors AllianceService.createAlliance logic)
+      const alliance = await this.prisma.$transaction(async (tx) => {
+        const newAlliance = await tx.alliance.create({
+          data: {
+            name: allianceName,
+            motto: `Founded by ${botConfig.strategy} bot`,
+            is_public: true,
+            allow_bots: true, // Always allow bots
+            closed_enrollment: false,
+            leader_id: playerId,
+          },
+        });
+
+        // Create Leader role
+        const leaderRole = await tx.allianceRole.create({
+          data: {
+            name: 'Leader',
+            alliance_id: newAlliance.id,
+            permissions: JSON.stringify(['MANAGE_ALLIANCE', 'INVITE', 'KICK', 'MANAGE_ROLES']),
+          },
+        });
+
+        // Create Member role
+        await tx.allianceRole.create({
+          data: {
+            name: 'Member',
+            alliance_id: newAlliance.id,
+            permissions: JSON.stringify([]),
+          },
+        });
+
+        // Add bot as leader
+        await tx.allianceMembership.create({
+          data: {
+            alliance_id: newAlliance.id,
+            user_id: playerId,
+            role_id: leaderRole.id,
+          },
+        });
+
+        return newAlliance;
+      });
+
+      return {
+        success: true,
+        resultData: {
+          allianceId: alliance.id,
+          allianceName: alliance.name,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, errorMessage: msg };
+    }
+  }
+
+  private async execJoinAlliance(playerId: string, state: BotGameState): Promise<ActionResult> {
+    try {
+      // Find alliances that allow bots, are not full, and are within level range
+      const alliances = await this.prisma.alliance.findMany({
+        where: {
+          allow_bots: true,
+          closed_enrollment: false,
+        },
+        include: {
+          _count: { select: { memberships: true } },
+          leader: {
+            select: {
+              id: true,
+              display_name: true,
+              stats: { select: { experience: true } },
+            },
+          },
+        },
+      });
+
+      if (alliances.length === 0) {
+        // No alliances available — bot should create one (handled in separate action)
+        return { success: false, errorMessage: 'No alliances available for bots' };
+      }
+
+      // Filter alliances within reasonable level range (±10 levels)
+      const suitableAlliances = alliances.filter((a) => {
+        const leaderLevel = a.leader.stats
+          ? getLevelForXP(Number(a.leader.stats.experience))
+          : 1;
+        return Math.abs(leaderLevel - state.level) <= 10;
+      });
+
+      if (suitableAlliances.length === 0) {
+        return { success: false, errorMessage: 'No suitable alliances found (level range)' };
+      }
+
+      // Pick a random suitable alliance
+      const selectedAlliance = suitableAlliances[Math.floor(Math.random() * suitableAlliances.length)]!;
+
+      // Check if already in 3 alliances
+      const membershipCount = await this.prisma.allianceMembership.count({
+        where: { user_id: playerId },
+      });
+
+      if (membershipCount >= 3) {
+        return { success: false, errorMessage: 'Already in 3 alliances' };
+      }
+
+      // Find the "Member" role
+      const memberRole = await this.prisma.allianceRole.findFirst({
+        where: { alliance_id: selectedAlliance.id, name: 'Member' },
+      });
+
+      if (!memberRole) {
+        return { success: false, errorMessage: 'Alliance configuration error: no Member role' };
+      }
+
+      // Join the alliance
+      await this.prisma.allianceMembership.create({
+        data: {
+          alliance_id: selectedAlliance.id,
+          user_id: playerId,
+          role_id: memberRole.id,
+        },
+      });
+
+      return {
+        success: true,
+        resultData: {
+          allianceId: selectedAlliance.id,
+          allianceName: selectedAlliance.name,
         },
       };
     } catch (err) {

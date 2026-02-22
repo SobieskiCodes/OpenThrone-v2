@@ -318,7 +318,7 @@ export class BotService {
         sessionsToday: c.sessions_today,
         lastSessionAt: c.last_session_at,
         lastActive: c.player.last_active,
-        level: getLevelForXP(c.player.stats?.experience ?? 0),
+        level: getLevelForXP(Number(c.player.stats?.experience ?? 0)),
         gold: c.player.economy?.gold.toString() ?? '0',
         notes: c.notes,
       })),
@@ -383,7 +383,7 @@ export class BotService {
       notes: config.notes,
       createdAt: config.created_at,
       player: {
-        level: getLevelForXP(config.player.stats?.experience ?? 0),
+        level: getLevelForXP(Number(config.player.stats?.experience ?? 0)),
         experience: (config.player.stats?.experience ?? BigInt(0)).toString(),
         offense: config.player.stats?.offense ?? 0,
         defense: config.player.stats?.defense ?? 0,
@@ -516,6 +516,27 @@ export class BotService {
         fortification: true,
         bonus_points: true,
         bot_config: true,
+        // Phase 1: Bot Intelligence
+        bot_intel_cache: {
+          orderBy: { spied_at: 'desc' },
+          take: 50, // Keep last 50 intel reports
+        },
+        bot_battle_memory: {
+          orderBy: { timestamp: 'desc' },
+          take: 100, // Keep last 100 battles for pattern detection
+        },
+        bot_threats: {
+          orderBy: { timestamp: 'desc' },
+          take: 50, // Keep last 50 attackers
+        },
+        // Phase 4: Alliance System
+        alliance_membership: {
+          include: {
+            alliance: {
+              select: { id: true, name: true },
+            },
+          },
+        },
       },
     });
 
@@ -550,6 +571,50 @@ export class BotService {
 
     const actionTypesUsedToday = new Set(todayLogs.map((l) => l.action_type));
 
+    // Calculate proficiency points (Phase 0: Bot Intelligence)
+    const bonusPointsArray = player.bonus_points || [];
+    const bonusPoints = {
+      OFFENSE: bonusPointsArray.find((bp) => bp.bonus_type === 'OFFENSE')?.level ?? 0,
+      DEFENSE: bonusPointsArray.find((bp) => bp.bonus_type === 'DEFENSE')?.level ?? 0,
+      RECRUITING: bonusPointsArray.find((bp) => bp.bonus_type === 'RECRUITING')?.level ?? 0,
+      CASUALTY: bonusPointsArray.find((bp) => bp.bonus_type === 'CASUALTY')?.level ?? 0,
+      INTEL: bonusPointsArray.find((bp) => bp.bonus_type === 'INTEL')?.level ?? 0,
+      INCOME: bonusPointsArray.find((bp) => bp.bonus_type === 'INCOME')?.level ?? 0,
+      PRICES: bonusPointsArray.find((bp) => bp.bonus_type === 'PRICES')?.level ?? 0,
+    };
+    const currentLevel = getLevelForXP(Number(player.stats?.experience ?? 0));
+    const totalAllocated = bonusPointsArray.reduce((sum, bp) => sum + bp.level, 0);
+    const availablePoints = currentLevel - totalAllocated; // 1 point per level
+
+    // Transform intelligence data (Phase 1: Bot Intelligence)
+    const intelReports = (player.bot_intel_cache || []).map((intel) => ({
+      targetId: intel.target_id,
+      targetName: intel.target_name,
+      targetLevel: intel.target_level,
+      goldAmount: intel.gold_amount ? Number(intel.gold_amount) : null,
+      offenseStrength: intel.offense_strength,
+      defenseStrength: intel.defense_strength,
+      spiedAt: intel.spied_at,
+      revealPercent: intel.reveal_percent,
+    }));
+
+    const battleHistory = (player.bot_battle_memory || []).map((battle) => ({
+      targetId: battle.target_id,
+      targetName: battle.target_name,
+      isWin: battle.is_win,
+      goldStolen: Number(battle.gold_stolen),
+      unitsLost: battle.units_lost,
+      timestamp: battle.timestamp,
+    }));
+
+    const recentAttackers = (player.bot_threats || []).map((threat) => ({
+      attackerId: threat.attacker_id,
+      attackerName: threat.attacker_name,
+      attackerLevel: threat.attacker_level,
+      timestamp: threat.timestamp,
+      goldLost: Number(threat.gold_lost),
+    }));
+
     return {
       playerId,
       gold: Number(player.economy?.gold ?? BigInt(0)),
@@ -577,12 +642,20 @@ export class BotService {
       offenseUpgradeLevel: getUpgradeLevel('OFFENSE'),
       spyUpgradeLevel: getUpgradeLevel('SPY'),
       sentryUpgradeLevel: getUpgradeLevel('SENTRY'),
-      level: getLevelForXP(player.stats?.experience ?? 0),
+      availablePoints,
+      bonusPoints,
+      level: currentLevel,
       experience: Number(player.stats?.experience ?? 0),
       offense: player.stats?.offense ?? 0,
       defense: player.stats?.defense ?? 0,
       spy: player.stats?.spy ?? 0,
       sentry: player.stats?.sentry ?? 0,
+      intelReports,
+      battleHistory,
+      recentAttackers,
+      // Phase 4: Alliance System (use first alliance if bot is in multiple)
+      allianceId: player.alliance_membership?.[0]?.alliance?.id ?? null,
+      allianceName: player.alliance_membership?.[0]?.alliance?.name ?? null,
       canAutoRecruit: (() => {
         if (!player.economy?.last_auto_recruit) return true;
         const todayStartUTC = new Date();
