@@ -87,13 +87,7 @@ const navItems = [
       { label: 'Recruit', href: '/recruit' },
     ],
   },
-  {
-    label: 'Tools',
-    icon: IconFlask,
-    children: [
-      { label: 'Combat Simulator', href: '/tools/combat-sim' },
-    ],
-  },
+  { label: 'Combat Simulator', href: '/tools/combat-sim', icon: IconFlask },
 ];
 
 const adminNavItems = [

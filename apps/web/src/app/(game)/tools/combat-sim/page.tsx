@@ -616,14 +616,17 @@ function BatchResultDisplay({ result }: { result: BatchSimResult }) {
 // ─── Main Page ──────────────────────────────────────────────────────
 
 export default function CombatSimulatorPage() {
+  console.log('[CombatSimulatorPage] Rendering...');
   const { api, isReady } = useApi();
   const queryClient = useQueryClient();
+  console.log('[CombatSimulatorPage] useApi result:', { isReady });
 
   const [attacker, setAttacker] = useState<SimulatorProfile>({ ...DEFAULT_PROFILE });
   const [defender, setDefender] = useState<SimulatorProfile>({ ...DEFAULT_PROFILE });
   const [turnsUsed, setTurnsUsed] = useState(3);
   const [runs, setRuns] = useState(1);
   const [result, setResult] = useState<SingleSimResult | BatchSimResult | null>(null);
+  console.log('[CombatSimulatorPage] State initialized');
 
   // Save modal
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -720,6 +723,13 @@ export default function CombatSimulatorPage() {
       result,
     });
   }, [result, saveTitle, saveNotes, runs, attacker, defender, turnsUsed]);
+
+  console.log('[CombatSimulatorPage] About to render JSX');
+
+  if (!isReady) {
+    console.log('[CombatSimulatorPage] Not ready, showing loading...');
+    return <Text>Loading...</Text>;
+  }
 
   return (
     <Stack gap="md">
