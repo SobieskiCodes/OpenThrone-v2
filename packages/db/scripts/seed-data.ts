@@ -119,10 +119,27 @@ const BOT_CONFIGS = [
 export async function seedDatabase(prisma: PrismaClient) {
   console.log('Seeding database...');
 
-  // Wipe all existing data (in correct order to respect foreign keys)
-  console.log('Wiping existing data...');
-  await prisma.$executeRaw`TRUNCATE TABLE activity_log, alliance_join_request, alliance_membership, alliance, armory, auto_recruit_session, bank_history, battle_report, blog_post, bot_action_log, bot_battle_memory, bot_config, bot_intel_cache, bot_threat_tracking, combat_simulation, cosmetic, cosmetic_purchase, message, player_building, player_economy, player_fortification, player_stats, player_unit, proficiency_upgrade, recruitment_link, settings, user_permission, player RESTART IDENTITY CASCADE`;
-  console.log('Database wiped successfully');
+  // Wipe all existing data (PostgreSQL only - uses TRUNCATE CASCADE)
+  const isProduction = process.env.DATABASE_URL?.includes('postgresql');
+
+  if (isProduction) {
+    console.log('Wiping existing data (production mode)...');
+
+    // Get all table names from the database
+    const tables = await prisma.$queryRaw<Array<{ tablename: string }>>`
+      SELECT tablename FROM pg_tables WHERE schemaname='public'
+    `;
+
+    // Truncate all tables in one go with CASCADE
+    const tableNames = tables.map(t => `"${t.tablename}"`).join(', ');
+    if (tableNames) {
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableNames} RESTART IDENTITY CASCADE`);
+    }
+
+    console.log('Database wiped successfully');
+  } else {
+    console.log('Skipping database wipe (dev mode with SQLite)');
+  }
 
   const players: { id: string; displayName: string }[] = [];
 
