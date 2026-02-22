@@ -435,3 +435,72 @@ export const equipCosmeticSchema = z.object({
 
 export type PurchaseCosmeticDto = z.infer<typeof purchaseCosmeticSchema>;
 export type EquipCosmeticDto = z.infer<typeof equipCosmeticSchema>;
+
+// ─── Combat Simulator ────────────────────────────────────────────────────────
+
+export const simulatorUnitSchema = z.object({
+  type: z.enum(['OFFENSE', 'DEFENSE', 'SPY', 'SENTRY', 'WORKER']),
+  level: z.number().int().min(1).max(4),
+  quantity: z.number().int().min(0),
+});
+
+export const simulatorItemSchema = z.object({
+  id: z.string().min(1),
+  quantity: z.number().int().min(0),
+});
+
+export const simulatorProfileSchema = z.object({
+  level: z.number().int().min(1).max(200),
+  race: z.nativeEnum(PlayerRace),
+  class: z.nativeEnum(PlayerClass),
+  offenseProficiency: z.number().int().min(0).max(100),
+  defenseProficiency: z.number().int().min(0).max(100),
+  spyProficiency: z.number().int().min(0).max(100),
+  sentryProficiency: z.number().int().min(0).max(100),
+  units: z.array(simulatorUnitSchema),
+  items: z.array(simulatorItemSchema),
+  fortHealth: z.number().int().min(0).optional(),
+  fortMaxHealth: z.number().int().min(1).optional(),
+  gold: z.number().int().min(0).optional(),
+  goldInBank: z.number().int().min(0).optional(),
+});
+
+export const simulatorConfigSchema = z.object({
+  attackerCasualtyBase: z.number().min(0).max(1),
+  defenderCasualtyBase: z.number().min(0).max(1),
+  attackerWinCasualtyRate: z.number().min(0).max(1),
+  defenderWinCasualtyRate: z.number().min(0).max(1),
+  maxCasualtyPercent: z.number().min(0).max(1),
+  fortDamagePerTurn: z.number().int().min(0),
+  goldTheftBasePercent: z.number().min(0).max(1),
+  goldTheftPerExtraTurn: z.number().min(0).max(1),
+  goldTheftMaxPercent: z.number().min(0).max(1),
+  xpPerWin: z.number().int().min(0),
+  xpPerLoss: z.number().int().min(0),
+  turnBonusPerTurn: z.number().min(0).max(1),
+  fortProtectionMultiplier: z.number().min(0).max(1),
+  maxDominanceRatio: z.number().min(1),
+});
+
+export const runSimulationSchema = z.object({
+  attacker: simulatorProfileSchema,
+  defender: simulatorProfileSchema,
+  turnsUsed: z.number().int().min(1).max(10),
+  runs: z.number().int().min(1).max(10000).default(1),
+  config: simulatorConfigSchema.partial().optional(),
+});
+
+export const saveSimulationSchema = z.object({
+  title: z.string().min(1).max(100),
+  notes: z.string().max(2000).optional(),
+  input: z.any(), // JSON of simulation input
+  result: z.any(), // JSON of simulation result
+  runs: z.number().int().min(1),
+});
+
+export type SimulatorUnitDto = z.infer<typeof simulatorUnitSchema>;
+export type SimulatorItemDto = z.infer<typeof simulatorItemSchema>;
+export type SimulatorProfileDto = z.infer<typeof simulatorProfileSchema>;
+export type SimulatorConfigDto = z.infer<typeof simulatorConfigSchema>;
+export type RunSimulationDto = z.infer<typeof runSimulationSchema>;
+export type SaveSimulationDto = z.infer<typeof saveSimulationSchema>;

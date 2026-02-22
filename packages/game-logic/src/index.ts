@@ -110,6 +110,7 @@ export {
   calculateTrainingAllocation,
   calculateBankAmount,
   scoreTarget,
+  calculateTargetScore,
   addHumanNoise,
 } from './bot-strategies';
 export type {
@@ -152,3 +153,20 @@ export {
   getCosmeticsByType,
 } from './cosmetics';
 export type { CosmeticDefinition } from './cosmetics';
+
+// ─── Combat Simulator (detailed battle simulation) ───────────────────
+export {
+  runSingleSimulation,
+  runBatchSimulation,
+  DEFAULT_SIMULATOR_CONFIG,
+} from './combat-simulator';
+export type {
+  SimulatorUnit,
+  SimulatorItem,
+  SimulatorProfile,
+  SimulatorConfig,
+  UnitCasualty,
+  StatBreakdown as SimStatBreakdown,
+  SingleSimResult,
+  BatchSimResult,
+} from './combat-simulator';

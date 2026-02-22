@@ -60,7 +60,7 @@ export class BotMemoryService {
       });
 
       this.logger.debug(
-        `Bot ${botConfig.bot_name} cached intel on ${event.targetName} (reveal: ${event.revealPercent}%)`,
+        `Bot ${botConfig.player_id} cached intel on ${event.targetName} (reveal: ${event.revealPercent}%)`,
       );
     } catch (error) {
       this.logger.error(`Failed to cache intel for bot ${event.spyId}:`, error);
@@ -93,7 +93,7 @@ export class BotMemoryService {
         });
 
         this.logger.debug(
-          `Bot ${attackerBotConfig.bot_name} battle vs ${event.defenderName}: ${event.winner === event.attackerId ? 'WIN' : 'LOSS'}`,
+          `Bot ${attackerBotConfig.player_id} battle vs ${event.defenderName}: ${event.winner === event.attackerId ? 'WIN' : 'LOSS'}`,
         );
       } catch (error) {
         this.logger.error(`Failed to record battle memory for bot ${event.attackerId}:`, error);
@@ -120,7 +120,7 @@ export class BotMemoryService {
         });
 
         this.logger.debug(
-          `Bot ${defenderBotConfig.bot_name} was attacked by ${event.attackerName} (lost ${event.goldStolen} gold)`,
+          `Bot ${defenderBotConfig.player_id} was attacked by ${event.attackerName} (lost ${event.goldStolen} gold)`,
         );
       } catch (error) {
         this.logger.error(`Failed to record threat for bot ${event.defenderId}:`, error);
