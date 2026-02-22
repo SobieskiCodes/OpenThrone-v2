@@ -43,6 +43,8 @@ export class BotExecutorService {
           return await this.execTrainUnits(playerId, action.params!);
         case 'EQUIP_ITEMS':
           return await this.execEquipItems(playerId, action.params!);
+        case 'UPGRADE_BUILDING':
+          return await this.execUpgradeBuilding(playerId, action.params!);
         case 'UPGRADE_STRUCTURE':
           return await this.execUpgradeStructure(playerId, action.params!);
         case 'REPAIR_FORT':
@@ -138,6 +140,23 @@ export class BotExecutorService {
       quantity: params.quantity,
     });
     return { success: true, resultData: result };
+  }
+
+  private async execUpgradeBuilding(
+    playerId: string,
+    params: Record<string, any>,
+  ): Promise<ActionResult> {
+    const result = await this.structuresService.upgradeBuilding(playerId, {
+      buildingType: params.buildingType,
+    });
+    return {
+      success: true,
+      resultData: {
+        buildingType: result.buildingType,
+        newLevel: result.newLevel,
+        name: result.name,
+      },
+    };
   }
 
   private async execUpgradeStructure(
