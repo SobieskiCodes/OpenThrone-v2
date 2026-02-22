@@ -176,7 +176,8 @@ export default function BotsPage() {
         message: `Running ${simDays} days of simulation...`,
         color: 'blue',
       });
-      setShowSimulation(true);
+      // Force refetch status to show progress UI
+      queryClient.invalidateQueries({ queryKey: ['admin', 'bots', 'simulation', 'status'] });
     },
     onError: (err: Error) => {
       notifications.show({ title: 'Error', message: err.message, color: 'red' });
