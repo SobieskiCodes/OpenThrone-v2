@@ -220,6 +220,340 @@ export class BotController {
     };
   }
 
+  @Get('analytics/battles')
+  async getBattleAnalytics(@Query('period') period?: string) {
+    // Parse time period
+    const now = new Date();
+    const startDate = new Date();
+
+    switch (period) {
+      case '7d':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case '3m':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case '6m':
+        startDate.setMonth(now.getMonth() - 6);
+        break;
+      case '1y':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'all':
+      default:
+        startDate.setFullYear(2020, 0, 1);
+        break;
+    }
+
+    // Get all active bots
+    const botConfigs = await this.prisma.botConfig.findMany({
+      where: { is_active: true },
+      include: {
+        player: {
+          select: {
+            id: true,
+            display_name: true,
+            stats: { select: { experience: true } },
+          },
+        },
+      },
+    });
+
+    const botIds = botConfigs.map((b) => b.player_id);
+
+    // Get all attack logs for bots (as attackers)
+    const attackLogs = await this.prisma.attackLog.findMany({
+      where: {
+        type: 'attack',
+        attacker_id: { in: botIds },
+        timestamp: { gte: startDate, lte: now },
+      },
+      select: {
+        id: true,
+        attacker_id: true,
+        winner: true,
+        stats: true,
+        timestamp: true,
+      },
+    });
+
+    // Group by bot and calculate metrics
+    const botStats: Record<
+      string,
+      {
+        strategy: string;
+        name: string;
+        level: number;
+        totalAttacks: number;
+        wins: number;
+        goldStolen: number;
+        casualties: number;
+      }
+    > = {};
+
+    for (const log of attackLogs) {
+      if (!botStats[log.attacker_id]) {
+        const config = botConfigs.find((b) => b.player_id === log.attacker_id);
+        if (!config) continue;
+
+        botStats[log.attacker_id] = {
+          strategy: config.strategy,
+          name: config.player.display_name,
+          level: getLevelForXP(config.player.stats?.experience ?? 0),
+          totalAttacks: 0,
+          wins: 0,
+          goldStolen: 0,
+          casualties: 0,
+        };
+      }
+
+      const stats = botStats[log.attacker_id]!;
+      stats.totalAttacks++;
+
+      if (log.winner === log.attacker_id) {
+        stats.wins++;
+      }
+
+      // Parse stats JSON
+      try {
+        const logStats = JSON.parse(log.stats as string);
+        stats.goldStolen += logStats.goldStolen || 0;
+        stats.casualties += logStats.attackerCasualties?.total || 0;
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    }
+
+    // Calculate by-strategy aggregates
+    const strategyGroups: Record<string, any[]> = {};
+    for (const [botId, stats] of Object.entries(botStats)) {
+      if (!strategyGroups[stats.strategy]) {
+        strategyGroups[stats.strategy] = [];
+      }
+      strategyGroups[stats.strategy]!.push({ botId, ...stats });
+    }
+
+    const byStrategy: Record<string, any> = {};
+    const daysDiff = Math.max(1, (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    for (const [strategy, bots] of Object.entries(strategyGroups)) {
+      const totalBots = bots.length;
+      const totalAttacks = bots.reduce((sum, b) => sum + b.totalAttacks, 0);
+      const totalWins = bots.reduce((sum, b) => sum + b.wins, 0);
+      const totalGold = bots.reduce((sum, b) => sum + b.goldStolen, 0);
+      const totalCasualties = bots.reduce((sum, b) => sum + b.casualties, 0);
+
+      const avgAttacksPerBot = totalBots > 0 ? totalAttacks / totalBots : 0;
+      const winRate = totalAttacks > 0 ? totalWins / totalAttacks : 0;
+      const avgGoldPerAttack = totalAttacks > 0 ? totalGold / totalAttacks : 0;
+      const avgCasualtiesPerAttack = totalAttacks > 0 ? totalCasualties / totalAttacks : 0;
+
+      // Gold efficiency = gold stolen - (casualties × avg unit cost ~10 gold)
+      const goldEfficiency = avgGoldPerAttack - avgCasualtiesPerAttack * 10;
+
+      byStrategy[strategy] = {
+        attacksPerDay: avgAttacksPerBot / daysDiff,
+        winRate,
+        avgGoldPerAttack: Math.round(avgGoldPerAttack),
+        avgCasualties: Math.round(avgCasualtiesPerAttack),
+        goldEfficiency: Math.round(goldEfficiency),
+        defensesWon: 0, // TODO: Calculate from defensive logs
+      };
+    }
+
+    // Detect outliers
+    const outliers: any[] = [];
+    for (const [botId, stats] of Object.entries(botStats)) {
+      const winRate = stats.totalAttacks > 0 ? stats.wins / stats.totalAttacks : 0;
+      const avgCasualties = stats.totalAttacks > 0 ? stats.casualties / stats.totalAttacks : 0;
+
+      let issue = null;
+      let severity: 'CRITICAL' | 'WARNING' | 'GOOD' = 'GOOD';
+
+      if (stats.totalAttacks >= 50 && winRate === 0) {
+        issue = 'NO_SUCCESSFUL_ATTACKS';
+        severity = 'CRITICAL';
+      } else if (stats.totalAttacks >= 20 && winRate < 0.2) {
+        issue = 'VERY_LOW_WIN_RATE';
+        severity = 'CRITICAL';
+      } else if (stats.totalAttacks >= 10 && winRate < 0.3) {
+        issue = 'LOW_WIN_RATE';
+        severity = 'WARNING';
+      } else if (stats.totalAttacks < 3 && daysDiff > 3) {
+        issue = 'VERY_LOW_ATTACK_FREQUENCY';
+        severity = 'WARNING';
+      } else if (avgCasualties > 80) {
+        issue = 'EXCESSIVE_CASUALTIES';
+        severity = 'WARNING';
+      } else if (winRate > 0.95 && stats.totalAttacks >= 20) {
+        issue = 'UNUSUALLY_HIGH_WIN_RATE';
+        severity = 'GOOD';
+      }
+
+      if (issue) {
+        outliers.push({
+          botId,
+          botName: stats.name,
+          strategy: stats.strategy,
+          level: stats.level,
+          totalAttacks: stats.totalAttacks,
+          winRate: Math.round(winRate * 100) / 100,
+          issue,
+          severity,
+        });
+      }
+    }
+
+    // Sort outliers: CRITICAL first, then WARNING, then GOOD
+    outliers.sort((a, b) => {
+      const severityOrder: Record<string, number> = { CRITICAL: 0, WARNING: 1, GOOD: 2 };
+      return (severityOrder[a.severity] ?? 3) - (severityOrder[b.severity] ?? 3);
+    });
+
+    // TODO: Time series data (win rate over time, gold per attack over time, etc.)
+    // For now, return empty arrays
+    const overTime = {
+      dates: [],
+      winRateByStrategy: {},
+      goldPerAttackByStrategy: {},
+      casualtyRateByStrategy: {},
+    };
+
+    return {
+      byStrategy,
+      outliers,
+      overTime,
+    };
+  }
+
+  @Get('analytics/unit-composition')
+  async getUnitComposition(
+    @Query('period') period?: string,
+    @Query('strategy') strategy?: string,
+  ) {
+    // Parse time period
+    const now = new Date();
+    const startDate = new Date();
+
+    switch (period) {
+      case '7d':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case '3m':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case '6m':
+        startDate.setMonth(now.getMonth() - 6);
+        break;
+      case '1y':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'all':
+      default:
+        startDate.setFullYear(2020, 0, 1);
+        break;
+    }
+
+    // Get snapshots for requested strategy (or all if not specified)
+    const whereClause: any = {
+      snapshot_date: { gte: startDate, lte: now },
+    };
+
+    if (strategy) {
+      const botConfigs = await this.prisma.botConfig.findMany({
+        where: { strategy, is_active: true },
+        select: { id: true },
+      });
+      whereClause.bot_config_id = { in: botConfigs.map((b) => b.id) };
+    }
+
+    const snapshots = await this.prisma.botSnapshot.findMany({
+      where: whereClause,
+      include: {
+        bot_config: {
+          select: { strategy: true },
+        },
+      },
+      orderBy: { snapshot_date: 'asc' },
+    });
+
+    // Group by date and strategy
+    const dataByDate: Record<string, Record<string, any>> = {};
+
+    for (const snapshot of snapshots) {
+      const dateKey = snapshot.snapshot_date.toISOString().split('T')[0]!;
+      if (!dataByDate[dateKey]) {
+        dataByDate[dateKey] = {};
+      }
+
+      const strat = snapshot.bot_config.strategy;
+      if (!dataByDate[dateKey]![strat]) {
+        dataByDate[dateKey]![strat] = {
+          count: 0,
+          citizens: 0,
+          workers: 0,
+          offense: 0,
+          defense: 0,
+          spy: 0,
+          sentry: 0,
+        };
+      }
+
+      const data = dataByDate[dateKey]![strat]!;
+      data.count++;
+      data.citizens += snapshot.citizens;
+      data.workers += snapshot.workers;
+      data.offense += snapshot.offense_units;
+      data.defense += snapshot.defense_units;
+      data.spy += snapshot.spy_units;
+      data.sentry += snapshot.sentry_units;
+    }
+
+    // Calculate percentages and format response
+    const dates = Object.keys(dataByDate).sort();
+    const composition: Record<string, any> = {};
+
+    for (const [date, strategies] of Object.entries(dataByDate)) {
+      for (const [strat, data] of Object.entries(strategies)) {
+        if (!composition[strat]) {
+          composition[strat] = {
+            dates: [],
+            citizens: [],
+            workers: [],
+            offense: [],
+            defense: [],
+            spy: [],
+            sentry: [],
+          };
+        }
+
+        const total =
+          data.citizens +
+          data.workers +
+          data.offense +
+          data.defense +
+          data.spy +
+          data.sentry;
+
+        composition[strat]!.dates.push(date);
+        composition[strat]!.citizens.push(total > 0 ? (data.citizens / total) * 100 : 0);
+        composition[strat]!.workers.push(total > 0 ? (data.workers / total) * 100 : 0);
+        composition[strat]!.offense.push(total > 0 ? (data.offense / total) * 100 : 0);
+        composition[strat]!.defense.push(total > 0 ? (data.defense / total) * 100 : 0);
+        composition[strat]!.spy.push(total > 0 ? (data.spy / total) * 100 : 0);
+        composition[strat]!.sentry.push(total > 0 ? (data.sentry / total) * 100 : 0);
+      }
+    }
+
+    return { composition };
+  }
+
   @Post('generate')
   async generateBots(
     @Body(new ZodValidationPipe(generateBotsSchema)) dto: GenerateBotsDto,

@@ -642,7 +642,17 @@ async findAttackTargets(playerId: string): Promise<Player[]> {
 
 **Estimated Effort:** 2-3 days
 
-**Status:** ✅ **COMPLETE** (build tested, server running)
+**Status:** ✅ **COMPLETE** (build tested, server running, uncommitted)
+
+**Bugs Fixed During Testing:**
+- ✅ Fixed proficiency allocation bug (was using array length instead of sum of levels) - Commit: 18d2c49
+- ✅ Fixed intel cache case mismatch ('intel' vs 'INTEL') - Commit: 18d2c49
+- ✅ Fixed wrong XP-to-level formula (exponential vs linear) - used `getLevelForXP()` - Commit: 18d2c49
+- ✅ Rebalanced strategy weights (prioritize worker training over banking) - Commit: 18d2c49
+- ✅ Bot chat system integration with admin settings - Commit: 18d2c49
+
+**What's Next:**
+Bot analytics dashboard is being built to monitor Phase 1 effectiveness (see `BOT_DASHBOARD_PLAN.md`). Once analytics are complete, we'll circle back to Phase 2 with data-driven insights about bot behavior.
 
 ---
 
@@ -1160,20 +1170,25 @@ if (detectStuckPattern(state.battleHistory)) {
 | Phase | Effort | Priority | Dependencies | Status |
 |-------|--------|----------|--------------|--------|
 | **Phase 0** | Low (0.5 days) | **CRITICAL** | None — foundation | ✅ **DONE** (commit: 0b87872) |
-| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ✅ **DONE** (uncommitted) |
-| **Phase 2** | Low (1 day) | High | Equipment API endpoints | ⏳ **NEXT** |
+| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ✅ **DONE** (commit: 18d2c49, uncommitted) |
+| **Analytics Dashboard** | Medium (1 week) | **High** | Phase 1 complete (needs battle data) | 🔄 **IN PROGRESS** |
+| **Phase 2** | Low (1 day) | High | Equipment API endpoints, Analytics | ⏳ **NEXT** (after analytics) |
 | **Phase 3** | Medium (1-2 days) | High | Phase 1 (target scoring needs intel) | ⏳ |
 | **Phase 4** | Medium (1-2 days) | Medium | Alliance system | ⏳ |
 | **Phase 5** | High (2-3 days) | Low | Phase 1-4 complete (needs data) | ⏳ |
 
-**Recommended Sprint Order:**
-1. **Sprint 1:** Phase 0 (Proficiency Points) — Quick win, huge impact (4 hours)
-2. **Sprint 2:** Phase 1 (Combat Intelligence) — Biggest impact, forces good API
-3. **Sprint 3:** Phase 2 (Equipment) + Phase 3 (Economy) — Related optimizations
-4. **Sprint 4:** Phase 4 (Alliances) + Phase 5 (Adaptation) — Advanced features
-5. **Sprint 5:** Testing & tuning with 100-bot simulation
+**Actual Sprint Progress:**
+1. ✅ **Sprint 1:** Phase 0 (Proficiency Points) — COMPLETE
+2. ✅ **Sprint 2:** Phase 1 (Combat Intelligence) — COMPLETE with bug fixes
+3. 🔄 **Sprint 3:** Analytics Dashboard (see `BOT_DASHBOARD_PLAN.md`) — IN PROGRESS
+   - **Why now:** Need to measure Phase 1 effectiveness before continuing
+   - **What we're building:** Battle analytics, unit composition tracking, outlier detection
+   - **Value:** Spot bugs instantly, validate strategy differentiation, measure progression
+4. ⏳ **Sprint 4:** Phase 2 (Equipment) + Phase 3 (Economy) — AFTER analytics
+5. ⏳ **Sprint 5:** Phase 4 (Alliances) + Phase 5 (Adaptation)
+6. ⏳ **Sprint 6:** Testing & tuning with 100-bot simulation
 
-**Total estimated time: 8-11 days**
+**Total estimated time: 10-14 days** (added 1 week for analytics dashboard)
 
 ---
 
@@ -1243,32 +1258,59 @@ After implementation, bots should:
 
 ## Next Steps
 
-1. ⏳ **Phase 1: Combat Intelligence**
-   - Add DB tables (BotIntelCache, BotBattleMemory, BotThreatTracking)
-   - Implement event listeners for battle/spy outcomes
-   - Build target scoring & selection logic
-   - Update attack flow to prioritize spied targets
-   - Add `GET /battle/targets` API endpoint
+### Immediate: Analytics Dashboard (Current Sprint)
 
-2. ⏳ **Phase 2 & 3: Equipment + Economy** (can run in parallel)
-   - Equipment needs calculation
+See `BOT_DASHBOARD_PLAN.md` for full details. Building:
+
+1. **Battle Analytics Tab**
+   - Strategy performance comparison (win rate, attacks/day, gold efficiency)
+   - Outlier detection (bots with 0% win rate = bugs)
+   - Battle stats over time (improving or plateauing?)
+
+2. **Unit Composition Tracking**
+   - See if worker training fix worked (reducing 85-90% untrained citizens)
+   - Verify strategy differentiation (WARRIOR = offense, ECONOMIST = workers)
+   - Stacked area charts per strategy
+
+3. **Individual Bot Drill-Down**
+   - Deep dive into specific bot's timeline
+   - Identify why specific bots are stuck/failing
+
+**Why before Phase 2:** Analytics will reveal if Phase 1 is working correctly and guide Phase 2+ priorities with data.
+
+### After Analytics: Resume Bot Intelligence
+
+1. ✅ **Phase 1: Combat Intelligence** — COMPLETE (monitoring via analytics)
+
+2. ⏳ **Phase 2: Equipment Optimization**
+   - Equipment needs calculation (weapons = offense units, armor = defense units)
    - Sell excess items logic
-   - Worker scaling based on target income
-   - Wealth-based target prioritization
+   - Buy only what's needed (no hoarding)
+   - **Analytics will show:** Current equipment vs unit ratio
 
-3. ⏳ **Phase 4: Alliances**
+3. ⏳ **Phase 3: Economic Strategy**
+   - Worker scaling based on target income thresholds
+   - Wealth-based target prioritization (steal from rich players)
+   - Strategy-specific worker/soldier ratios
+   - **Analytics will show:** Income efficiency per strategy
+
+4. ⏳ **Phase 4: Alliances**
    - Add `allow_bots` toggle to alliance creation
    - Implement auto-join logic for bots
    - Exclude alliance members from attacks
+   - Share intel with alliance
 
-4. ⏳ **Phase 5: Adaptation**
-   - Performance metrics calculation
+5. ⏳ **Phase 5: Adaptation**
+   - Performance metrics calculation (using analytics data!)
    - Strategy weight adjustments based on metrics
    - Pattern detection & stuck prevention
 
-5. ⏳ **Testing & Tuning**
+6. ⏳ **Testing & Tuning**
    - Run 100-bot simulation
-   - Analyze metrics (win rate, equipment efficiency, income growth)
-   - Tune weights and thresholds
+   - Use analytics dashboard to monitor in real-time
+   - Identify and fix issues as they appear
+   - Tune weights and thresholds based on data
 
 Once complete, bots will be **competent opponents** that play strategically, learn from mistakes, optimize resources, and challenge human players! 🤖🧠
+
+**The analytics dashboard makes bots observable — we can see exactly how they're performing and iterate quickly.**
