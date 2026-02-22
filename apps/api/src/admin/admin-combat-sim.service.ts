@@ -77,7 +77,7 @@ export class AdminCombatSimService {
       fortHitpoints: player.fortification?.hitpoints ?? fortMaxHP,
       gold: Number(player.economy?.gold ?? BigInt(0)),
       goldInBank: Number(player.economy?.gold_in_bank ?? BigInt(0)),
-      experience: player.stats?.experience ?? 0,
+      experience: Number(player.stats?.experience ?? 0),
       units: statsInput.units,
       items: statsInput.items,
       battleUpgrades: statsInput.battleUpgrades,

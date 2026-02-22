@@ -258,7 +258,7 @@ export interface PlayerStateSnapshot {
   goldInBank: string; // BigInt as string
 
   // Stats
-  experience: number;
+  experience: string; // BigInt as string
   level: number;
   offense: number;
   defense: number;

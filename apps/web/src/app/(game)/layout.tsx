@@ -97,15 +97,19 @@ const adminNavItems = [
 ];
 
 interface MeData {
+  id?: string;
+  displayName?: string;
+  race?: string;
   availablePoints?: number;
   availableUpgrades?: number;
   economy?: {
     gold: string;
+    goldInBank: string;
     attackTurns: number;
   };
   stats?: {
     rank: number;
-    experience: number;
+    experience: string; // BigInt as string
   };
   units?: { unitType: string; level: number; quantity: number }[];
   level?: number;
@@ -182,10 +186,10 @@ function GameShell({ children }: { children: React.ReactNode }) {
         id: meData.id ?? '',
         displayName: meData.displayName ?? '',
         level: meData.level ?? 1,
-        experience: meData.stats?.experience?.toString() ?? '0',
+        experience: meData.stats?.experience ?? '0',
         race: meData.race ?? 'UNDEAD',
-        gold: meData.economy?.gold?.toString() ?? '0',
-        goldInBank: meData.economy?.goldInBank?.toString() ?? '0',
+        gold: meData.economy?.gold ?? '0',
+        goldInBank: meData.economy?.goldInBank ?? '0',
         attackTurns: meData.economy?.attackTurns ?? 0,
         totalUnits,
         unitsByType,

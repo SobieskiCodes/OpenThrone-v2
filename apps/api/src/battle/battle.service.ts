@@ -704,7 +704,7 @@ export class BattleService {
 
     // Check for level-ups from XP gained
     const attackerOldLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
-    const attackerNewLevel = getLevelForXP((attackerPlayer.stats?.experience ?? 0) + scaledAttackerXP);
+    const attackerNewLevel = getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0) + scaledAttackerXP);
     if (attackerNewLevel > attackerOldLevel) {
       this.eventEmitter.emit(
         'account.leveled_up',
@@ -712,7 +712,7 @@ export class BattleService {
       );
     }
     const defenderOldLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
-    const defenderNewLevel = getLevelForXP((defenderPlayer.stats?.experience ?? 0) + scaledDefenderXP);
+    const defenderNewLevel = getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0) + scaledDefenderXP);
     if (defenderNewLevel > defenderOldLevel) {
       this.eventEmitter.emit(
         'account.leveled_up',
@@ -1410,7 +1410,7 @@ export class BattleService {
       fortHitpoints: player.fortification?.hitpoints ?? fortMaxHP,
       gold: Number(player.economy?.gold ?? BigInt(0)),
       goldInBank: Number(player.economy?.gold_in_bank ?? BigInt(0)),
-      experience: player.stats?.experience ?? 0,
+      experience: Number(player.stats?.experience ?? 0),
       units: statsInput.units,
       items: statsInput.items,
       battleUpgrades: statsInput.battleUpgrades,

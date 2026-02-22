@@ -49,7 +49,7 @@ export async function buildPlayerSnapshot(
   return {
     gold: player.economy.gold.toString(),
     goldInBank: player.economy.gold_in_bank.toString(),
-    experience: player.stats.experience,
+    experience: player.stats.experience.toString(),
     level: getLevelForXP(player.stats.experience),
     offense: player.stats.offense,
     defense: player.stats.defense,

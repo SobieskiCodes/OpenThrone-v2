@@ -136,7 +136,7 @@ export function sendChatMessage(roomId: string, message: string) {
   }
 
   return new Promise((resolve) => {
-    socket.emit('chat:send', { roomId, message }, (response: any) => {
+    socket!.emit('chat:send', { roomId, message }, (response: any) => {
       resolve(response);
     });
   });
@@ -152,7 +152,7 @@ export function joinChatRoom(roomId: string) {
   }
 
   return new Promise((resolve) => {
-    socket.emit('chat:join', { roomId }, (response: any) => {
+    socket!.emit('chat:join', { roomId }, (response: any) => {
       resolve(response);
     });
   });
@@ -168,7 +168,7 @@ export function leaveChatRoom(roomId: string) {
   }
 
   return new Promise((resolve) => {
-    socket.emit('chat:leave', { roomId }, (response: any) => {
+    socket!.emit('chat:leave', { roomId }, (response: any) => {
       resolve(response);
     });
   });

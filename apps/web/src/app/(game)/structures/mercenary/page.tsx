@@ -44,7 +44,7 @@ interface MercenaryStatus {
     name: string;
     cost: number;
     fortLevel: number;
-    dailyStock: number;
+    dailyMercStock: number;
   } | null;
   stock: StockItem[];
 }
