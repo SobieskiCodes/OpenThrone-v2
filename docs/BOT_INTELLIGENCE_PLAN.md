@@ -11,7 +11,7 @@ Bots should:
 - **Play socially** (join alliances, coordinate attacks, respond to threats)
 - **Respect game mechanics** (daily limits, level ranges, turn costs)
 
-**Not AI/LLM-powered** (yet) — just smart heuristics and memory.
+**Not AI/LLM-powered** (yet) — just smart heuristics and memory. (it can look at its own battle log/history - utilize alliance spies etc)
 
 ---
 
@@ -29,13 +29,232 @@ Bots should:
 - Send chat messages (boasts, taunts, revenge threats)
 
 ### Critical Gaps ❌
-1. **No intelligence gathering** — Spy and attack are disconnected
-2. **No target selection** — Attacks anyone, including much stronger players
-3. **No battle memory** — Doesn't remember wins/losses
-4. **No learning** — Repeats mistakes (attacking same strong player repeatedly)
-5. **No equipment optimization** — Buys items randomly, doesn't match unit count
-6. **No economic strategy** — Doesn't understand workers = income
-7. **No social play** — Can't join alliances, no coordination
+1. **No proficiency point spending** — Earn points on level-up but never spend them (systemically weaker than humans)
+2. **No intelligence gathering** — Spy and attack are disconnected
+3. **No target selection** — Attacks anyone, including much stronger players
+4. **No battle memory** — Doesn't remember wins/losses
+5. **No learning** — Repeats mistakes (attacking same strong player repeatedly)
+6. **No equipment optimization** — Buys items randomly, doesn't match unit count
+7. **No economic strategy** — Doesn't understand workers = income
+8. **No social play** — Can't join alliances, no coordination
+
+---
+
+## Phase 0: Proficiency Point Allocation (Foundation)
+
+**Goal:** Bots spend proficiency points earned from leveling up to boost their stats strategically.
+
+### The Problem
+
+Bots currently:
+- ✅ Earn proficiency points on level-up
+- ❌ **Never spend them** (just accumulate forever)
+- ❌ Don't track `availablePoints` in `BotGameState`
+- ❌ Have no action type for allocating points
+
+Result: Bots become weaker than humans of the same level because they never boost their stats.
+
+### Proficiency Point System
+
+**7 Bonus Types:**
+- `OFFENSE` — Boost attack power
+- `DEFENSE` — Boost defense power
+- `RECRUITING` — More citizens per day
+- `CASUALTY` — Reduce unit losses in battle
+- `INTEL` — Better spy success rates
+- `INCOME` — Gold income multiplier
+- `PRICES` — Cheaper items/units
+
+**API Endpoint:** `POST /player/me/bonus-points` (already exists)
+
+### 0.1 Track Available Points
+
+**Update BotGameState:**
+```typescript
+export interface BotGameState {
+  // ... existing fields ...
+
+  // Proficiency tracking
+  availablePoints: number;
+  bonusPoints: {
+    OFFENSE: number;
+    DEFENSE: number;
+    RECRUITING: number;
+    CASUALTY: number;
+    INTEL: number;
+    INCOME: number;
+    PRICES: number;
+  };
+}
+```
+
+**Update loadBotGameState():**
+```typescript
+// In bot.service.ts
+const bonusPointsArray = player.bonus_points || [];
+const bonusPoints = {
+  OFFENSE: bonusPointsArray.filter(bp => bp.bonus_type === 'OFFENSE').length,
+  DEFENSE: bonusPointsArray.filter(bp => bp.bonus_type === 'DEFENSE').length,
+  RECRUITING: bonusPointsArray.filter(bp => bp.bonus_type === 'RECRUITING').length,
+  CASUALTY: bonusPointsArray.filter(bp => bp.bonus_type === 'CASUALTY').length,
+  INTEL: bonusPointsArray.filter(bp => bp.bonus_type === 'INTEL').length,
+  INCOME: bonusPointsArray.filter(bp => bp.bonus_type === 'INCOME').length,
+  PRICES: bonusPointsArray.filter(bp => bp.bonus_type === 'PRICES').length,
+};
+
+return {
+  // ... existing fields ...
+  availablePoints: player.level - bonusPointsArray.length, // 1 point per level
+  bonusPoints,
+};
+```
+
+### 0.2 Strategy-Based Point Allocation
+
+**Add Weights:**
+```typescript
+interface StrategyWeights {
+  // ... existing weights ...
+
+  // Proficiency point priorities
+  allocateOffense: number;
+  allocateDefense: number;
+  allocateRecruiting: number;
+  allocateCasualty: number;
+  allocateIntel: number;
+  allocateIncome: number;
+  allocatePrices: number;
+}
+```
+
+**Strategy Preferences:**
+```typescript
+const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
+  WARRIOR: {
+    // ... existing ...
+    allocateOffense: 10,    // Primary focus
+    allocateDefense: 3,
+    allocateCasualty: 5,    // Reduce losses
+    allocateRecruiting: 2,
+    allocateIntel: 1,
+    allocateIncome: 2,
+    allocatePrices: 1,
+  },
+  TURTLE: {
+    allocateOffense: 2,
+    allocateDefense: 10,    // Primary focus
+    allocateCasualty: 3,
+    allocateRecruiting: 4,
+    allocateIntel: 2,
+    allocateIncome: 5,      // Need income for fort repairs
+    allocatePrices: 2,
+  },
+  ECONOMIST: {
+    allocateOffense: 1,
+    allocateDefense: 2,
+    allocateCasualty: 1,
+    allocateRecruiting: 4,
+    allocateIntel: 2,
+    allocateIncome: 10,     // Primary focus
+    allocatePrices: 6,      // Cheaper purchases
+  },
+  SPYMASTER: {
+    allocateOffense: 2,
+    allocateDefense: 3,
+    allocateCasualty: 2,
+    allocateRecruiting: 3,
+    allocateIntel: 10,      // Primary focus
+    allocateIncome: 4,      // Need income for spy missions
+    allocatePrices: 3,
+  },
+  BALANCED: {
+    allocateOffense: 5,
+    allocateDefense: 5,
+    allocateCasualty: 3,
+    allocateRecruiting: 3,
+    allocateIntel: 3,
+    allocateIncome: 5,
+    allocatePrices: 3,
+  },
+};
+```
+
+### 0.3 Allocation Actions
+
+```typescript
+// In prioritizeActions():
+
+// ── Allocate Proficiency Points (HIGHEST PRIORITY) ──
+if (state.availablePoints > 0) {
+  // Determine best bonus type based on strategy weights
+  const bonusOptions: { type: BonusType; weight: number }[] = [
+    { type: 'OFFENSE', weight: weights.allocateOffense },
+    { type: 'DEFENSE', weight: weights.allocateDefense },
+    { type: 'RECRUITING', weight: weights.allocateRecruiting },
+    { type: 'CASUALTY', weight: weights.allocateCasualty },
+    { type: 'INTEL', weight: weights.allocateIntel },
+    { type: 'INCOME', weight: weights.allocateIncome },
+    { type: 'PRICES', weight: weights.allocatePrices },
+  ];
+
+  // Sort by weight descending
+  bonusOptions.sort((a, b) => b.weight - a.weight);
+
+  // Pick top 3 options and randomize slightly
+  const topOptions = bonusOptions.slice(0, 3);
+  const selected = topOptions[Math.floor(rng() * topOptions.length)]!;
+
+  actions.push({
+    type: 'ALLOCATE_BONUS_POINTS',
+    weight: 1000, // VERY HIGH PRIORITY (always spend points immediately)
+    reasoning: `Has ${state.availablePoints} unspent proficiency points — allocate to ${selected.type} (strategy: ${strategy}).`,
+    params: { bonusType: selected.type },
+  });
+}
+```
+
+### 0.4 Executor
+
+```typescript
+// In bot-executor.service.ts
+case 'ALLOCATE_BONUS_POINTS':
+  return await this.execAllocateBonusPoints(playerId, action.params!);
+
+// ...
+
+private async execAllocateBonusPoints(playerId: string, params: any): Promise<ActionResult> {
+  try {
+    await this.playerService.allocateBonusPoints(playerId, {
+      bonusType: params.bonusType,
+    });
+
+    return {
+      success: true,
+      resultData: {
+        bonusType: params.bonusType,
+      },
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, errorMessage: msg };
+  }
+}
+```
+
+### Deliverables
+
+- [ ] Add `availablePoints` and `bonusPoints` to `BotGameState` interface
+- [ ] Update `loadBotGameState()` to calculate available points and current allocations
+- [ ] Add proficiency allocation weights to all 5 bot strategies
+- [ ] Add `ALLOCATE_BONUS_POINTS` action with very high priority (1000 weight)
+- [ ] Add executor method calling `playerService.allocateBonusPoints()`
+- [ ] Test: New bot at level 10 should have 10 bonus points allocated within first few sessions
+- [ ] Test: WARRIOR bots should have majority of points in OFFENSE/CASUALTY
+- [ ] Test: ECONOMIST bots should have majority in INCOME/PRICES
+
+**Estimated Effort:** 0.5 days (4 hours)
+
+**Impact:** HUGE — Bots will be competitive with humans of the same level instead of being systematically weaker.
 
 ---
 
@@ -914,25 +1133,34 @@ if (detectStuckPattern(state.battleHistory)) {
 
 | Phase | Effort | Priority | Dependencies | Status |
 |-------|--------|----------|--------------|--------|
-| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ⏳ **NEXT** |
+| **Phase 0** | Low (0.5 days) | **CRITICAL** | None — foundation | ⏳ **START HERE** |
+| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ⏳ |
 | **Phase 2** | Low (1 day) | High | Equipment API endpoints | ⏳ |
 | **Phase 3** | Medium (1-2 days) | High | Phase 1 (target scoring needs intel) | ⏳ |
 | **Phase 4** | Medium (1-2 days) | Medium | Alliance system | ⏳ |
 | **Phase 5** | High (2-3 days) | Low | Phase 1-4 complete (needs data) | ⏳ |
 
 **Recommended Sprint Order:**
-1. **Sprint 1:** Phase 1 (Combat Intelligence) — Biggest impact, forces good API
-2. **Sprint 2:** Phase 2 (Equipment) + Phase 3 (Economy) — Related optimizations
-3. **Sprint 3:** Phase 4 (Alliances) + Phase 5 (Adaptation) — Advanced features
-4. **Sprint 4:** Testing & tuning with 100-bot simulation
+1. **Sprint 1:** Phase 0 (Proficiency Points) — Quick win, huge impact (4 hours)
+2. **Sprint 2:** Phase 1 (Combat Intelligence) — Biggest impact, forces good API
+3. **Sprint 3:** Phase 2 (Equipment) + Phase 3 (Economy) — Related optimizations
+4. **Sprint 4:** Phase 4 (Alliances) + Phase 5 (Adaptation) — Advanced features
+5. **Sprint 5:** Testing & tuning with 100-bot simulation
 
-**Total estimated time: 7-10 days**
+**Total estimated time: 8-11 days**
 
 ---
 
 ## Success Metrics
 
 After implementation, bots should:
+
+✅ **Proficiency Points:**
+- 100% of bots allocate all available proficiency points within first session
+- WARRIOR bots have 60%+ points in OFFENSE/CASUALTY
+- ECONOMIST bots have 60%+ points in INCOME/PRICES
+- SPYMASTER bots have 60%+ points in INTEL/INCOME
+- No bots have unspent points after level 5
 
 ✅ **Combat Intelligence:**
 - Spy on 80%+ of targets before attacking
