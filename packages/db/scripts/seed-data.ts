@@ -329,12 +329,14 @@ export async function seedDatabase(prisma: PrismaClient) {
   ];
 
   for (const cosmetic of [...nameColors, ...icons]) {
-    await prisma.cosmetic.create({
-      data: cosmetic,
+    await prisma.cosmetic.upsert({
+      where: { id: cosmetic.id },
+      update: cosmetic,
+      create: cosmetic,
     });
   }
 
-  console.log(`Created ${nameColors.length + icons.length} cosmetics`);
+  console.log(`Seeded ${nameColors.length + icons.length} cosmetics (created or updated)`);
 
   // Create welcome blog post
   const blogPost = await prisma.blogPost.create({
