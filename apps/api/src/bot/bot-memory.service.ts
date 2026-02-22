@@ -26,7 +26,7 @@ export class BotMemoryService {
       where: { player_id: event.attackerId },
     });
 
-    if (!botConfig || event.missionType !== 'INTEL') return;
+    if (!botConfig || event.missionType !== 'intel') return;
 
     try {
       // Fetch the full spy log to get all the details
