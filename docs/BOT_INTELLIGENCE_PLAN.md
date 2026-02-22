@@ -1133,8 +1133,8 @@ if (detectStuckPattern(state.battleHistory)) {
 
 | Phase | Effort | Priority | Dependencies | Status |
 |-------|--------|----------|--------------|--------|
-| **Phase 0** | Low (0.5 days) | **CRITICAL** | None — foundation | ⏳ **START HERE** |
-| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ⏳ |
+| **Phase 0** | Low (0.5 days) | **CRITICAL** | None — foundation | ✅ **DONE** (commit: 0b87872) |
+| **Phase 1** | High (2-3 days) | **Critical** | Battle/spy event system | ⏳ **NEXT** |
 | **Phase 2** | Low (1 day) | High | Equipment API endpoints | ⏳ |
 | **Phase 3** | Medium (1-2 days) | High | Phase 1 (target scoring needs intel) | ⏳ |
 | **Phase 4** | Medium (1-2 days) | Medium | Alliance system | ⏳ |
