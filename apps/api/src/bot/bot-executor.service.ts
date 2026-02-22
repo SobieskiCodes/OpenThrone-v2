@@ -5,6 +5,7 @@ import { BankService } from '../economy/bank.service';
 import { ArmoryService } from '../armory/armory.service';
 import { StructuresService } from '../structures/structures.service';
 import { BattleService } from '../battle/battle.service';
+import { ShopService } from '../shop/shop.service';
 import { scoreTarget } from '@openthrone/game-logic';
 import type { PrioritizedAction, BotGameState } from '@openthrone/game-logic';
 
@@ -25,6 +26,7 @@ export class BotExecutorService {
     private readonly armoryService: ArmoryService,
     private readonly structuresService: StructuresService,
     private readonly battleService: BattleService,
+    private readonly shopService: ShopService,
   ) {}
 
   async executeAction(
@@ -53,6 +55,10 @@ export class BotExecutorService {
           return await this.execAttackPlayer(playerId, state, strategy, action.params!);
         case 'SPY_MISSION':
           return await this.execSpyMission(playerId, state, strategy, action.params!);
+        case 'PURCHASE_COSMETIC':
+          return await this.execPurchaseCosmetic(playerId, action.params!);
+        case 'HIRE_MERCENARIES':
+          return await this.execHireMercenaries(playerId, action.params!);
         default:
           return { success: false, errorMessage: `Unknown action type: ${action.type}` };
       }
@@ -307,5 +313,97 @@ export class BotExecutorService {
     const topN = scored.slice(0, Math.min(5, scored.length));
     const pick = topN[Math.floor(Math.random() * topN.length)]!;
     return { id: pick.id, displayName: pick.displayName };
+  }
+
+  private async execPurchaseCosmetic(playerId: string, params: any): Promise<ActionResult> {
+    try {
+      // Get available cosmetics from shop
+      const shop = await this.shopService.getCosmeticsShop();
+
+      // Filter by type if specified, otherwise pick random type
+      let availableCosmetics = shop.cosmetics;
+      if (params.cosmeticType) {
+        availableCosmetics = shop.cosmetics.filter((c: any) => c.type === params.cosmeticType);
+      }
+
+      if (availableCosmetics.length === 0) {
+        return { success: false, errorMessage: 'No cosmetics available' };
+      }
+
+      // Pick a random cosmetic from available ones
+      const cosmetic = availableCosmetics[Math.floor(Math.random() * availableCosmetics.length)]!;
+
+      // Purchase it
+      const result = await this.shopService.purchaseCosmetic(playerId, {
+        cosmeticId: cosmetic.id,
+      });
+
+      // Optionally equip it immediately (50% chance)
+      if (Math.random() > 0.5) {
+        await this.shopService.equipCosmetic(playerId, {
+          cosmeticId: cosmetic.id,
+          equipped: true,
+        });
+      }
+
+      return {
+        success: true,
+        resultData: {
+          cosmeticId: cosmetic.id,
+          name: cosmetic.name,
+          type: cosmetic.type,
+          price: cosmetic.price,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, errorMessage: msg };
+    }
+  }
+
+  private async execHireMercenaries(playerId: string, params: any): Promise<ActionResult> {
+    try {
+      const quantity = params.quantity || 1;
+
+      // Get mercenary status to see what's available
+      const status = await this.structuresService.getMercenaryStatus(playerId);
+
+      if (!status.campLevel || status.campLevel === 0) {
+        return { success: false, errorMessage: 'No mercenary camp built' };
+      }
+
+      // Get available mercenaries from stock
+      const availableStock = status.stock || [];
+      if (availableStock.length === 0) {
+        return { success: false, errorMessage: 'No mercenaries in stock' };
+      }
+
+      // Pick a random mercenary type from available stock
+      const merc = availableStock[Math.floor(Math.random() * availableStock.length)]!;
+
+      // Buy the mercenaries (buy up to quantity, limited by available stock)
+      const toBuy = Math.min(quantity, merc.available);
+
+      await this.structuresService.buyMercenary(playerId, {
+        units: [
+          {
+            unitType: merc.unitType,
+            quantity: toBuy,
+          },
+        ],
+      });
+
+      return {
+        success: true,
+        resultData: {
+          hired: toBuy,
+          unitType: merc.unitType,
+          totalCost: toBuy * merc.cost,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, errorMessage: msg };
+    }
   }
 }

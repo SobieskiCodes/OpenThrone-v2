@@ -118,6 +118,9 @@ interface StrategyWeights {
   repairFort: number;
   attackPlayer: number;
   spyMission: number;
+  // Cosmetics & Mercenaries
+  purchaseCosmetic: number;
+  hireMercenaries: number;
 }
 
 const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
@@ -148,6 +151,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     repairFort: 4,
     attackPlayer: 10,
     spyMission: 2,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 1,
+    hireMercenaries: 7, // Warriors love mercenaries for offense
   },
   TURTLE: {
     autoRecruit: 10,
@@ -176,6 +182,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     repairFort: 10,
     attackPlayer: 2,
     spyMission: 1,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 1,
+    hireMercenaries: 3, // Some defense mercs, low priority
   },
   ECONOMIST: {
     autoRecruit: 10,
@@ -204,6 +213,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     repairFort: 5,
     attackPlayer: 1,
     spyMission: 1,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 2, // Economists have gold to spare
+    hireMercenaries: 1, // Very low priority for economists
   },
   SPYMASTER: {
     autoRecruit: 10,
@@ -232,6 +244,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     repairFort: 4,
     attackPlayer: 3,
     spyMission: 10,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 1,
+    hireMercenaries: 2, // Low priority for spymasters
   },
   BALANCED: {
     autoRecruit: 10,
@@ -260,6 +275,9 @@ const STRATEGY_WEIGHTS: Record<Strategy, StrategyWeights> = {
     repairFort: 6,
     attackPlayer: 5,
     spyMission: 4,
+    // Cosmetics & Mercenaries
+    purchaseCosmetic: 1,
+    hireMercenaries: 4, // Balanced approach to mercenaries
   },
 };
 
@@ -485,6 +503,37 @@ export function prioritizeActions(
       reasoning: `Has ${state.spyUnits} spy units and ${state.gold.toLocaleString()} gold — run intel mission (3,000 gold).`,
       params: { type: 'INTEL', spiesSent: Math.min(state.spyUnits, 3) },
     });
+  }
+
+  // ── Purchase Cosmetics (very low priority — wealth flex when rich) ──
+  if (!isEarlyGame && state.gold > 100000 && rng() > 0.7) {
+    // Only 30% chance to even consider cosmetics per session
+    // Pick a random cosmetic type to purchase
+    const cosmeticTypes = ['NAME_COLOR', 'AVATAR_ICON'];
+    const cosmeticType = cosmeticTypes[Math.floor(rng() * cosmeticTypes.length)];
+    actions.push({
+      type: 'PURCHASE_COSMETIC',
+      weight: weights.purchaseCosmetic + rng(),
+      reasoning: `Very wealthy (${state.gold.toLocaleString()} gold) — consider purchasing cosmetics for style.`,
+      params: { cosmeticType },
+    });
+  }
+
+  // ── Hire Mercenaries (if mercenary camp is built and bot has gold) ──
+  if (!isEarlyGame && state.buildings.MERCENARY_CAMP > 0 && state.gold > 50000) {
+    const campLevel = state.buildings.MERCENARY_CAMP;
+    const maxMercs = campLevel * 5; // Level 1: 5 mercs, Level 2: 10, Level 3: 15
+    const goldPerMerc = 10000; // Estimated cost per mercenary
+    const affordable = Math.floor(state.gold / goldPerMerc);
+    const quantity = Math.min(maxMercs, affordable, 10); // Cap at 10 per session
+    if (quantity > 0) {
+      actions.push({
+        type: 'HIRE_MERCENARIES',
+        weight: weights.hireMercenaries + rng() * 2,
+        reasoning: `Mercenary Camp Lv${campLevel} available — hire ${quantity} mercenaries for upcoming battles (est. ${(quantity * goldPerMerc).toLocaleString()} gold).`,
+        params: { quantity },
+      });
+    }
   }
 
   // Sort by weight descending
