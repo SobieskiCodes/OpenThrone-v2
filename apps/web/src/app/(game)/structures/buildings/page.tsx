@@ -137,6 +137,10 @@ export default function BuildingsPage() {
     queryClient.invalidateQueries({ queryKey: ['player', 'me'] });
   }, [queryClient]);
 
+  // Get gold from Zustand store (always current)
+  const goldFromStore = usePlayerStore((state) => state.getGold());
+  const goldInBankFromStore = usePlayerStore((state) => state.getGoldInBank());
+
   const { data, isLoading } = useQuery<BuildingsResponse>({
     queryKey: ['structures', 'buildings'],
     queryFn: () => api.get('/structures/buildings'),
@@ -187,8 +191,8 @@ export default function BuildingsPage() {
 
   if (!data) return null;
 
-  const gold = BigInt(data.gold);
-  const goldInBank = BigInt(data.goldInBank);
+  const gold = goldFromStore;
+  const goldInBank = goldInBankFromStore;
 
   return (
     <Container size="lg" py="xl">

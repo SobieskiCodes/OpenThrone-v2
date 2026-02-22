@@ -16,6 +16,7 @@ interface PlayerState {
 
   // ─── Units (summary for header/nav) ──────────────────────────────
   totalUnits: number;
+  citizens: number; // Explicit field for citizens (CITIZEN unit type)
   unitsByType: Record<string, number>; // { OFFENSE: 100, DEFENSE: 50 }
 
   // ─── Buildings ───────────────────────────────────────────────────
@@ -64,6 +65,7 @@ const initialState = {
   goldInBank: '0',
   attackTurns: 0,
   totalUnits: 0,
+  citizens: 0,
   unitsByType: {},
   buildings: {},
   proficiencies: {},
@@ -133,6 +135,8 @@ export const usePlayerStore = create<PlayerState>()(
             acc[u.unitType] = (acc[u.unitType] || 0) + u.quantity;
             return acc;
           }, {});
+          // Extract citizens explicitly for easy access
+          updates.citizens = updates.unitsByType.CITIZEN || 0;
         }
 
         set((state) => ({ ...state, ...updates }));

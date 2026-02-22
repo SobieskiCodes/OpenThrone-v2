@@ -183,7 +183,10 @@ export default function ArmoryPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  const { data: status, isLoading } = useQuery<ArmoryStatus>({
+  // Get gold from Zustand store (always current)
+  const goldFromStore = usePlayerStore((state) => state.getGold());
+
+  const { data: status, isLoading} = useQuery<ArmoryStatus>({
     queryKey: ['armory', 'status'],
     queryFn: () => api.get('/armory/status'),
     enabled: isReady,
@@ -251,7 +254,7 @@ export default function ArmoryPage() {
     );
   }
 
-  const gold = Number(status.gold);
+  const gold = Number(goldFromStore);
   const { armoryLevel, spyAcademyLevel, pricesBonusLevel, playerRace } = status;
 
   const getOwned = (itemType: string, usage: string, level: number): number => {

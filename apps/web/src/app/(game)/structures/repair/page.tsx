@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
+import { usePlayerStore } from '@/stores/player-store';
 
 interface StructuresStatus {
   gold: string;
@@ -40,6 +41,9 @@ export default function FortificationRepairPage() {
   const [repairPoints, setRepairPoints] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Get gold from Zustand store (always current)
+  const goldFromStore = usePlayerStore((state) => state.getGold());
 
   const { data: status, isLoading } = useQuery<StructuresStatus>({
     queryKey: ['structures', 'status'],
@@ -75,7 +79,7 @@ export default function FortificationRepairPage() {
     );
   }
 
-  const gold = Number(status.gold);
+  const gold = Number(goldFromStore);
   const { fort } = status;
   const damageAmount = fort.maxHitpoints - fort.hitpoints;
   const isFullHealth = damageAmount === 0;

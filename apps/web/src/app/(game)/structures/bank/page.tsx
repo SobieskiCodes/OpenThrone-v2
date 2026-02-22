@@ -59,6 +59,10 @@ export default function BankPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Get gold from Zustand store (always current)
+  const goldFromStore = usePlayerStore((state) => state.getGold());
+  const goldInBankFromStore = usePlayerStore((state) => state.getGoldInBank());
+
   const { data: status, isLoading: statusLoading } = useQuery<BankStatus>({
     queryKey: ['bank', 'status'],
     queryFn: () => api.get('/bank/status'),
@@ -128,8 +132,8 @@ export default function BankPage() {
     );
   }
 
-  const gold = Number(status.gold);
-  const goldInBank = Number(status.goldInBank);
+  const gold = Number(goldFromStore);
+  const goldInBank = Number(goldInBankFromStore);
   const maxDeposit = Math.floor((gold * 80) / 100);
 
   const handleDeposit = () => {
