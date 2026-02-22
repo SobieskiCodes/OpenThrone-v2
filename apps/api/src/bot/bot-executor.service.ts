@@ -36,6 +36,7 @@ export class BotExecutorService {
     playerId: string,
     state: BotGameState,
     strategy: string,
+    skipRateLimits: boolean = false,
   ): Promise<ActionResult> {
     try {
       switch (action.type) {
@@ -44,7 +45,7 @@ export class BotExecutorService {
         case 'ALLOCATE_BONUS_POINTS':
           return await this.execAllocateBonusPoints(playerId, action.params!);
         case 'BANK_DEPOSIT':
-          return await this.execBankDeposit(playerId, action.params!);
+          return await this.execBankDeposit(playerId, action.params!, skipRateLimits);
         case 'TRAIN_UNITS':
           return await this.execTrainUnits(playerId, action.params!);
         case 'EQUIP_ITEMS':
@@ -56,9 +57,9 @@ export class BotExecutorService {
         case 'REPAIR_FORT':
           return await this.execRepairFort(playerId, action.params!);
         case 'ATTACK_PLAYER':
-          return await this.execAttackPlayer(playerId, state, strategy, action.params!);
+          return await this.execAttackPlayer(playerId, state, strategy, action.params!, skipRateLimits);
         case 'SPY_MISSION':
-          return await this.execSpyMission(playerId, state, strategy, action.params!);
+          return await this.execSpyMission(playerId, state, strategy, action.params!, skipRateLimits);
         case 'PURCHASE_COSMETIC':
           return await this.execPurchaseCosmetic(playerId, action.params!);
         case 'HIRE_MERCENARIES':
@@ -113,6 +114,7 @@ export class BotExecutorService {
   private async execBankDeposit(
     playerId: string,
     params: Record<string, any>,
+    skipRateLimits: boolean = false,
   ): Promise<ActionResult> {
     // Re-check current gold to avoid depositing more than 80% after prior actions spent gold
     const economy = await this.prisma.playerEconomy.findUnique({
@@ -125,7 +127,7 @@ export class BotExecutorService {
     if (amount <= 0) {
       return { success: false, errorMessage: 'Not enough gold to deposit after prior actions' };
     }
-    const result = await this.bankService.deposit(playerId, String(amount));
+    const result = await this.bankService.deposit(playerId, String(amount), skipRateLimits);
     return { success: true, resultData: result };
   }
 
@@ -195,6 +197,7 @@ export class BotExecutorService {
     state: BotGameState,
     strategy: string,
     params: Record<string, any>,
+    skipRateLimits: boolean = false,
   ): Promise<ActionResult> {
     // Find a target: get active non-bot players near our level
     const target = await this.findAttackTarget(playerId, state, strategy);
@@ -206,6 +209,7 @@ export class BotExecutorService {
       playerId,
       target.id,
       params.turns ?? 1,
+      skipRateLimits,
     );
     return {
       success: true,
@@ -218,6 +222,7 @@ export class BotExecutorService {
     state: BotGameState,
     strategy: string,
     params: Record<string, any>,
+    skipRateLimits: boolean = false,
   ): Promise<ActionResult> {
     // Phase 1: Use spy-specific target selection (prioritize gathering intel)
     const target = await this.findSpyTarget(playerId, state, strategy);
@@ -232,6 +237,7 @@ export class BotExecutorService {
         type: params.type ?? 'INTEL',
         spiesSent: params.spiesSent ?? 1,
       },
+      skipRateLimits,
     );
     return {
       success: true,

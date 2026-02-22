@@ -14,7 +14,7 @@ export class BankService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async deposit(playerId: string, amount: string) {
+  async deposit(playerId: string, amount: string, skipRateLimits: boolean = false) {
     const depositAmount = BigInt(amount);
     if (depositAmount <= 0n) {
       throw new BadRequestException('Amount must be greater than zero');
@@ -42,12 +42,12 @@ export class BankService {
         );
       }
 
-      // Check daily deposit limit (base 3 + 1 per Mine level)
-      const depositsToday = await this.countDepositsLast24h(tx, playerId);
+      // Check daily deposit limit (base 3 + 1 per Mine level) - skip for simulation
       const mineLevel = mineBuilding?.level ?? 0;
       const maxDeposits = 3 + mineLevel;
+      const depositsToday = skipRateLimits ? 0 : await this.countDepositsLast24h(tx, playerId);
 
-      if (depositsToday >= maxDeposits) {
+      if (!skipRateLimits && depositsToday >= maxDeposits) {
         throw new BadRequestException(
           `Daily deposit limit reached (${maxDeposits} per day)`,
         );

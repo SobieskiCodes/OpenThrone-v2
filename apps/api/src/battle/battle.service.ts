@@ -486,7 +486,12 @@ export class BattleService {
 
   // ─── Attack ─────────────────────────────────────────────────────────
 
-  async executeAttack(attackerId: string, defenderId: string, turns: number = 1) {
+  async executeAttack(
+    attackerId: string,
+    defenderId: string,
+    turns: number = 1,
+    skipRateLimits: boolean = false,
+  ) {
     if (attackerId === defenderId) {
       throw new BadRequestException('You cannot attack yourself');
     }
@@ -527,20 +532,22 @@ export class BattleService {
       throw new BadRequestException('You have no offense units');
     }
 
-    // Rate limit: max attacks per target per 24h
-    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentAttacks = await this.prisma.attackLog.count({
-      where: {
-        attacker_id: attackerId,
-        defender_id: defenderId,
-        type: 'attack',
-        timestamp: { gte: dayAgo },
-      },
-    });
-    if (recentAttacks >= DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h) {
-      throw new BadRequestException(
-        `Maximum ${DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h} attacks per target per 24 hours`,
-      );
+    // Rate limit: max attacks per target per 24h (skip for simulation)
+    if (!skipRateLimits) {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentAttacks = await this.prisma.attackLog.count({
+        where: {
+          attacker_id: attackerId,
+          defender_id: defenderId,
+          type: 'attack',
+          timestamp: { gte: dayAgo },
+        },
+      });
+      if (recentAttacks >= DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h) {
+        throw new BadRequestException(
+          `Maximum ${DEFAULT_COMBAT_CONFIG.maxAttacksPerTargetPer24h} attacks per target per 24 hours`,
+        );
+      }
     }
 
     // Build combat profiles + detailed breakdowns
@@ -768,7 +775,12 @@ export class BattleService {
 
   // ─── Spy Mission ────────────────────────────────────────────────────
 
-  async executeSpyMission(attackerId: string, defenderId: string, dto: SpyMissionDto) {
+  async executeSpyMission(
+    attackerId: string,
+    defenderId: string,
+    dto: SpyMissionDto,
+    skipRateLimits: boolean = false,
+  ) {
     if (attackerId === defenderId) {
       throw new BadRequestException('You cannot spy on yourself');
     }
@@ -846,20 +858,22 @@ export class BattleService {
       );
     }
 
-    // Per-type rate limit
-    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentSpy = await this.prisma.attackLog.count({
-      where: {
-        attacker_id: attackerId,
-        defender_id: defenderId,
-        type: mc.logType,
-        timestamp: { gte: dayAgo },
-      },
-    });
-    if (recentSpy >= mc.rateLimit) {
-      throw new BadRequestException(
-        `Maximum ${mc.rateLimit} ${mc.logType} missions per target per 24 hours`,
-      );
+    // Per-type rate limit (skip for simulation)
+    if (!skipRateLimits) {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentSpy = await this.prisma.attackLog.count({
+        where: {
+          attacker_id: attackerId,
+          defender_id: defenderId,
+          type: mc.logType,
+          timestamp: { gte: dayAgo },
+        },
+      });
+      if (recentSpy >= mc.rateLimit) {
+        throw new BadRequestException(
+          `Maximum ${mc.rateLimit} ${mc.logType} missions per target per 24 hours`,
+        );
+      }
     }
 
     const attackerProfile = this.buildProfile(attackerPlayer);

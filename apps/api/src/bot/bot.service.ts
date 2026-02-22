@@ -566,16 +566,17 @@ export class BotService {
     // Calculate proficiency points (Phase 0: Bot Intelligence)
     const bonusPointsArray = player.bonus_points || [];
     const bonusPoints = {
-      OFFENSE: bonusPointsArray.filter((bp) => bp.bonus_type === 'OFFENSE').length,
-      DEFENSE: bonusPointsArray.filter((bp) => bp.bonus_type === 'DEFENSE').length,
-      RECRUITING: bonusPointsArray.filter((bp) => bp.bonus_type === 'RECRUITING').length,
-      CASUALTY: bonusPointsArray.filter((bp) => bp.bonus_type === 'CASUALTY').length,
-      INTEL: bonusPointsArray.filter((bp) => bp.bonus_type === 'INTEL').length,
-      INCOME: bonusPointsArray.filter((bp) => bp.bonus_type === 'INCOME').length,
-      PRICES: bonusPointsArray.filter((bp) => bp.bonus_type === 'PRICES').length,
+      OFFENSE: bonusPointsArray.find((bp) => bp.bonus_type === 'OFFENSE')?.level ?? 0,
+      DEFENSE: bonusPointsArray.find((bp) => bp.bonus_type === 'DEFENSE')?.level ?? 0,
+      RECRUITING: bonusPointsArray.find((bp) => bp.bonus_type === 'RECRUITING')?.level ?? 0,
+      CASUALTY: bonusPointsArray.find((bp) => bp.bonus_type === 'CASUALTY')?.level ?? 0,
+      INTEL: bonusPointsArray.find((bp) => bp.bonus_type === 'INTEL')?.level ?? 0,
+      INCOME: bonusPointsArray.find((bp) => bp.bonus_type === 'INCOME')?.level ?? 0,
+      PRICES: bonusPointsArray.find((bp) => bp.bonus_type === 'PRICES')?.level ?? 0,
     };
     const currentLevel = getLevelForXP(Number(player.stats?.experience ?? 0));
-    const availablePoints = currentLevel - bonusPointsArray.length; // 1 point per level
+    const totalAllocated = bonusPointsArray.reduce((sum, bp) => sum + bp.level, 0);
+    const availablePoints = currentLevel - totalAllocated; // 1 point per level
 
     // Transform intelligence data (Phase 1: Bot Intelligence)
     const intelReports = (player.bot_intel_cache || []).map((intel) => ({

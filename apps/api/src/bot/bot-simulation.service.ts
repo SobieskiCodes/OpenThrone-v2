@@ -217,6 +217,7 @@ export class BotSimulationService {
         playerId,
         state,
         strategy,
+        true, // skipRateLimits during simulation
       );
 
       // Log the action
