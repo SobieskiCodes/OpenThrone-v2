@@ -201,6 +201,7 @@ export default function BotsPage() {
       const timer = setTimeout(() => {
         setShowSimulation(false);
         queryClient.invalidateQueries({ queryKey: ['admin', 'bots'] });
+        queryClient.invalidateQueries({ queryKey: ['admin', 'bots', 'simulation', 'status'] });
       }, 3000);
       return () => clearTimeout(timer);
     }
@@ -489,7 +490,7 @@ export default function BotsPage() {
         closeOnEscape={simStatus?.status !== 'running'}
       >
         <Stack gap="md">
-          {!simStatus || simStatus.status === 'idle' ? (
+          {!simStatus || simStatus.status === 'idle' || simStatus.status === 'completed' || simStatus.status === 'cancelled' ? (
             <>
               <Text size="sm" c="dimmed">
                 Run bots through accelerated time to generate months of real gameplay data.
