@@ -8,6 +8,7 @@ import { RecruitmentModule } from '../recruitment/recruitment.module';
 import { ChatModule } from '../chat/chat.module';
 import { SettingsModule } from '../settings/settings.module';
 import { ShopModule } from '../shop/shop.module';
+import { PlayerModule } from '../player/player.module';
 import { BotController } from './bot.controller';
 import { BotService } from './bot.service';
 import { BotBrainService } from './bot-brain.service';
@@ -29,6 +30,7 @@ import { BotMemoryService } from './bot-memory.service';
     ChatModule,
     SettingsModule,
     ShopModule,
+    PlayerModule,
   ],
   controllers: [BotController],
   providers: [
