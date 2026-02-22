@@ -8,6 +8,7 @@ import { BattleService } from '../battle/battle.service';
 import { ShopService } from '../shop/shop.service';
 import { PlayerService } from '../player/player.service';
 import { scoreTarget, calculateTargetScore } from '@openthrone/game-logic';
+import { getLevelForXP } from '@openthrone/game-logic';
 import type { PrioritizedAction, BotGameState } from '@openthrone/game-logic';
 
 interface ActionResult {
@@ -296,9 +297,7 @@ export class BotExecutorService {
         const target = {
           id: c.id,
           displayName: c.display_name,
-          level: c.stats?.experience
-            ? Math.floor(Math.log2(Number(c.stats.experience) + 1))
-            : 1,
+          level: getLevelForXP(Number(c.stats?.experience ?? 0)),
           rank: c.stats?.rank ?? 0,
           offense: c.stats?.offense ?? 0,
           defense: c.stats?.defense ?? 0,
