@@ -630,11 +630,11 @@ export class BattleService {
       // XP
       await tx.playerStats.update({
         where: { player_id: attackerId },
-        data: { experience: { increment: scaledAttackerXP } },
+        data: { experience: { increment: BigInt(Math.round(scaledAttackerXP)) } },
       });
       await tx.playerStats.update({
         where: { player_id: defenderId },
-        data: { experience: { increment: scaledDefenderXP } },
+        data: { experience: { increment: BigInt(Math.round(scaledDefenderXP)) } },
       });
 
       // Create attack log
