@@ -291,7 +291,7 @@ export class BotExecutorService {
           id: c.id,
           displayName: c.display_name,
           level: c.stats?.experience
-            ? Math.floor(Math.log2(c.stats.experience + 1))
+            ? Math.floor(Math.log2(Number(c.stats.experience) + 1))
             : 1,
           rank: c.stats?.rank ?? 0,
           offense: c.stats?.offense ?? 0,

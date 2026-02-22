@@ -82,7 +82,7 @@ export class BattleService {
         where: { player_id: currentPlayerId },
         select: { experience: true },
       });
-      const attackerLevel = getLevelForXP(attackerStats?.experience ?? 0);
+      const attackerLevel = getLevelForXP(Number(attackerStats?.experience ?? 0));
       const minLevel = Math.max(1, attackerLevel - 10);
       const maxLevel = attackerLevel + 10;
       // Level 1 includes players with 0 XP (getLevelForXP defaults to 1),
@@ -204,7 +204,7 @@ export class BattleService {
         displayName: p.display_name,
         race: p.race,
         class: p.player_class,
-        level: getLevelForXP(p.stats?.experience ?? 0),
+        level: getLevelForXP(Number(p.stats?.experience ?? 0)),
         rank: p.stats?.rank ?? 0,
         fortLevel,
         fortHP,
@@ -316,7 +316,7 @@ export class BattleService {
         displayName: s.player.display_name,
         race: s.player.race,
         class: s.player.player_class,
-        level: getLevelForXP(s.experience),
+        level: getLevelForXP(Number(s.experience)),
         isBot: s.player.is_bot,
       };
     });
@@ -511,8 +511,8 @@ export class BattleService {
     }
 
     // Check level range (±10 levels)
-    const attackerLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
-    const defenderLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
+    const attackerLevel = getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0));
+    const defenderLevel = getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0));
     if (Math.abs(attackerLevel - defenderLevel) > 10) {
       throw new BadRequestException(
         `Target is out of range (your level: ${attackerLevel}, their level: ${defenderLevel}, max difference: 10)`,
@@ -665,7 +665,7 @@ export class BattleService {
             attackerMeta: {
               race: attackerPlayer.race,
               playerClass: attackerPlayer.player_class,
-              level: getLevelForXP(attackerPlayer.stats?.experience ?? 0),
+              level: getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0)),
               fortLevel: attackerPlayer.fortification?.fort_level ?? 1,
               fortHP: attackerPlayer.fortification?.hitpoints ?? 0,
               fortMaxHP: getFortificationByLevel(attackerPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
@@ -673,7 +673,7 @@ export class BattleService {
             defenderMeta: {
               race: defenderPlayer.race,
               playerClass: defenderPlayer.player_class,
-              level: getLevelForXP(defenderPlayer.stats?.experience ?? 0),
+              level: getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0)),
               fortLevel: defenderPlayer.fortification?.fort_level ?? 1,
               fortHP: defenderPlayer.fortification?.hitpoints ?? 0,
               fortMaxHP: getFortificationByLevel(defenderPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
@@ -703,7 +703,7 @@ export class BattleService {
     }
 
     // Check for level-ups from XP gained
-    const attackerOldLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
+    const attackerOldLevel = getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0));
     const attackerNewLevel = getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0) + scaledAttackerXP);
     if (attackerNewLevel > attackerOldLevel) {
       this.eventEmitter.emit(
@@ -711,7 +711,7 @@ export class BattleService {
         new LeveledUpEvent(attackerId, attackerOldLevel, attackerNewLevel),
       );
     }
-    const defenderOldLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
+    const defenderOldLevel = getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0));
     const defenderNewLevel = getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0) + scaledDefenderXP);
     if (defenderNewLevel > defenderOldLevel) {
       this.eventEmitter.emit(
@@ -745,7 +745,7 @@ export class BattleService {
         playerId: attackerId,
         gold: attackerEcon?.gold,
         attackTurns: attackerEcon?.attack_turns,
-        level: getLevelForXP(attackerStats?.experience ?? 0),
+        level: getLevelForXP(Number(attackerStats?.experience ?? 0)),
         experience: attackerStats?.experience,
         totalUnits,
         unitsByType,
@@ -812,8 +812,8 @@ export class BattleService {
     }
 
     // Check level range (±10 levels)
-    const attackerLevel = getLevelForXP(attackerPlayer.stats?.experience ?? 0);
-    const defenderLevel = getLevelForXP(defenderPlayer.stats?.experience ?? 0);
+    const attackerLevel = getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0));
+    const defenderLevel = getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0));
     if (Math.abs(attackerLevel - defenderLevel) > 10) {
       throw new BadRequestException(
         `Target is out of range (your level: ${attackerLevel}, their level: ${defenderLevel}, max difference: 10)`,
@@ -1531,7 +1531,7 @@ export class BattleService {
     report.displayName = player.display_name;
     report.race = player.race;
     report.class = player.player_class;
-    report.level = getLevelForXP(player.stats?.experience ?? 0);
+    report.level = getLevelForXP(Number(player.stats?.experience ?? 0));
     report.fortLevel = player.fortification?.fort_level ?? 1;
 
     if (revealPercent >= 20) {

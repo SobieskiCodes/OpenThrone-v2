@@ -318,7 +318,7 @@ export class BotService {
         sessionsToday: c.sessions_today,
         lastSessionAt: c.last_session_at,
         lastActive: c.player.last_active,
-        level: getLevelForXP(c.player.stats?.experience ?? 0),
+        level: getLevelForXP(Number(c.player.stats?.experience ?? 0)),
         gold: c.player.economy?.gold.toString() ?? '0',
         notes: c.notes,
       })),
@@ -383,7 +383,7 @@ export class BotService {
       notes: config.notes,
       createdAt: config.created_at,
       player: {
-        level: getLevelForXP(config.player.stats?.experience ?? 0),
+        level: getLevelForXP(Number(config.player.stats?.experience ?? 0)),
         experience: (config.player.stats?.experience ?? BigInt(0)).toString(),
         offense: config.player.stats?.offense ?? 0,
         defense: config.player.stats?.defense ?? 0,
@@ -574,7 +574,7 @@ export class BotService {
       INCOME: bonusPointsArray.filter((bp) => bp.bonus_type === 'INCOME').length,
       PRICES: bonusPointsArray.filter((bp) => bp.bonus_type === 'PRICES').length,
     };
-    const currentLevel = getLevelForXP(player.stats?.experience ?? 0);
+    const currentLevel = getLevelForXP(Number(player.stats?.experience ?? 0));
     const availablePoints = currentLevel - bonusPointsArray.length; // 1 point per level
 
     // Transform intelligence data (Phase 1: Bot Intelligence)
