@@ -704,6 +704,17 @@ model BotSnapshot {
   fort_hp          Int
   fort_max_hp      Int
 
+  // Buildings
+  fortification_level    Int @default(1)
+  armory_level           Int @default(0)
+  mine_level             Int @default(0)
+  spy_academy_level      Int @default(0)
+  housing_level          Int @default(0)
+  mercenary_camp_level   Int @default(0)
+
+  // Chat activity (since last snapshot)
+  chat_messages_sent Int @default(0)
+
   // Combat metrics (since last snapshot)
   attacks_won      Int    @default(0)
   attacks_lost     Int    @default(0)

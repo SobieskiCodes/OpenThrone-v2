@@ -512,9 +512,24 @@ Add **"Recent Bot Chat"** panel:
 
 ### Deliverables
 
-- [ ] Add buildings display to bot detail page
-- [ ] Add chat activity tracking
-- [ ] Add bot chat feed to global dashboard
+- [x] Add buildings display to bot detail page (Config tab)
+- [x] Add chat activity tracking (Config tab + Analytics charts)
+- [x] Add building progression chart to Analytics tab
+- [x] Add chat frequency chart to Analytics tab
+- [x] Update backend to track buildings and chat in snapshots
+- [ ] Add bot chat feed to global dashboard (deferred — not critical)
+
+**Status:** ✅ **COMPLETED** (2026-02-21)
+
+**Implementation Details:**
+- Added building level fields to BotSnapshot schema (fortification_level, armory_level, mine_level, spy_academy_level, housing_level, mercenary_camp_level)
+- Added chat_messages_sent field to BotSnapshot schema
+- Updated bot-snapshot.service.ts to capture building levels and chat message counts in daily snapshots
+- Updated bot.controller.ts analytics endpoint to include building and chat data in snapshot responses
+- Added Building Progression chart (line chart) and Chat Activity chart (bar chart) to Analytics tab
+- Updated bot.service.ts getBot() to include buildings, cosmetics counts, and chat message counts in player data
+- Updated frontend Config tab to display buildings section (6 buildings with levels), cosmetics section (owned/equipped counts), and chat activity section (messages today/total)
+- All data now uses real backend values instead of placeholders
 
 ---
 
@@ -526,15 +541,15 @@ Add **"Recent Bot Chat"** panel:
 | **Phase 2** | Medium | High | Chat system already deployed | ✅ **DONE** |
 | **Phase 3** | Low | Low | Cosmetics + mercenaries deployed | ✅ **DONE** |
 | **Phase 4** | N/A | Low | Skip for now (only for external bots) | ⏸️ Deferred |
-| **Phase 5** | Low | Medium | Phase 1, 2, 3 complete | ⏳ **NEXT** |
+| **Phase 5** | Low | Medium | Phase 1, 2, 3 complete | ✅ **DONE** |
 
 **Recommended sprint:**
 1. ✅ **Sprint 1:** Fix BigInt build error (DONE)
-2. ✅ **Sprint 2:** Phase 1 (buildings integration) — COMPLETED (2025-02-21)
-3. ✅ **Sprint 3:** Phase 2 (chat integration) + Admin Settings — COMPLETED (2025-02-21)
-4. ⏳ **Sprint 4:** Phase 3 (cosmetics/mercs) + Phase 5 (admin dashboard) — 1 day
+2. ✅ **Sprint 2:** Phase 1 (buildings integration) — COMPLETED (2026-02-21)
+3. ✅ **Sprint 3:** Phase 2 (chat integration) + Admin Settings — COMPLETED (2026-02-21)
+4. ✅ **Sprint 4:** Phase 3 (cosmetics/mercs) + Phase 5 (admin dashboard) — COMPLETED (2026-02-21)
 
-**Total estimated time: 4-6 days**
+**Total time: 4 days** ✅
 
 ---
 
@@ -602,11 +617,17 @@ Once bots are modernized, they become a **living integration test suite** for th
 
 ## Current Status (2026-02-21)
 
-✅ **Phases 1, 2 & 3 Complete!**
+✅ **Phases 1, 2, 3 & 5 Complete!**
 - Bots now use the new buildings system (6 buildings with proper progression)
 - Bots send chat messages (30 trash-talk templates with probabilistic triggers)
 - Bots purchase cosmetics when wealthy (> 100k gold, low priority)
 - Bots hire mercenaries when camp is built (warriors prioritize, economists deprioritize)
 - Admin settings system for game-wide configuration
+- **Admin dashboard now displays buildings, cosmetics, and chat activity with full analytics charts**
+- **Bot snapshots track building progression and chat frequency over time**
 
-**Ready for Phase 5:** Admin Dashboard Updates (show buildings, chat activity, mercenary purchases on bot detail pages)
+**Phase 4** (WebSocket) is deferred — only needed for external bots, not internal ones.
+
+**Optional Phase 6:** Global Dashboard Enhancements (add bot chat feed to main dashboard — low priority, can be deferred)
+
+**🎉 Bot Modernization Plan Complete!** Bots now use all major game systems and serve as a living integration test suite for the entire game API.

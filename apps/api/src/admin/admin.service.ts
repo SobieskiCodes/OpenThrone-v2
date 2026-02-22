@@ -75,7 +75,7 @@ export class AdminService {
         gold: p.economy?.gold.toString() ?? '0',
         goldInBank: p.economy?.gold_in_bank.toString() ?? '0',
         attackTurns: p.economy?.attack_turns ?? 0,
-        experience: p.stats?.experience ?? 0,
+        experience: (p.stats?.experience ?? BigInt(0)).toString(),
         rank: p.stats?.rank ?? 0,
         permissions: p.permission_grants.map((g) => g.type),
         lastActive: p.last_active,
@@ -130,7 +130,7 @@ export class AdminService {
         : null,
       stats: player.stats
         ? {
-            experience: player.stats.experience,
+            experience: player.stats.experience.toString(),
             rank: player.stats.rank,
             offense: player.stats.offense,
             defense: player.stats.defense,
