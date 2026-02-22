@@ -243,18 +243,24 @@ private async execAllocateBonusPoints(playerId: string, params: any): Promise<Ac
 
 ### Deliverables
 
-- [ ] Add `availablePoints` and `bonusPoints` to `BotGameState` interface
-- [ ] Update `loadBotGameState()` to calculate available points and current allocations
-- [ ] Add proficiency allocation weights to all 5 bot strategies
-- [ ] Add `ALLOCATE_BONUS_POINTS` action with very high priority (1000 weight)
-- [ ] Add executor method calling `playerService.allocateBonusPoints()`
-- [ ] Test: New bot at level 10 should have 10 bonus points allocated within first few sessions
-- [ ] Test: WARRIOR bots should have majority of points in OFFENSE/CASUALTY
-- [ ] Test: ECONOMIST bots should have majority in INCOME/PRICES
+- [x] Add `availablePoints` and `bonusPoints` to `BotGameState` interface
+- [x] Update `loadBotGameState()` to calculate available points and current allocations
+- [x] Add proficiency allocation weights to all 5 bot strategies
+- [x] Add `ALLOCATE_BONUS_POINTS` action with very high priority (1000 weight)
+- [x] Add executor method calling `playerService.allocateBonusPoints()`
+- [ ] Test: New bot at level 10 should have 10 bonus points allocated within first few sessions (deferred)
+- [ ] Test: WARRIOR bots should have majority of points in OFFENSE/CASUALTY (deferred)
+- [ ] Test: ECONOMIST bots should have majority in INCOME/PRICES (deferred)
+
+**Commits:**
+- `0b87872` - Phase 0: Proficiency Point Allocation (complete implementation)
+- `b2f56ab` - Fix: PlayerModule import (added after Phase 1 - dependency for bonus points)
 
 **Estimated Effort:** 0.5 days (4 hours)
 
 **Impact:** HUGE — Bots will be competitive with humans of the same level instead of being systematically weaker.
+
+**Status:** ✅ **COMPLETE** (build tested)
 
 **Testing:** Deferred to end of Phase 1 (test proficiency + combat intelligence together)
 
@@ -627,10 +633,16 @@ async findAttackTargets(playerId: string): Promise<Player[]> {
 - `calculateTargetScore()` applies bonuses for: recent intel (+30), revenge targets (+50 within 24h), past wins (+10 each), and penalties for: no intel (-15), past losses (-15 each), attacking blind (-15)
 - Spy target selection prioritizes gathering NEW intel vs re-spying known targets
 - SPYMASTER bots get -30 penalty for attacking without intel (forces them to spy first)
+- **Fix applied:** Added `PlayerModule` import to `BotModule` for `PlayerService` dependency (needed for bonus point allocation in Phase 0)
+
+**Commits:**
+- `8e0f115` - Phase 1.1: Database tables (BotIntelCache, BotBattleMemory, BotThreatTracking)
+- `6e49e70` - Phase 1: Combat Intelligence & Smart Target Selection (event listeners, target scoring, spy selection)
+- `b2f56ab` - Fix: PlayerModule import for BotExecutorService dependency
 
 **Estimated Effort:** 2-3 days
 
-**Status:** ✅ **COMPLETE**
+**Status:** ✅ **COMPLETE** (build tested, server running)
 
 ---
 
