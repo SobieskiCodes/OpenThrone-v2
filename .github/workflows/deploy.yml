@@ -7,11 +7,7 @@ on:
         description: 'Branch to deploy'
         required: true
         default: 'master'
-        type: choice
-        options:
-          - master
-          - dev
-          - feature/chat-widget-cosmetics
+        type: string
       run_seed:
         description: 'Run database seeding after deployment?'
         required: false
