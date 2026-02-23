@@ -275,4 +275,30 @@ export interface PlayerStateSnapshot {
     level: number;
     quantity: number;
   }>;
+
+  // Buildings (only when changed)
+  updatedBuildings?: Array<{
+    type: string;
+    level: number;
+  }>;
+
+  // Proficiencies
+  proficiencies?: Array<{
+    type: string;
+    level: number;
+  }>;
+  availablePoints?: number;
+
+  // Building upgrades
+  availableUpgrades?: number;
+
+  // Notifications
+  unreadMail?: number;
+
+  // Equipped items (summary for header)
+  equippedItems?: Array<{
+    id: string;
+    type: string;
+    tier: number;
+  }>;
 }

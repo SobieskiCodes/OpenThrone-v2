@@ -1,12 +1,13 @@
 'use client';
 
-import { Group, SimpleGrid, Skeleton, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Group, SimpleGrid, Stack, Text, ThemeIcon } from '@mantine/core';
 import { OTCard } from './OTCard';
 import { useApi } from '@/hooks/use-api';
 import { useQuery } from '@tanstack/react-query';
 import { toLocale } from '@openthrone/game-logic';
 import { IconCoins, IconMail, IconShield, IconSword, IconTrendingUp } from '@tabler/icons-react';
 import type { TablerIcon } from '@tabler/icons-react';
+import { usePlayerStore } from '@/stores/player-store';
 
 interface HeaderStatItem {
   label: string;
@@ -21,15 +22,10 @@ interface PageHeaderStatusProps {
   rightSection?: React.ReactNode;
 }
 
-interface StatusData {
-  economy?: {
-    gold: string;
-    attackTurns: number;
-  };
+interface RankData {
   stats?: {
     rank: number;
   };
-  availablePoints?: number;
 }
 
 function HeaderStat({ label, value, icon: Icon }: HeaderStatItem) {
@@ -49,44 +45,44 @@ function HeaderStat({ label, value, icon: Icon }: HeaderStatItem) {
 export function PageHeaderStatus({ title, subtitle, icon: Icon, rightSection }: PageHeaderStatusProps) {
   const { api, isReady } = useApi();
 
-  const { data: statusData, isLoading: statusLoading } = useQuery<StatusData>({
-    queryKey: ['player', 'me', 'header-status'],
+  // Read frequently-changing state from Zustand for instant updates
+  const gold = usePlayerStore((state) => state.getGold());
+  const attackTurns = usePlayerStore((state) => state.attackTurns);
+  const availablePoints = usePlayerStore((state) => state.availablePoints);
+  const unreadMail = usePlayerStore((state) => state.unreadMail);
+
+  // Fetch rank separately (updated on turn tick schedule, not instant)
+  const { data: rankData } = useQuery<RankData>({
+    queryKey: ['player', 'me', 'rank'],
     queryFn: () => api.get('/player/me'),
     enabled: isReady,
-    refetchInterval: 90000,
-  });
-
-  const { data: unreadData, isLoading: unreadLoading } = useQuery<{ count: number }>({
-    queryKey: ['mail', 'unread-count', 'header-status'],
-    queryFn: () => api.get('/mail/unread-count'),
-    enabled: isReady,
-    refetchInterval: 60000,
+    staleTime: 300000, // 5 minutes (rank updates on turn tick)
   });
 
   const stats: HeaderStatItem[] = [
     {
       label: 'Gold',
-      value: `${toLocale(Number(statusData?.economy?.gold ?? 0))}`,
+      value: `${toLocale(Number(gold))}`,
       icon: IconCoins,
     },
     {
       label: 'Attack Turns',
-      value: toLocale(statusData?.economy?.attackTurns ?? 0),
+      value: toLocale(attackTurns),
       icon: IconSword,
     },
     {
       label: 'Kingdom Rank',
-      value: `#${toLocale(statusData?.stats?.rank ?? 0)}`,
+      value: `#${toLocale(rankData?.stats?.rank ?? 0)}`,
       icon: IconTrendingUp,
     },
     {
       label: 'Skill Points',
-      value: toLocale(statusData?.availablePoints ?? 0),
+      value: toLocale(availablePoints),
       icon: IconShield,
     },
     {
       label: 'Unread Mail',
-      value: toLocale(unreadData?.count ?? 0),
+      value: toLocale(unreadMail),
       icon: IconMail,
     },
   ];
@@ -110,19 +106,11 @@ export function PageHeaderStatus({ title, subtitle, icon: Icon, rightSection }: 
         {rightSection}
       </Group>
 
-      {statusLoading || unreadLoading ? (
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="sm">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} height={56} radius="md" />
-          ))}
-        </SimpleGrid>
-      ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="sm">
-          {stats.map((stat) => (
-            <HeaderStat key={stat.label} {...stat} />
-          ))}
-        </SimpleGrid>
-      )}
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="sm">
+        {stats.map((stat) => (
+          <HeaderStat key={stat.label} {...stat} />
+        ))}
+      </SimpleGrid>
     </OTCard>
   );
 }

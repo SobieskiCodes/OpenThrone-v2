@@ -25,6 +25,7 @@ import { useApi } from '@/hooks/use-api';
 import { toLocale } from '@openthrone/game-logic';
 import { BuildingType } from '@openthrone/shared';
 import { IconSword, IconShield, IconEye, IconLock, IconClock } from '@tabler/icons-react';
+import { usePlayerStore } from '@/stores/player-store';
 
 interface StockItem {
   unitType: string;
@@ -81,8 +82,15 @@ export default function MercenaryCampPage() {
     mutationFn: () =>
       api.post('/structures/buildings/upgrade', { buildingType: BuildingType.MERCENARY_CAMP }),
     onSuccess: (data: any) => {
+      // Update Zustand store instantly with playerState
+      if (data.playerState) {
+        usePlayerStore.getState().updateFromSnapshot(data.playerState);
+      }
+
       setError(null);
       setSuccess(`Camp upgraded to level ${data.newLevel}!`);
+
+      // Still invalidate for background sync
       queryClient.invalidateQueries({ queryKey: ['structures'] });
       queryClient.invalidateQueries({ queryKey: ['player'] });
     },
@@ -95,10 +103,17 @@ export default function MercenaryCampPage() {
   const buyMutation = useMutation({
     mutationFn: (units: Array<{ unitType: string; quantity: number }>) =>
       api.post('/structures/mercenary/buy', { units }),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
+      // Update Zustand store instantly with new gold
+      if (data.gold) {
+        usePlayerStore.getState().setGold(BigInt(data.gold));
+      }
+
       setError(null);
       setSuccess('Mercenaries hired successfully!');
       setQuantities({});
+
+      // Still invalidate for background sync
       queryClient.invalidateQueries({ queryKey: ['structures'] });
       queryClient.invalidateQueries({ queryKey: ['player'] });
     },

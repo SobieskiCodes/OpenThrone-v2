@@ -139,6 +139,40 @@ export const usePlayerStore = create<PlayerState>()(
           updates.citizens = updates.unitsByType.CITIZEN || 0;
         }
 
+        // Buildings (if provided)
+        if (snapshot.updatedBuildings) {
+          updates.buildings = snapshot.updatedBuildings.reduce((acc: any, b: any) => {
+            acc[b.type] = b.level;
+            return acc;
+          }, {});
+        }
+
+        // Proficiencies (if provided)
+        if (snapshot.proficiencies) {
+          updates.proficiencies = snapshot.proficiencies.reduce((acc: any, p: any) => {
+            acc[p.type] = p.level;
+            return acc;
+          }, {});
+        }
+
+        // Proficiency points
+        if (snapshot.availablePoints !== undefined) updates.availablePoints = snapshot.availablePoints;
+
+        // Building upgrades availability
+        if (snapshot.availableUpgrades !== undefined) updates.availableUpgrades = snapshot.availableUpgrades;
+
+        // Notifications
+        if (snapshot.unreadMail !== undefined) updates.unreadMail = snapshot.unreadMail;
+
+        // Equipped items (if provided)
+        if (snapshot.equippedItems) {
+          updates.equippedItems = snapshot.equippedItems.map((item: any) => ({
+            id: item.id,
+            type: item.type,
+            tier: item.tier,
+          }));
+        }
+
         set((state) => ({ ...state, ...updates }));
       },
     }),

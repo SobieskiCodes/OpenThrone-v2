@@ -18,6 +18,7 @@ import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { getLevelForXP } from '@openthrone/game-logic';
+import { usePlayerStore } from '@/stores/player-store';
 
 interface BonusPoint {
   bonusType: string;
@@ -87,14 +88,37 @@ export default function ProficienciesPage() {
 
   const allocateMutation = useMutation({
     mutationFn: async (allocations: { bonusType: string; count: number }[]) => {
+      let totalPointsSpent = 0;
+      const proficienciesUpdate: Record<string, number> = {};
+
       // Call once per point to allocate (backend increments by 1 each call)
       for (const alloc of allocations) {
+        totalPointsSpent += alloc.count;
+        proficienciesUpdate[alloc.bonusType] = (proficienciesUpdate[alloc.bonusType] || 0) + alloc.count;
+
         for (let i = 0; i < alloc.count; i++) {
           await api.post('/player/me/bonus-points', { bonusType: alloc.bonusType });
         }
       }
+
+      return { totalPointsSpent, proficienciesUpdate };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update Zustand store instantly
+      const currentPoints = usePlayerStore.getState().availablePoints;
+      const currentProficiencies = usePlayerStore.getState().proficiencies;
+
+      const newProficiencies = { ...currentProficiencies };
+      for (const [type, addedLevels] of Object.entries(data.proficienciesUpdate)) {
+        newProficiencies[type] = (newProficiencies[type] || 0) + addedLevels;
+      }
+
+      usePlayerStore.getState().setState({
+        availablePoints: currentPoints - data.totalPointsSpent,
+        proficiencies: newProficiencies,
+      });
+
+      // Still invalidate for background sync
       queryClient.invalidateQueries({ queryKey: ['player', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['player', 'stat-breakdown'] });
       setPending({});

@@ -55,9 +55,16 @@ export default function FortificationRepairPage() {
     mutationFn: (points: number) =>
       api.post('/structures/repair', { points }),
     onSuccess: (data: any) => {
+      // Update Zustand store instantly with new gold
+      if (data.newGold) {
+        usePlayerStore.getState().setGold(BigInt(data.newGold));
+      }
+
       setError(null);
       setSuccess(`Repaired ${toLocale(data.repaired)} HP! Fort is now at ${toLocale(data.newHitpoints)}/${toLocale(data.maxHitpoints)}.`);
       setRepairPoints(0);
+
+      // Still invalidate for background sync
       queryClient.invalidateQueries({ queryKey: ['structures'] });
       queryClient.invalidateQueries({ queryKey: ['player'] });
     },

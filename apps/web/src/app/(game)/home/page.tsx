@@ -320,6 +320,9 @@ export default function DashboardPage() {
   const storeExperience = usePlayerStore((state) => state.getExperience());
   const storeLevel = usePlayerStore((state) => state.level);
   const storeTotalUnits = usePlayerStore((state) => state.totalUnits);
+  const storeCitizens = usePlayerStore((state) => state.citizens);
+  const storeAvailablePoints = usePlayerStore((state) => state.availablePoints);
+  const storeAvailableUpgrades = usePlayerStore((state) => state.availableUpgrades);
 
   const { data: player, isLoading } = useQuery<PlayerData>({
     queryKey: ['player', 'me'],
@@ -418,7 +421,7 @@ export default function DashboardPage() {
   const fortMaxHp = fort?.hitpoints ?? 1;
   const fortHpPercent = Math.min(100, (fortHitpoints / fortMaxHp) * 100);
 
-  const untrainedCitizens = player.units?.find((u) => u.unitType === 'CITIZEN' && u.level === 1)?.quantity ?? 0;
+  const untrainedCitizens = storeCitizens; // Use store for instant updates
   const totalUnits = storeTotalUnits; // Use store for instant updates
   const totalItems = player.items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
 
@@ -431,8 +434,8 @@ export default function DashboardPage() {
   const sentry = breakdown?.sentry.total ?? player.stats?.sentry ?? 0;
   const goldPerTurn = breakdown?.goldPerTurn.total ?? fort?.goldPerTurn ?? 0;
   const citizensPerDay = breakdown?.citizensPerDay.total ?? 0;
-  const availablePoints = breakdown?.availablePoints ?? player.availablePoints ?? 0;
-  const availableUpgrades = player.availableUpgrades ?? 0;
+  const availablePoints = storeAvailablePoints; // Use store for instant updates
+  const availableUpgrades = storeAvailableUpgrades; // Use store for instant updates
 
   const unreadCount = mail?.unreadCount ?? 0;
 

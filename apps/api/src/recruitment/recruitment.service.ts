@@ -345,7 +345,9 @@ export class RecruitmentService {
       }),
     );
 
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId, {
+      includeUnits: true, // Units changed
+    });
 
     return {
       citizensGained,

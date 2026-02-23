@@ -143,11 +143,12 @@ function GameShell({ children }: { children: React.ReactNode }) {
   // Connect to WebSocket for real-time state sync
   useGameSync();
 
+  // Fetch player data ONCE for initial hydration (mutations + WebSocket keep Zustand updated)
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ['mail', 'unread-count'],
     queryFn: () => api.get('/mail/unread-count'),
     enabled: isReady,
-    refetchInterval: 60000,
+    staleTime: Infinity, // Never auto-refetch (Zustand + WebSocket handle updates)
   });
   const unreadCount = unreadData?.count ?? 0;
 
@@ -155,16 +156,14 @@ function GameShell({ children }: { children: React.ReactNode }) {
     queryKey: ['player', 'me'],
     queryFn: () => api.get('/player/me'),
     enabled: isReady,
-    refetchInterval: 120000,
+    staleTime: Infinity, // Never auto-refetch (Zustand + WebSocket handle updates)
   });
-  const availablePoints = meData?.availablePoints ?? 0;
-  const availableUpgrades = meData?.availableUpgrades ?? 0;
 
   const { data: buildingsData } = useQuery<BuildingsResponse>({
     queryKey: ['structures', 'buildings'],
     queryFn: () => api.get('/structures/buildings'),
     enabled: isReady,
-    refetchInterval: 120000,
+    staleTime: Infinity, // Never auto-refetch (Zustand + WebSocket handle updates)
   });
 
   // Check if player has mercenary camp
@@ -184,6 +183,9 @@ function GameShell({ children }: { children: React.ReactNode }) {
         return acc;
       }, {} as Record<string, number>) ?? {};
 
+      // Extract citizens count
+      const citizens = unitsByType.CITIZEN ?? 0;
+
       // Build buildings map
       const buildings = buildingsData?.buildings?.reduce((acc, b) => {
         acc[b.buildingType] = b.currentLevel;
@@ -201,6 +203,7 @@ function GameShell({ children }: { children: React.ReactNode }) {
         goldInBank: meData.economy?.goldInBank ?? '0',
         attackTurns: meData.economy?.attackTurns ?? 0,
         totalUnits,
+        citizens,
         unitsByType,
         buildings,
         availablePoints: meData.availablePoints ?? 0,

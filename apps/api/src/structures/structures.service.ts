@@ -219,7 +219,9 @@ export class StructuresService {
     );
 
     // Build player state snapshot for cache sync
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+    const playerState = await buildPlayerSnapshot(this.prisma, playerId, {
+      includeBuildings: true, // Buildings changed
+    });
 
     return {
       gold: result.newGold,
