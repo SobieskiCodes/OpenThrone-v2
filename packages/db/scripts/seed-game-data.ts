@@ -16,25 +16,42 @@ async function seedGameData() {
     const spy = unit.type === UnitType.SPY ? unit.bonus : 0;
     const sentry = unit.type === UnitType.SENTRY ? unit.bonus : 0;
 
+    // Serialize building requirements to JSON
+    const buildingRequirements = unit.buildingRequirements.length > 0
+      ? JSON.stringify(unit.buildingRequirements)
+      : null;
+
     await prisma.unit.upsert({
       where: { type_level: { type: unit.type, level: unit.level } },
       update: {
         name: unit.name,
         cost: BigInt(unit.cost),
+        bonus: unit.bonus,
         offense,
         defense,
         spy,
         sentry,
+        fort_level: unit.fortLevel,
+        building_requirements: buildingRequirements,
+        hp: unit.hp,
+        killing_strength: unit.killingStrength,
+        defense_strength: unit.defenseStrength,
       },
       create: {
         type: unit.type,
         level: unit.level,
         name: unit.name,
         cost: BigInt(unit.cost),
+        bonus: unit.bonus,
         offense,
         defense,
         spy,
         sentry,
+        fort_level: unit.fortLevel,
+        building_requirements: buildingRequirements,
+        hp: unit.hp,
+        killing_strength: unit.killingStrength,
+        defense_strength: unit.defenseStrength,
         enabled: true,
       },
     });

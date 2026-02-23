@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BuildingType } from '@openthrone/shared';
 
 export interface UnitDefinition {
   id: string;
@@ -8,10 +9,16 @@ export interface UnitDefinition {
   level: number;
   name: string;
   cost: bigint;
+  bonus: number;
   offense: number;
   defense: number;
   spy: number;
   sentry: number;
+  fortLevel: number;
+  buildingRequirements: Array<{ buildingType: BuildingType; level: number }>;
+  hp: number;
+  killingStrength: number;
+  defenseStrength: number;
   enabled: boolean;
 }
 
@@ -123,7 +130,23 @@ export class GameDataService implements OnModuleInit {
 
       // Index units by "TYPE_LEVEL"
       for (const unit of unitsFromDb) {
-        this.units.set(`${unit.type}_${unit.level}`, unit as UnitDefinition);
+        // Parse building requirements from JSON
+        let buildingRequirements: Array<{ buildingType: string; level: number }> = [];
+        if (unit.building_requirements) {
+          try {
+            buildingRequirements = JSON.parse(unit.building_requirements);
+          } catch (err) {
+            this.logger.warn(`Failed to parse building requirements for unit ${unit.type}_${unit.level}`);
+          }
+        }
+
+        this.units.set(`${unit.type}_${unit.level}`, {
+          ...unit,
+          fortLevel: unit.fort_level,
+          buildingRequirements,
+          killingStrength: unit.killing_strength,
+          defenseStrength: unit.defense_strength,
+        } as UnitDefinition);
       }
 
       // Index items by "TYPE_USAGE_LEVEL"

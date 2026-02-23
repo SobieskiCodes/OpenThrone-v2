@@ -6,7 +6,9 @@ import {
   UnitsUntrainedEvent,
   UnitsConvertedEvent,
 } from '@openthrone/events';
-import { getUnitByTypeAndLevel, UnitTypes, meetsBuildingRequirements } from '@openthrone/game-logic';
+// Phase 1: Migrated to GameDataService (keeping import for rollback)
+// import { getUnitByTypeAndLevel, UnitTypes, meetsBuildingRequirements } from '@openthrone/game-logic';
+import { meetsBuildingRequirements } from '@openthrone/game-logic';
 import {
   UnitType,
   BankAccountType,
@@ -15,12 +17,14 @@ import {
 import type { TrainUnitsDto, UntrainUnitsDto, ConvertUnitsDto } from '@openthrone/shared';
 import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
 import { PlayerStateChangedEvent } from '../game/events';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Injectable()
 export class TrainingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly gameData: GameDataService,
   ) {}
 
   async getTrainingStatus(playerId: string) {
@@ -56,7 +60,8 @@ export class TrainingService {
         level: u.level,
         quantity: u.quantity,
       })),
-      unitDefinitions: UnitTypes.filter((u) => u.type !== UnitType.CITIZEN),
+      // Phase 1: Using GameDataService instead of UnitTypes
+      unitDefinitions: this.gameData.getAllUnits().filter((u) => u.type !== UnitType.CITIZEN),
     };
   }
 
@@ -78,7 +83,8 @@ export class TrainingService {
       const lowerTierNeeded: Record<string, number> = {};
 
       for (const entry of dto.units) {
-        const unitDef = getUnitByTypeAndLevel(entry.unitType as UnitType, entry.level);
+        // Phase 1: Using GameDataService
+        const unitDef = this.gameData.getUnit(entry.unitType, entry.level);
         if (!unitDef) {
           throw new BadRequestException(
             `Invalid unit: ${entry.unitType} level ${entry.level}`,
@@ -100,7 +106,7 @@ export class TrainingService {
           throw new BadRequestException('Cannot train citizens');
         }
 
-        totalCost += unitDef.cost * entry.quantity;
+        totalCost += Number(unitDef.cost) * entry.quantity;
 
         if (entry.level === 1) {
           // Level 1: costs citizens
@@ -108,7 +114,8 @@ export class TrainingService {
         } else {
           // Level 2+: costs 1 lower-tier unit per unit trained
           const lowerLevel = entry.level - 1;
-          const lowerDef = getUnitByTypeAndLevel(entry.unitType as UnitType, lowerLevel);
+          // Phase 1: Using GameDataService
+          const lowerDef = this.gameData.getUnit(entry.unitType, lowerLevel);
           if (!lowerDef) {
             throw new BadRequestException(
               `No lower tier unit found for ${unitDef.name}`,
@@ -147,7 +154,8 @@ export class TrainingService {
           (u) => u.unit_type === unitType && u.level === level,
         );
         const available = existing?.quantity ?? 0;
-        const lowerDef = getUnitByTypeAndLevel(unitType as UnitType, level);
+        // Phase 1: Using GameDataService
+        const lowerDef = this.gameData.getUnit(unitType, level);
         if (available < needed) {
           throw new BadRequestException(
             `Not enough ${lowerDef?.name ?? unitType}. Required: ${needed}, Available: ${available}`,
@@ -303,7 +311,8 @@ export class TrainingService {
       let totalQuantity = 0;
 
       for (const entry of dto.units) {
-        const unitDef = getUnitByTypeAndLevel(entry.unitType as UnitType, entry.level);
+        // Phase 1: Using GameDataService
+        const unitDef = this.gameData.getUnit(entry.unitType, entry.level);
         if (!unitDef) {
           throw new BadRequestException(
             `Invalid unit: ${entry.unitType} level ${entry.level}`,
@@ -323,7 +332,7 @@ export class TrainingService {
           );
         }
 
-        totalRefund += Math.floor(unitDef.cost * entry.quantity * 0.75);
+        totalRefund += Math.floor(Number(unitDef.cost) * entry.quantity * 0.75);
         totalQuantity += entry.quantity;
       }
 
@@ -457,8 +466,9 @@ export class TrainingService {
         buildingsMap.set(b.building_type, b.level);
       }
 
-      const fromDef = getUnitByTypeAndLevel(dto.fromType as UnitType, dto.fromLevel);
-      const toDef = getUnitByTypeAndLevel(dto.toType as UnitType, dto.toLevel);
+      // Phase 1: Using GameDataService
+      const fromDef = this.gameData.getUnit(dto.fromType, dto.fromLevel);
+      const toDef = this.gameData.getUnit(dto.toType, dto.toLevel);
 
       if (!fromDef || !toDef) {
         throw new BadRequestException('Invalid unit definition for conversion');
@@ -489,7 +499,7 @@ export class TrainingService {
       }
 
       // Calculate cost difference (no PRICES bonus for unit training/conversion)
-      const costDifference = toDef.cost - fromDef.cost;
+      const costDifference = Number(toDef.cost) - Number(fromDef.cost);
 
       const isUpgrade = dto.toLevel > dto.fromLevel;
       let goldDelta: number;

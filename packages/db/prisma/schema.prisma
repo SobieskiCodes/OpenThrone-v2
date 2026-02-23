@@ -839,11 +839,21 @@ model Unit {
   name        String
   cost        BigInt
 
-  // Stats
+  // Stats (for display/comparison)
+  bonus       Int      @default(0)     // Original bonus value (income for WORKER, combat for others)
   offense     Int      @default(0)
   defense     Int      @default(0)
   spy         Int      @default(0)
   sentry      Int      @default(0)
+
+  // Requirements
+  fort_level  Int      @default(1)     // Required fortification level
+  building_requirements String? // JSON: [{ buildingType, level }]
+
+  // Combat stats
+  hp              Int @default(10)
+  killing_strength Int @default(0)
+  defense_strength Int @default(0)
 
   // Metadata
   enabled     Boolean  @default(true)
