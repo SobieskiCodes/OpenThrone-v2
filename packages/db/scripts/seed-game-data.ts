@@ -231,10 +231,92 @@ async function seedGameData() {
   }
   console.log(`✓ Seeded ${EconomyUpgrades.length} economy upgrades`);
 
-  // TODO Phase 7: Seed races
+  // Seed races
+  console.log('Seeding races...');
+  const races = [
+    {
+      id: 'HUMAN',
+      name: 'Human',
+      description: 'Balanced and versatile, humans adapt to any strategy',
+      theme_color: '#3b82f6',
+      offense_bonus: 0.05,
+      defense_bonus: 0,
+      spy_bonus: 0,
+      sentry_bonus: 0,
+      income_bonus: 0,
+      recruit_bonus: 0,
+    },
+    {
+      id: 'ELF',
+      name: 'Elf',
+      description: 'Swift and elusive, elves excel at defense',
+      theme_color: '#10b981',
+      offense_bonus: 0,
+      defense_bonus: 0.05,
+      spy_bonus: 0,
+      sentry_bonus: 0,
+      income_bonus: 0,
+      recruit_bonus: 0,
+    },
+    {
+      id: 'GOBLIN',
+      name: 'Goblin',
+      description: 'Cunning and defensive, goblins fortify their positions',
+      theme_color: '#22c55e',
+      offense_bonus: 0,
+      defense_bonus: 0.05,
+      spy_bonus: 0,
+      sentry_bonus: 0,
+      income_bonus: 0,
+      recruit_bonus: 0,
+    },
+    {
+      id: 'UNDEAD',
+      name: 'Undead',
+      description: 'Relentless and aggressive, the undead crush their enemies',
+      theme_color: '#6b46c1',
+      offense_bonus: 0.05,
+      defense_bonus: 0,
+      spy_bonus: 0,
+      sentry_bonus: 0,
+      income_bonus: 0,
+      recruit_bonus: 0,
+    },
+  ];
+
+  for (const race of races) {
+    await prisma.race.upsert({
+      where: { id: race.id },
+      update: {
+        name: race.name,
+        description: race.description,
+        theme_color: race.theme_color,
+        offense_bonus: race.offense_bonus,
+        defense_bonus: race.defense_bonus,
+        spy_bonus: race.spy_bonus,
+        sentry_bonus: race.sentry_bonus,
+        income_bonus: race.income_bonus,
+        recruit_bonus: race.recruit_bonus,
+      },
+      create: {
+        id: race.id,
+        name: race.name,
+        description: race.description,
+        theme_color: race.theme_color,
+        offense_bonus: race.offense_bonus,
+        defense_bonus: race.defense_bonus,
+        spy_bonus: race.spy_bonus,
+        sentry_bonus: race.sentry_bonus,
+        income_bonus: race.income_bonus,
+        recruit_bonus: race.recruit_bonus,
+        enabled: true,
+      },
+    });
+  }
+  console.log(`✓ Seeded ${races.length} races`);
 
   console.log('Game data seeding complete!');
-  console.log('Units, items, and buildings now loaded from database. Other game data will be seeded in future phases.');
+  console.log('All game data is now loaded from database: units, items, buildings, fortifications, battle upgrades, economy upgrades, and races.');
 }
 
 seedGameData()

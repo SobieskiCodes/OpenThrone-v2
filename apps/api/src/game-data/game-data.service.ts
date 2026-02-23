@@ -101,6 +101,20 @@ export interface EconomyUpgradeDefinition {
   enabled: boolean;
 }
 
+export interface RaceDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  themeColor: string;
+  offenseBonus: number;
+  defenseBonus: number;
+  spyBonus: number;
+  sentryBonus: number;
+  incomeBonus: number;
+  recruitBonus: number;
+  enabled: boolean;
+}
+
 @Injectable()
 export class GameDataService implements OnModuleInit {
   private readonly logger = new Logger(GameDataService.name);
@@ -112,7 +126,7 @@ export class GameDataService implements OnModuleInit {
   private fortifications = new Map<number, FortificationDefinition>();
   private battleUpgrades = new Map<string, BattleUpgradeDefinition>();
   private economyUpgrades = new Map<number, EconomyUpgradeDefinition>();
-  private races = new Map<string, any>();
+  private races = new Map<string, RaceDefinition>();
   private config = new Map<string, any>();
 
   // Loading state
@@ -266,7 +280,16 @@ export class GameDataService implements OnModuleInit {
 
       // Index races by id
       for (const race of racesFromDb) {
-        this.races.set(race.id, race);
+        this.races.set(race.id, {
+          ...race,
+          themeColor: race.theme_color,
+          offenseBonus: race.offense_bonus,
+          defenseBonus: race.defense_bonus,
+          spyBonus: race.spy_bonus,
+          sentryBonus: race.sentry_bonus,
+          incomeBonus: race.income_bonus,
+          recruitBonus: race.recruit_bonus,
+        } as RaceDefinition);
       }
 
       // TODO Phase 8: Index config by key once GameConfig model is added
@@ -385,11 +408,11 @@ export class GameDataService implements OnModuleInit {
 
   // ─── Races ─────────────────────────────────────────────────
 
-  getRace(id: string): any {
+  getRace(id: string): RaceDefinition | undefined {
     return this.races.get(id);
   }
 
-  getAllRaces(): any[] {
+  getAllRaces(): RaceDefinition[] {
     return Array.from(this.races.values());
   }
 
