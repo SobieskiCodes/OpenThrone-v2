@@ -146,6 +146,7 @@ export {
   OffensiveUpgrades,
   SpyUpgrades,
   SentryUpgrades,
+  EconomyUpgrades,
   getOffensiveUpgradeByLevel,
   getSpyUpgradeByLevel,
   getSentryUpgradeByLevel,

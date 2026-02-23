@@ -88,6 +88,19 @@ export interface BattleUpgradeDefinition {
   enabled: boolean;
 }
 
+export interface EconomyUpgradeDefinition {
+  id: string;
+  level: number;
+  name: string;
+  fortLevel: number;
+  goldPerWorker: number;
+  depositsPerDay: number;
+  goldTransferRec: number;
+  goldTransferTx: number;
+  cost: bigint;
+  enabled: boolean;
+}
+
 @Injectable()
 export class GameDataService implements OnModuleInit {
   private readonly logger = new Logger(GameDataService.name);
@@ -98,7 +111,7 @@ export class GameDataService implements OnModuleInit {
   private buildings = new Map<string, BuildingDefinition>();
   private fortifications = new Map<number, FortificationDefinition>();
   private battleUpgrades = new Map<string, BattleUpgradeDefinition>();
-  private economyUpgrades = new Map<string, any>();
+  private economyUpgrades = new Map<number, EconomyUpgradeDefinition>();
   private races = new Map<string, any>();
   private config = new Map<string, any>();
 
@@ -239,9 +252,16 @@ export class GameDataService implements OnModuleInit {
         } as BattleUpgradeDefinition);
       }
 
-      // Index economy upgrades by "TYPE_LEVEL"
+      // Index economy upgrades by level
       for (const upgrade of economyUpgradesFromDb) {
-        this.economyUpgrades.set(`${upgrade.type}_${upgrade.level}`, upgrade);
+        this.economyUpgrades.set(upgrade.level, {
+          ...upgrade,
+          fortLevel: upgrade.fort_level,
+          goldPerWorker: upgrade.gold_per_worker,
+          depositsPerDay: upgrade.deposits_per_day,
+          goldTransferRec: upgrade.gold_transfer_rec,
+          goldTransferTx: upgrade.gold_transfer_tx,
+        } as EconomyUpgradeDefinition);
       }
 
       // Index races by id
@@ -355,11 +375,11 @@ export class GameDataService implements OnModuleInit {
 
   // ─── Economy Upgrades ──────────────────────────────────────
 
-  getEconomyUpgrade(type: string, level: number): any {
-    return this.economyUpgrades.get(`${type}_${level}`);
+  getEconomyUpgrade(level: number): EconomyUpgradeDefinition | undefined {
+    return this.economyUpgrades.get(level);
   }
 
-  getAllEconomyUpgrades(): any[] {
+  getAllEconomyUpgrades(): EconomyUpgradeDefinition[] {
     return Array.from(this.economyUpgrades.values());
   }
 

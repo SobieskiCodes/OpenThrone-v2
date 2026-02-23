@@ -975,20 +975,22 @@ model BattleUpgrade {
 }
 
 model EconomyUpgrade {
-  id          String   @id @default(cuid())
-  type        String   // EconomyUpgradeType: OFFENSE, DEFENSE, SPY, SENTRY
-  level       Int
-  name        String
-  bonus       Int      // Income bonus per unit
-  cost        BigInt
+  id                 String   @id @default(cuid())
+  level              Int      @unique
+  name               String
+  fort_level         Int      @default(0)
+  gold_per_worker    Int
+  deposits_per_day   Int
+  gold_transfer_rec  Int      @default(0)
+  gold_transfer_tx   Int      @default(0)
+  cost               BigInt
 
   // Metadata
-  enabled     Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  enabled            Boolean  @default(true)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
 
-  @@unique([type, level])
-  @@index([type, level])
+  @@index([level])
   @@index([enabled])
   @@map("economy_upgrades")
 }
