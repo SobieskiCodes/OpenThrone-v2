@@ -1,21 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+// Phase 4: Migrated Fortifications to GameDataService (keeping import for rollback)
 import {
   buildCombatProfile,
   calculateFullStats,
   DEFAULT_COMBAT_CONFIG,
   runSimulation,
-  getFortificationByLevel,
+  // getFortificationByLevel, // Phase 4 migration
 } from '@openthrone/game-logic';
 import type {
   CombatConfig,
   CombatProfile,
   FullPlayerData,
 } from '@openthrone/game-logic';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Injectable()
 export class AdminCombatSimService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gameData: GameDataService,
+  ) {}
 
   getDefaultConfig(): CombatConfig {
     return { ...DEFAULT_COMBAT_CONFIG };
@@ -67,7 +72,7 @@ export class AdminCombatSimService {
 
     const fullStats = calculateFullStats(statsInput);
 
-    const fortDef = getFortificationByLevel(player.fortification?.fort_level ?? 1);
+    const fortDef = this.gameData.getFortification(player.fortification?.fort_level ?? 1);
     const fortMaxHP = fortDef?.hitpoints ?? 50;
 
     const fullData: FullPlayerData = {

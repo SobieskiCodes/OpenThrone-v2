@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { UnitTypes, ItemTypes, Buildings } from '@openthrone/game-logic';
+import { UnitTypes, ItemTypes, Buildings, Fortifications } from '@openthrone/game-logic';
 import { UnitType } from '@openthrone/shared';
 
 const prisma = new PrismaClient();
@@ -135,7 +135,42 @@ async function seedGameData() {
   }
   console.log(`✓ Seeded ${buildingCount} building levels across ${Buildings.length} building types`);
 
-  // TODO Phase 4-7: Seed fortifications, battle upgrades, economy upgrades, races
+  // Seed fortifications
+  console.log('Seeding fortifications...');
+  for (const fort of Fortifications) {
+    await prisma.fortification.upsert({
+      where: { level: fort.level },
+      update: {
+        name: fort.name,
+        level_requirement: fort.levelRequirement,
+        max_population: 0, // TODO: Add to game-logic if needed
+        max_land: 0, // TODO: Add to game-logic if needed
+        price: BigInt(fort.cost),
+        cost: BigInt(fort.cost),
+        hitpoints: fort.hitpoints,
+        gold_per_turn: fort.goldPerTurn,
+        cost_per_repair_point: BigInt(fort.costPerRepairPoint),
+        defense_bonus_percentage: fort.defenseBonusPercentage,
+      },
+      create: {
+        level: fort.level,
+        name: fort.name,
+        level_requirement: fort.levelRequirement,
+        max_population: 0, // TODO: Add to game-logic if needed
+        max_land: 0, // TODO: Add to game-logic if needed
+        price: BigInt(fort.cost),
+        cost: BigInt(fort.cost),
+        hitpoints: fort.hitpoints,
+        gold_per_turn: fort.goldPerTurn,
+        cost_per_repair_point: BigInt(fort.costPerRepairPoint),
+        defense_bonus_percentage: fort.defenseBonusPercentage,
+        enabled: true,
+      },
+    });
+  }
+  console.log(`✓ Seeded ${Fortifications.length} fortifications`);
+
+  // TODO Phase 5-7: Seed battle upgrades, economy upgrades, races
 
   console.log('Game data seeding complete!');
   console.log('Units, items, and buildings now loaded from database. Other game data will be seeded in future phases.');

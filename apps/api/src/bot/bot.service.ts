@@ -6,16 +6,21 @@ import * as crypto from 'crypto';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UpdateBotDto, GenerateBotsDto } from '@openthrone/shared';
+// Phase 4: Migrated Fortifications to GameDataService (keeping import for rollback)
 import {
   getLevelForXP,
   getXPForLevel,
-  getFortificationByLevel,
+  // getFortificationByLevel, // Phase 4 migration
 } from '@openthrone/game-logic';
 import type { BotGameState } from '@openthrone/game-logic';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Injectable()
 export class BotService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gameData: GameDataService,
+  ) {}
 
   async generateBots(dto: GenerateBotsDto) {
     const { count, minLevel, maxLevel } = dto;
@@ -349,7 +354,7 @@ export class BotService {
 
     if (!config) throw new NotFoundException('Bot not found');
 
-    const fortDef = getFortificationByLevel(config.player.fortification?.fort_level ?? 1);
+    const fortDef = this.gameData.getFortification(config.player.fortification?.fort_level ?? 1);
 
     // Extract building levels
     const buildings = config.player.buildings || [];
@@ -552,7 +557,7 @@ export class BotService {
     
     const getBuildingLevel = (type: string) =>
       player.buildings?.find((b) => b.building_type === type)?.level ?? 0;
-    const fortDef = getFortificationByLevel(player.fortification?.fort_level ?? 1);
+    const fortDef = this.gameData.getFortification(player.fortification?.fort_level ?? 1);
 
     // Check today's action logs to see what the bot already did
     const todayStart = new Date();

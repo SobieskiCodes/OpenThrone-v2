@@ -57,6 +57,22 @@ export interface BuildingDefinition {
   enabled: boolean;
 }
 
+export interface FortificationDefinition {
+  id: string;
+  level: number;
+  name: string;
+  levelRequirement: number;
+  maxPopulation: number;
+  maxLand: number;
+  price: bigint;
+  cost: bigint;
+  hitpoints: number;
+  goldPerTurn: number;
+  costPerRepairPoint: bigint;
+  defenseBonusPercentage: number;
+  enabled: boolean;
+}
+
 @Injectable()
 export class GameDataService implements OnModuleInit {
   private readonly logger = new Logger(GameDataService.name);
@@ -65,7 +81,7 @@ export class GameDataService implements OnModuleInit {
   private units = new Map<string, UnitDefinition>();
   private items = new Map<string, ItemDefinition>();
   private buildings = new Map<string, BuildingDefinition>();
-  private fortifications = new Map<number, any>();
+  private fortifications = new Map<number, FortificationDefinition>();
   private battleUpgrades = new Map<string, any>();
   private economyUpgrades = new Map<string, any>();
   private races = new Map<string, any>();
@@ -185,7 +201,15 @@ export class GameDataService implements OnModuleInit {
 
       // Index fortifications by level
       for (const fort of fortsFromDb) {
-        this.fortifications.set(fort.level, fort);
+        this.fortifications.set(fort.level, {
+          ...fort,
+          levelRequirement: fort.level_requirement,
+          maxPopulation: fort.max_population,
+          maxLand: fort.max_land,
+          goldPerTurn: fort.gold_per_turn,
+          costPerRepairPoint: fort.cost_per_repair_point,
+          defenseBonusPercentage: fort.defense_bonus_percentage,
+        } as FortificationDefinition);
       }
 
       // Index battle upgrades by "TYPE_LEVEL"

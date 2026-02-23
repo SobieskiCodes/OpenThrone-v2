@@ -928,20 +928,23 @@ model Building {
 }
 
 model Fortification {
-  id                     String   @id @default(cuid())
-  level                  Int      @unique
-  name                   String
-  max_population         Int
-  max_land               Int
-  price                  BigInt
-  hitpoints              Int
-  gold_per_turn          Int
-  cost_per_repair_point  BigInt
+  id                       String   @id @default(cuid())
+  level                    Int      @unique
+  name                     String
+  level_requirement        Int      @default(0)
+  max_population           Int
+  max_land                 Int
+  price                    BigInt
+  cost                     BigInt   // alias for price (matches game-logic)
+  hitpoints                Int
+  gold_per_turn            Int
+  cost_per_repair_point    BigInt
+  defense_bonus_percentage Int      @default(0)
 
   // Metadata
-  enabled                Boolean  @default(true)
-  created_at             DateTime @default(now())
-  updated_at             DateTime @updatedAt
+  enabled                  Boolean  @default(true)
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
 
   @@index([enabled])
   @@map("fortifications")

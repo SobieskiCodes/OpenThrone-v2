@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
+// Phase 4: Migrated Fortifications to GameDataService (keeping import for rollback)
 import {
   getLevelForXP,
   getXPForLevel,
@@ -19,7 +20,7 @@ import {
   resolveStealGold,
   resolveSabotage,
   DEFAULT_COMBAT_CONFIG,
-  getFortificationByLevel,
+  // getFortificationByLevel, // Phase 4 migration
 } from '@openthrone/game-logic';
 import type {
   BattlePlayersQueryDto,
@@ -193,7 +194,7 @@ export class BattleService {
         .reduce((sum, u) => sum + u.quantity, 0);
       const population = p.units.reduce((sum, u) => sum + u.quantity, 0);
       const fortLevel = p.fortification?.fort_level ?? 1;
-      const fortDef = getFortificationByLevel(fortLevel);
+      const fortDef = this.gameData.getFortification(fortLevel);
       const fortMaxHP = fortDef?.hitpoints ?? 50;
       const fortHP = p.fortification?.hitpoints ?? fortMaxHP;
 
@@ -677,7 +678,7 @@ export class BattleService {
               level: getLevelForXP(Number(attackerPlayer.stats?.experience ?? 0)),
               fortLevel: attackerPlayer.fortification?.fort_level ?? 1,
               fortHP: attackerPlayer.fortification?.hitpoints ?? 0,
-              fortMaxHP: getFortificationByLevel(attackerPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
+              fortMaxHP: this.gameData.getFortification(attackerPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
             },
             defenderMeta: {
               race: defenderPlayer.race,
@@ -685,7 +686,7 @@ export class BattleService {
               level: getLevelForXP(Number(defenderPlayer.stats?.experience ?? 0)),
               fortLevel: defenderPlayer.fortification?.fort_level ?? 1,
               fortHP: defenderPlayer.fortification?.hitpoints ?? 0,
-              fortMaxHP: getFortificationByLevel(defenderPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
+              fortMaxHP: this.gameData.getFortification(defenderPlayer.fortification?.fort_level ?? 1)?.hitpoints ?? 50,
             },
           }),
         },
@@ -1416,7 +1417,7 @@ export class BattleService {
     };
 
     const fullStats = calculateFullStats(statsInput);
-    const fortDef = getFortificationByLevel(player.fortification?.fort_level ?? 1);
+    const fortDef = this.gameData.getFortification(player.fortification?.fort_level ?? 1);
     const fortMaxHP = fortDef?.hitpoints ?? 50;
 
     const data: FullPlayerData = {

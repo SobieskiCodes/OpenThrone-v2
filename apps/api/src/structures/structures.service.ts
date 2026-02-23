@@ -5,10 +5,9 @@ import { StructureUpgradedEvent } from '@openthrone/events';
 import { FortRepairedEvent } from '@openthrone/events';
 import { PlayerStateChangedEvent } from '../game/events';
 // Phase 3: Migrated Buildings to GameDataService (keeping import for rollback)
+// Phase 4: Migrated Fortifications to GameDataService (keeping import for rollback)
 import {
-  Fortifications,
-  getFortificationByLevel,
-  getNextFortification,
+  // Fortifications, getFortificationByLevel, getNextFortification, // Phase 4 migration
   BattleUpgrades,
   getBattleUpgradesByType,
   // getUnitByTypeAndLevel, // Phase 1 migration
@@ -269,7 +268,7 @@ export class StructuresService {
 
     const fortLevel = fort?.fort_level ?? 1;
     const fortHitpoints = fort?.hitpoints ?? 50;
-    const fortDef = getFortificationByLevel(fortLevel);
+    const fortDef = this.gameData.getFortification(fortLevel);
     const playerLevel = getLevelForXP(stats?.experience ?? 0);
 
     const getBuildingLevelForPlayer = (type: string): number => {
@@ -305,7 +304,8 @@ export class StructuresService {
         quantity: u.quantity,
       })),
       definitions: {
-        fortifications: Fortifications,
+        // Phase 4: Using GameDataService
+        fortifications: this.gameData.getAllFortifications(),
         battle: BattleUpgrades,
         // Phase 3: Using GameDataService
         buildings: this.gameData.getAllBuildings(),
@@ -347,7 +347,7 @@ export class StructuresService {
 
       const fortLevel = fort?.fort_level ?? 1;
       const currentHp = fort?.hitpoints ?? 50;
-      const fortDef = getFortificationByLevel(fortLevel);
+      const fortDef = this.gameData.getFortification(fortLevel);
       if (!fortDef) throw new BadRequestException('Invalid fortification level');
 
       const maxHp = fortDef.hitpoints;
