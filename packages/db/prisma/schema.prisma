@@ -870,10 +870,18 @@ model Item {
   id          String   @id @default(cuid())
   type        String   // ItemType: WEAPON, HELM, ARMOR, BOOTS, BRACERS, SHIELD
   usage       String   // ItemUsage: OFFENSE, DEFENSE, SPY, SENTRY
-  level       Int      // Tier (1-5)
+  level       Int      // Tier (1-10)
   name        String
   bonus       Int      // Stat bonus provided
   cost        BigInt
+
+  // Requirements
+  armory_level Int     @default(0)  // Required armory building level (0-5)
+  race         String  @default("ALL") // Player race filter (ALL, UNDEAD, HUMAN, etc.)
+
+  // Combat stats (currently unused but kept for future)
+  killing_strength  Int @default(0)
+  defense_strength  Int @default(0)
 
   // Metadata
   enabled     Boolean  @default(true)

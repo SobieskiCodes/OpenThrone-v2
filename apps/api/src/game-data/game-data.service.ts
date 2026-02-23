@@ -30,6 +30,10 @@ export interface ItemDefinition {
   name: string;
   bonus: number;
   cost: bigint;
+  armoryLevel: number;
+  race: string;
+  killingStrength: number;
+  defenseStrength: number;
   enabled: boolean;
 }
 
@@ -151,7 +155,12 @@ export class GameDataService implements OnModuleInit {
 
       // Index items by "TYPE_USAGE_LEVEL"
       for (const item of itemsFromDb) {
-        this.items.set(`${item.type}_${item.usage}_${item.level}`, item as ItemDefinition);
+        this.items.set(`${item.type}_${item.usage}_${item.level}`, {
+          ...item,
+          armoryLevel: item.armory_level,
+          killingStrength: item.killing_strength,
+          defenseStrength: item.defense_strength,
+        } as ItemDefinition);
       }
 
       // Index buildings by "TYPE_LEVEL"

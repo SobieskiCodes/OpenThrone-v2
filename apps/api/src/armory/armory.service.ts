@@ -2,7 +2,9 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { ItemEquippedEvent, ItemUnequippedEvent } from '@openthrone/events';
-import { ItemTypes, getItemDefinition, calculateFullStats } from '@openthrone/game-logic';
+// Phase 2: Migrated to GameDataService (keeping import for rollback)
+// import { ItemTypes, getItemDefinition, calculateFullStats } from '@openthrone/game-logic';
+import { calculateFullStats } from '@openthrone/game-logic';
 import {
   ItemType,
   ItemUsage,
@@ -12,12 +14,14 @@ import {
 } from '@openthrone/shared';
 import type { EquipItemDto, UnequipItemDto } from '@openthrone/shared';
 import { PlayerStateChangedEvent } from '../game/events';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Injectable()
 export class ArmoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly gameData: GameDataService,
   ) {}
 
   async getArmoryStatus(playerId: string) {
@@ -86,7 +90,8 @@ export class ArmoryService {
         spy: stats.spy.total,
         sentry: stats.sentry.total,
       },
-      itemDefinitions: ItemTypes,
+      // Phase 2: Using GameDataService
+      itemDefinitions: this.gameData.getAllItems(),
     };
   }
 
@@ -117,9 +122,10 @@ export class ArmoryService {
       const playerRace = player?.race ?? 'ALL';
 
       // Look up item definition
-      const itemDef = getItemDefinition(
-        dto.itemType as ItemType,
-        dto.usage as ItemUsage,
+      // Phase 2: Using GameDataService
+      const itemDef = this.gameData.getItem(
+        dto.itemType,
+        dto.usage,
         dto.level,
       );
       if (!itemDef) {
@@ -149,8 +155,8 @@ export class ArmoryService {
 
       // Calculate cost with price bonus
       const discountedCost =
-        itemDef.cost -
-        Math.ceil((pricesBonusPercent / 100) * itemDef.cost);
+        Number(itemDef.cost) -
+        Math.ceil((pricesBonusPercent / 100) * Number(itemDef.cost));
       const totalCost = Math.ceil(discountedCost * dto.quantity);
 
       const gold = BigInt(economy.gold);
@@ -299,9 +305,10 @@ export class ArmoryService {
       );
       const pricesBonusPercent = pricesBonus?.level ?? 0;
 
-      const itemDef = getItemDefinition(
-        dto.itemType as ItemType,
-        dto.usage as ItemUsage,
+      // Phase 2: Using GameDataService
+      const itemDef = this.gameData.getItem(
+        dto.itemType,
+        dto.usage,
         dto.level,
       );
       if (!itemDef) {
@@ -326,8 +333,8 @@ export class ArmoryService {
 
       // Calculate 75% refund with price bonus
       const discountedCost =
-        itemDef.cost -
-        Math.ceil((pricesBonusPercent / 100) * itemDef.cost);
+        Number(itemDef.cost) -
+        Math.ceil((pricesBonusPercent / 100) * Number(itemDef.cost));
       const totalRefund = Math.floor(discountedCost * dto.quantity * 0.75);
 
       // Add refund

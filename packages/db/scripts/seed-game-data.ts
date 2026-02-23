@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { UnitTypes } from '@openthrone/game-logic';
+import { UnitTypes, ItemTypes } from '@openthrone/game-logic';
 import { UnitType } from '@openthrone/shared';
 
 const prisma = new PrismaClient();
@@ -58,10 +58,41 @@ async function seedGameData() {
   }
   console.log(`✓ Seeded ${UnitTypes.length} units`);
 
-  // TODO Phase 1-7: Seed items, buildings, fortifications, battle upgrades, economy upgrades, races
+  // Seed items
+  console.log('Seeding items...');
+  for (const item of ItemTypes) {
+    await prisma.item.upsert({
+      where: { type_usage_level: { type: item.type, usage: item.usage, level: item.level } },
+      update: {
+        name: item.name,
+        bonus: item.bonus,
+        cost: BigInt(item.cost),
+        armory_level: item.armoryLevel,
+        race: item.race,
+        killing_strength: item.killingStrength,
+        defense_strength: item.defenseStrength,
+      },
+      create: {
+        type: item.type,
+        usage: item.usage,
+        level: item.level,
+        name: item.name,
+        bonus: item.bonus,
+        cost: BigInt(item.cost),
+        armory_level: item.armoryLevel,
+        race: item.race,
+        killing_strength: item.killingStrength,
+        defense_strength: item.defenseStrength,
+        enabled: true,
+      },
+    });
+  }
+  console.log(`✓ Seeded ${ItemTypes.length} items`);
+
+  // TODO Phase 3-7: Seed buildings, fortifications, battle upgrades, economy upgrades, races
 
   console.log('Game data seeding complete!');
-  console.log('Note: Only units seeded in Phase 0. Other game data will be seeded in future phases.');
+  console.log('Units and items now loaded from database. Other game data will be seeded in future phases.');
 }
 
 seedGameData()
