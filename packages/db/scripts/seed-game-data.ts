@@ -315,8 +315,59 @@ async function seedGameData() {
   }
   console.log(`✓ Seeded ${races.length} races`);
 
+  // Seed game config
+  console.log('Seeding game config...');
+  const gameConfig = [
+    {
+      key: 'MAX_ATTACK_TURNS',
+      value: '10',
+      description: 'Maximum number of attack turns a player can accumulate',
+    },
+    {
+      key: 'TURN_TICK_INTERVAL_MINUTES',
+      value: '30',
+      description: 'Minutes between turn ticks (gold income, turn generation)',
+    },
+    {
+      key: 'DAILY_ATTACK_LIMIT_PER_TARGET',
+      value: '5',
+      description: 'Maximum attacks per day against a single target',
+    },
+    {
+      key: 'AUTO_RECRUIT_POOL_SIZE',
+      value: '250',
+      description: 'Number of citizens awarded from auto-recruit pool',
+    },
+    {
+      key: 'MERCENARY_PRICE_MULTIPLIER',
+      value: '1.5',
+      description: 'Price multiplier for mercenary units',
+    },
+    {
+      key: 'BANK_MAX_DEPOSIT_PERCENT',
+      value: '80',
+      description: 'Maximum percentage of gold that can be deposited at once',
+    },
+  ];
+
+  for (const config of gameConfig) {
+    await prisma.gameConfig.upsert({
+      where: { key: config.key },
+      update: {
+        value: config.value,
+        description: config.description,
+      },
+      create: {
+        key: config.key,
+        value: config.value,
+        description: config.description,
+      },
+    });
+  }
+  console.log(`✓ Seeded ${gameConfig.length} game config entries`);
+
   console.log('Game data seeding complete!');
-  console.log('All game data is now loaded from database: units, items, buildings, fortifications, battle upgrades, economy upgrades, and races.');
+  console.log('All game data is now loaded from database: units, items, buildings, fortifications, battle upgrades, economy upgrades, races, and config.');
 }
 
 seedGameData()

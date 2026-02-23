@@ -171,6 +171,7 @@ export class GameDataService implements OnModuleInit {
         battleUpgradesFromDb,
         economyUpgradesFromDb,
         racesFromDb,
+        configFromDb,
       ] = await Promise.all([
         this.prisma.unit.findMany({ where: { enabled: true } }),
         this.prisma.item.findMany({ where: { enabled: true } }),
@@ -179,7 +180,7 @@ export class GameDataService implements OnModuleInit {
         this.prisma.battleUpgrade.findMany({ where: { enabled: true } }),
         this.prisma.economyUpgrade.findMany({ where: { enabled: true } }),
         this.prisma.race.findMany({ where: { enabled: true } }),
-        // TODO Phase 8: Add gameConfig.findMany() once GameConfig model is added
+        this.prisma.gameConfig.findMany(),
       ]);
 
       // Clear existing caches
@@ -292,14 +293,14 @@ export class GameDataService implements OnModuleInit {
         } as RaceDefinition);
       }
 
-      // TODO Phase 8: Index config by key once GameConfig model is added
-      // for (const cfg of configFromDb) {
-      //   try {
-      //     this.config.set(cfg.key, JSON.parse(cfg.value));
-      //   } catch {
-      //     this.config.set(cfg.key, cfg.value);
-      //   }
-      // }
+      // Index config by key (try to parse as JSON, fallback to raw string)
+      for (const cfg of configFromDb) {
+        try {
+          this.config.set(cfg.key, JSON.parse(cfg.value));
+        } catch {
+          this.config.set(cfg.key, cfg.value);
+        }
+      }
 
       this.isLoaded = true;
       const duration = Date.now() - startTime;

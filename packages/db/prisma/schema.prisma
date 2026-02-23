@@ -1020,6 +1020,18 @@ model Race {
   @@map("races")
 }
 
+model GameConfig {
+  key         String   @id
+  value       String   // JSON string
+  description String?
+
+  // Metadata
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("game_config")
+}
+
 // ─── Saved Combat Simulations ───────────────────────────────────────────────
 
 model SavedSimulation {
