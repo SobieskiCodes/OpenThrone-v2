@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { UnitTypes, ItemTypes } from '@openthrone/game-logic';
+import { UnitTypes, ItemTypes, Buildings } from '@openthrone/game-logic';
 import { UnitType } from '@openthrone/shared';
 
 const prisma = new PrismaClient();
@@ -89,10 +89,56 @@ async function seedGameData() {
   }
   console.log(`✓ Seeded ${ItemTypes.length} items`);
 
-  // TODO Phase 3-7: Seed buildings, fortifications, battle upgrades, economy upgrades, races
+  // Seed buildings (flatten the nested structure)
+  console.log('Seeding buildings...');
+  let buildingCount = 0;
+  for (const building of Buildings) {
+    for (const level of building.levels) {
+      await prisma.building.upsert({
+        where: { type_level: { type: building.type, level: level.level } },
+        update: {
+          name: level.name,
+          cost: BigInt(level.cost),
+          player_level_req: level.playerLevelRequirement,
+          workers_provided: (level as any).workersProvided,
+          offense_bonus: (level as any).offenseBonus ?? 0,
+          defense_bonus: (level as any).defenseBonus ?? 0,
+          spy_bonus: (level as any).spyOffenseBonus ?? 0,
+          sentry_bonus: (level as any).sentryBonus ?? 0,
+          income_bonus: (level as any).incomeBonusPercent ?? 0,
+          max_item_bonus: (level as any).maxItemBonus,
+          daily_merc_stock: (level as any).dailyMercStock,
+          fort_hitpoints: (level as any).fortHitpoints,
+          citizens_per_day: (level as any).citizensPerDay,
+        },
+        create: {
+          type: building.type,
+          level: level.level,
+          name: level.name,
+          cost: BigInt(level.cost),
+          player_level_req: level.playerLevelRequirement,
+          workers_provided: (level as any).workersProvided,
+          offense_bonus: (level as any).offenseBonus ?? 0,
+          defense_bonus: (level as any).defenseBonus ?? 0,
+          spy_bonus: (level as any).spyOffenseBonus ?? 0,
+          sentry_bonus: (level as any).sentryBonus ?? 0,
+          income_bonus: (level as any).incomeBonusPercent ?? 0,
+          max_item_bonus: (level as any).maxItemBonus,
+          daily_merc_stock: (level as any).dailyMercStock,
+          fort_hitpoints: (level as any).fortHitpoints,
+          citizens_per_day: (level as any).citizensPerDay,
+          enabled: true,
+        },
+      });
+      buildingCount++;
+    }
+  }
+  console.log(`✓ Seeded ${buildingCount} building levels across ${Buildings.length} building types`);
+
+  // TODO Phase 4-7: Seed fortifications, battle upgrades, economy upgrades, races
 
   console.log('Game data seeding complete!');
-  console.log('Units and items now loaded from database. Other game data will be seeded in future phases.');
+  console.log('Units, items, and buildings now loaded from database. Other game data will be seeded in future phases.');
 }
 
 seedGameData()

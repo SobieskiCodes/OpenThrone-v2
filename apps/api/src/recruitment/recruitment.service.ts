@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlayerRecruitedEvent, AutoRecruitEvent } from '@openthrone/events';
 import { PlayerStateChangedEvent } from '../game/events';
+// Phase 3: Migrated Buildings to GameDataService (keeping import for rollback)
 import {
   RECRUIT_LINK_CITIZENS_BONUS,
   RECRUIT_LINK_IP_COOLDOWN_HOURS,
@@ -11,10 +12,11 @@ import {
   AUTO_RECRUIT_POOL_CITIZENS,
   calculateRecruitLinkBonus,
   calculateAutoRecruitCitizens,
-  getBuildingLevel,
+  // getBuildingLevel, // Phase 3 migration
 } from '@openthrone/game-logic';
 import { UnitType, BonusType, BuildingType } from '@openthrone/shared';
 import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Injectable()
 export class RecruitmentService {
@@ -22,6 +24,7 @@ export class RecruitmentService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly config: ConfigService,
+    private readonly gameData: GameDataService,
   ) {}
 
   /**
@@ -55,7 +58,8 @@ export class RecruitmentService {
     const recruitingBonusLevel = recruitingBonus?.level ?? 0;
 
     const housingLevel = housingBuilding?.level ?? 0;
-    const housingDef = getBuildingLevel(BuildingType.HOUSING, housingLevel);
+    // Phase 3: Using GameDataService
+    const housingDef = this.gameData.getBuilding(BuildingType.HOUSING, housingLevel);
     const citizensDaily = housingDef?.citizensPerDay ?? 1; // base 1 citizen/day
     const autoRecruitCitizens = calculateAutoRecruitCitizens(
       citizensDaily,
@@ -345,7 +349,7 @@ export class RecruitmentService {
       }),
     );
 
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId, {
+    const playerState = await buildPlayerSnapshot(this.prisma, this.gameData, playerId, {
       includeUnits: true, // Units changed
     });
 

@@ -2,16 +2,19 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { GoldDepositedEvent, GoldWithdrawnEvent } from '@openthrone/events';
-import { getBuildingLevel } from '@openthrone/game-logic';
+// Phase 3: Migrated Buildings to GameDataService (keeping import for rollback)
+// import { getBuildingLevel } from '@openthrone/game-logic'; // Phase 3 migration - unused
 import { BankAccountType, BankTransferHistoryType, BuildingType } from '@openthrone/shared';
 import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
 import { PlayerStateChangedEvent } from '../game/events';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Injectable()
 export class BankService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly gameData: GameDataService,
   ) {}
 
   async deposit(playerId: string, amount: string, skipRateLimits: boolean = false) {
@@ -94,7 +97,7 @@ export class BankService {
     );
 
     // Build player state snapshot for cache sync
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+    const playerState = await buildPlayerSnapshot(this.prisma, this.gameData, playerId);
 
     // Emit WebSocket event for real-time state sync
     this.eventEmitter.emit(
@@ -166,7 +169,7 @@ export class BankService {
     );
 
     // Build player state snapshot for cache sync
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+    const playerState = await buildPlayerSnapshot(this.prisma, this.gameData, playerId);
 
     // Emit WebSocket event for real-time state sync
     this.eventEmitter.emit(

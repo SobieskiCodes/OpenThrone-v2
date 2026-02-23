@@ -276,7 +276,7 @@ export class TrainingService {
     );
 
     // Build player state snapshot for cache sync
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId, {
+    const playerState = await buildPlayerSnapshot(this.prisma, this.gameData, playerId, {
       includeUnits: true,
     });
 
@@ -420,7 +420,7 @@ export class TrainingService {
     );
 
     // Build player state snapshot for cache sync
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId, {
+    const playerState = await buildPlayerSnapshot(this.prisma, this.gameData, playerId, {
       includeUnits: true,
     });
 

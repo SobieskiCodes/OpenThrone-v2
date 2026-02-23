@@ -47,11 +47,13 @@ export interface BuildingDefinition {
   workersProvided?: number;
   offenseBonus: number;
   defenseBonus: number;
-  spyBonus: number;
+  spyOffenseBonus: number;  // Renamed from spyBonus to match game-logic
   sentryBonus: number;
-  incomeBonus: number;
+  incomeBonusPercent: number;  // Renamed from incomeBonus to match game-logic
   maxItemBonus?: number;
   dailyMercStock?: number;
+  fortHitpoints?: number;
+  citizensPerDay?: number;
   enabled: boolean;
 }
 
@@ -171,11 +173,13 @@ export class GameDataService implements OnModuleInit {
           workersProvided: building.workers_provided ?? undefined,
           offenseBonus: building.offense_bonus,
           defenseBonus: building.defense_bonus,
-          spyBonus: building.spy_bonus,
+          spyOffenseBonus: building.spy_bonus,
           sentryBonus: building.sentry_bonus,
-          incomeBonus: building.income_bonus,
+          incomeBonusPercent: building.income_bonus,
           maxItemBonus: building.max_item_bonus ?? undefined,
           dailyMercStock: building.daily_merc_stock ?? undefined,
+          fortHitpoints: building.fort_hitpoints ?? undefined,
+          citizensPerDay: building.citizens_per_day ?? undefined,
         } as BuildingDefinition);
       }
 

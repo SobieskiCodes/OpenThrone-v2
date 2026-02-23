@@ -36,12 +36,14 @@ import {
   LeveledUpEvent,
 } from '@openthrone/events';
 import { PlayerStateChangedEvent } from '../game/events';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Injectable()
 export class BattleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly gameData: GameDataService,
   ) {}
 
   // ─── Player List / Rankings / History (existing) ────────────────────
@@ -728,7 +730,7 @@ export class BattleService {
     }
 
     // Build player state snapshot AFTER transaction (for instant cache update)
-    const playerState = await buildPlayerSnapshot(this.prisma, attackerId, {
+    const playerState = await buildPlayerSnapshot(this.prisma, this.gameData, attackerId, {
       includeUnits: true, // Include units since casualties happened
     });
 
@@ -946,7 +948,7 @@ export class BattleService {
         }),
       );
 
-      const playerState1 = await buildPlayerSnapshot(this.prisma, attackerId);
+      const playerState1 = await buildPlayerSnapshot(this.prisma, this.gameData, attackerId);
       return { ...result, missionType: 'intel', intelData, attackLogId: attackLog.id, playerState: playerState1 };
     }
 
@@ -1019,7 +1021,7 @@ export class BattleService {
         }),
       );
 
-      const playerState2 = await buildPlayerSnapshot(this.prisma, attackerId);
+      const playerState2 = await buildPlayerSnapshot(this.prisma, this.gameData, attackerId);
       return { ...result, missionType: 'assassinate', playerState: playerState2 };
     }
 
@@ -1098,7 +1100,7 @@ export class BattleService {
         }),
       );
 
-      const playerState3 = await buildPlayerSnapshot(this.prisma, attackerId);
+      const playerState3 = await buildPlayerSnapshot(this.prisma, this.gameData, attackerId);
       return { ...result, missionType: 'infiltrate', playerState: playerState3 };
     }
 
@@ -1186,7 +1188,7 @@ export class BattleService {
         }),
       );
 
-      const playerState4 = await buildPlayerSnapshot(this.prisma, attackerId);
+      const playerState4 = await buildPlayerSnapshot(this.prisma, this.gameData, attackerId);
       return { ...result, missionType: 'steal_gold', goldStolen: result.goldStolen.toString(), playerState: playerState4 };
     }
 
@@ -1279,7 +1281,7 @@ export class BattleService {
         }),
       );
 
-      const playerState5 = await buildPlayerSnapshot(this.prisma, attackerId);
+      const playerState5 = await buildPlayerSnapshot(this.prisma, this.gameData, attackerId);
       return { ...result, missionType: 'sabotage', destroyedItems, playerState: playerState5 };
     }
 

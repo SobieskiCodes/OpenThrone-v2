@@ -1,9 +1,13 @@
 import { PrismaService } from '../../prisma/prisma.service';
 import { PlayerStateSnapshot, UnitType, BuildingType } from '@openthrone/shared';
-import { getLevelForXP, canUpgradeBuilding, getBuildingLevel } from '@openthrone/game-logic';
+// Phase 3: Migrated Buildings to GameDataService (keeping import for rollback)
+import { getLevelForXP } from '@openthrone/game-logic';
+// import { canUpgradeBuilding, getBuildingLevel } from '@openthrone/game-logic'; // Phase 3 migration
+import { GameDataService } from '../../game-data/game-data.service';
 
 export async function buildPlayerSnapshot(
   prisma: PrismaService,
+  gameData: GameDataService,
   playerId: string,
   options?: {
     includeUnits?: boolean;
@@ -100,7 +104,8 @@ export async function buildPlayerSnapshot(
       const current = buildings.find((b) => b.building_type === type);
       const currentLevel = current?.level ?? 0;
       const nextLevel = currentLevel + 1;
-      const nextDef = getBuildingLevel(type, nextLevel);
+      // Phase 3: Using GameDataService
+      const nextDef = gameData.getBuilding(type, nextLevel);
 
       // Count if next level exists and player meets level requirement
       if (nextDef && level >= nextDef.playerLevelRequirement) {

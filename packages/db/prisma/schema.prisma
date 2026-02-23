@@ -904,15 +904,17 @@ model Building {
   // Requirements
   player_level_req     Int      @default(1)
 
-  // Benefits
+  // Benefits (building-specific)
   workers_provided     Int?
   offense_bonus        Int      @default(0)
   defense_bonus        Int      @default(0)
-  spy_bonus            Int      @default(0)
+  spy_bonus            Int      @default(0)    // SPY_ACADEMY: spy offense bonus
   sentry_bonus         Int      @default(0)
-  income_bonus         Int      @default(0)
-  max_item_bonus       Int?     // For ARMORY
-  daily_merc_stock     Int?     // For MERCENARY_CAMP
+  income_bonus         Int      @default(0)    // MINE: income bonus percentage
+  max_item_bonus       Int?     // ARMORY: max item tier
+  daily_merc_stock     Int?     // MERCENARY_CAMP: daily mercenary stock
+  fort_hitpoints       Int?     // FORTIFICATION: hitpoints
+  citizens_per_day     Int?     // HOUSING: citizens generated daily
 
   // Metadata
   enabled              Boolean  @default(true)

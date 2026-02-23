@@ -10,6 +10,7 @@ import {
   AllocateBonusPointsDto,
   ChangePasswordDto,
 } from '@openthrone/shared';
+// Phase 3: Migrated Buildings to GameDataService (keeping import for rollback)
 import {
   getLevelForXP,
   getXPToNextLevel,
@@ -19,16 +20,19 @@ import {
   calculateCitizensPerDayBreakdown,
   computeArmoryResaleValue,
   computeBattleUpgradeResaleValue,
-  canUpgradeBuilding,
-  getBuildingLevel,
+  // canUpgradeBuilding, getBuildingLevel, // Phase 3 migration
 } from '@openthrone/game-logic';
 import { BuildingType } from '@openthrone/shared';
 import type { StatCalcInput } from '@openthrone/game-logic';
 import * as argon2 from 'argon2';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Injectable()
 export class PlayerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gameData: GameDataService,
+  ) {}
 
   async searchPlayers(search: string) {
     // Build where clause compatible with both SQLite and PostgreSQL
@@ -175,11 +179,9 @@ export class PlayerService {
     for (const type of Object.values(BuildingType)) {
       const current = player.buildings.find((b) => b.building_type === type);
       const currentLevel = current?.level ?? 0;
-      const result = canUpgradeBuilding(type, currentLevel, playerLevel, gold);
-      // Count if upgradeable (either can afford or just level-gated but level is met)
-      // We want to show "available" when requirements are met even if gold is short
+      // Phase 3: Using GameDataService
       const nextLevel = currentLevel + 1;
-      const nextDef = getBuildingLevel(type, nextLevel);
+      const nextDef = this.gameData.getBuilding(type, nextLevel);
       if (nextDef && playerLevel >= nextDef.playerLevelRequirement) {
         count++;
       }
@@ -463,7 +465,8 @@ export class PlayerService {
 
     const mineRow = (player.buildings ?? []).find((b) => b.building_type === 'MINE');
     const mineLevel = mineRow?.level ?? 0;
-    const mineDef = getBuildingLevel(BuildingType.MINE, mineLevel);
+    // Phase 3: Using GameDataService
+    const mineDef = this.gameData.getBuilding(BuildingType.MINE, mineLevel);
     const mineBonusPercent = mineDef?.incomeBonusPercent ?? 0;
 
     const goldPerTurn = calculateGoldPerTurnBreakdown(

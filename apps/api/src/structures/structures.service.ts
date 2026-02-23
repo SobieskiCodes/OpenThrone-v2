@@ -4,20 +4,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StructureUpgradedEvent } from '@openthrone/events';
 import { FortRepairedEvent } from '@openthrone/events';
 import { PlayerStateChangedEvent } from '../game/events';
+// Phase 3: Migrated Buildings to GameDataService (keeping import for rollback)
 import {
   Fortifications,
   getFortificationByLevel,
   getNextFortification,
   BattleUpgrades,
   getBattleUpgradesByType,
-  getUnitByTypeAndLevel,
+  // getUnitByTypeAndLevel, // Phase 1 migration
   getLevelForXP,
-  Buildings,
-  getBuildingDefinition,
-  getBuildingLevel,
-  getNextBuildingLevel,
-  getMaxBuildingLevel,
-  canUpgradeBuilding,
+  // Buildings, getBuildingDefinition, getBuildingLevel, getNextBuildingLevel, getMaxBuildingLevel, canUpgradeBuilding, // Phase 3 migration
   MERCENARY_PRICE_MULTIPLIER,
   getMercenaryStockDistribution,
 } from '@openthrone/game-logic';
@@ -38,12 +34,14 @@ import type {
   UpgradeBuildingDto,
 } from '@openthrone/shared';
 import { buildPlayerSnapshot } from '../common/helpers/player-snapshot.helper';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Injectable()
 export class StructuresService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly gameData: GameDataService,
   ) {}
 
   // ─── Buildings (new system) ──────────────────────────────────────────
@@ -68,15 +66,35 @@ export class StructuresService {
     const buildingTypes = Object.values(BuildingType);
     const buildingStatuses = buildingTypes.map((type) => {
       const currentLevel = getBuildingLevelForPlayer(type);
-      const currentLevelDef = currentLevel > 0 ? getBuildingLevel(type, currentLevel) : null;
-      const nextLevelDef = getNextBuildingLevel(type, currentLevel);
-      const maxLevel = getMaxBuildingLevel(type);
-      const upgradeCheck = canUpgradeBuilding(type, currentLevel, playerLevel, gold);
-      const definition = getBuildingDefinition(type);
+      // Phase 3: Using GameDataService
+      const currentLevelDef = currentLevel > 0 ? this.gameData.getBuilding(type, currentLevel) : null;
+      // Phase 3: Using GameDataService
+      const nextLevelDef = this.gameData.getBuilding(type, currentLevel + 1);
+      // Phase 3: Using GameDataService
+      const maxLevel = this.gameData.getBuildingsByType(type).length;
+      // Phase 3: Inline canUpgradeBuilding logic
+      let upgradeCheck: { canUpgrade: boolean; reason?: string };
+      if (!nextLevelDef) {
+        upgradeCheck = { canUpgrade: false, reason: 'Already at maximum level' };
+      } else if (playerLevel < nextLevelDef.playerLevelRequirement) {
+        upgradeCheck = {
+          canUpgrade: false,
+          reason: `Requires player level ${nextLevelDef.playerLevelRequirement} (you are level ${playerLevel})`,
+        };
+      } else if (gold < BigInt(nextLevelDef.cost)) {
+        upgradeCheck = {
+          canUpgrade: false,
+          reason: `Not enough gold. Required: ${nextLevelDef.cost}`,
+        };
+      } else {
+        upgradeCheck = { canUpgrade: true };
+      }
+      // Phase 3: Building descriptions not stored in DB yet (TODO: add to schema or use static map)
+      const description = '';
 
       return {
         buildingType: type,
-        description: definition?.description ?? '',
+        description,
         currentLevel,
         currentLevelName: currentLevelDef?.name ?? 'Not Built',
         nextLevel: nextLevelDef
@@ -103,7 +121,8 @@ export class StructuresService {
       goldInBank: economy.gold_in_bank.toString(),
       playerLevel,
       buildings: buildingStatuses,
-      definitions: Buildings,
+      // Phase 3: Using GameDataService
+      definitions: this.gameData.getAllBuildings(),
     };
   }
 
@@ -125,7 +144,8 @@ export class StructuresService {
       const currentEntry = buildings.find((b) => b.building_type === buildingType);
       const currentLevel = currentEntry?.level ?? 0;
 
-      const nextLevelDef = getNextBuildingLevel(buildingType as BuildingType, currentLevel);
+      // Phase 3: Using GameDataService
+      const nextLevelDef = this.gameData.getBuilding(buildingType, currentLevel + 1);
       if (!nextLevelDef) {
         throw new BadRequestException(`${buildingType} is already at maximum level`);
       }
@@ -219,7 +239,7 @@ export class StructuresService {
     );
 
     // Build player state snapshot for cache sync
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId, {
+    const playerState = await buildPlayerSnapshot(this.prisma, this.gameData, playerId, {
       includeBuildings: true, // Buildings changed
     });
 
@@ -287,7 +307,8 @@ export class StructuresService {
       definitions: {
         fortifications: Fortifications,
         battle: BattleUpgrades,
-        buildings: Buildings,
+        // Phase 3: Using GameDataService
+        buildings: this.gameData.getAllBuildings(),
       },
     };
   }
@@ -529,7 +550,7 @@ export class StructuresService {
     );
 
     // Build player state snapshot for cache sync
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+    const playerState = await buildPlayerSnapshot(this.prisma, this.gameData, playerId);
 
     return { ...result, playerState };
   }
@@ -616,7 +637,7 @@ export class StructuresService {
     );
 
     // Build player state snapshot for cache sync
-    const playerState = await buildPlayerSnapshot(this.prisma, playerId);
+    const playerState = await buildPlayerSnapshot(this.prisma, this.gameData, playerId);
 
     return { ...result, playerState };
   }
@@ -645,8 +666,10 @@ export class StructuresService {
     const campLevel = campEntry?.level ?? 0;
 
     // Camp must be at least level 1 to have any stock
-    const campLevelDef = campLevel >= 1 ? getBuildingLevel(BuildingType.MERCENARY_CAMP, campLevel) : null;
-    const nextLevelDef = getNextBuildingLevel(BuildingType.MERCENARY_CAMP, campLevel);
+    // Phase 3: Using GameDataService
+    const campLevelDef = campLevel >= 1 ? this.gameData.getBuilding(BuildingType.MERCENARY_CAMP, campLevel) : null;
+    // Phase 3: Using GameDataService
+    const nextLevelDef = this.gameData.getBuilding(BuildingType.MERCENARY_CAMP, campLevel + 1);
     const dailyMercStock = campLevelDef?.dailyMercStock ?? 0;
     const distribution = getMercenaryStockDistribution(dailyMercStock);
 
@@ -666,8 +689,8 @@ export class StructuresService {
         purchased = resetDate.getTime() < today.getTime() ? 0 : record.purchased;
       }
 
-      const unitDef = getUnitByTypeAndLevel(ut as UnitType, 1);
-      const baseCost = unitDef?.cost ?? 0;
+      const unitDef = this.gameData.getUnit(ut as UnitType, 1);
+      const baseCost = Number(unitDef?.cost ?? 0);
       const cost = Math.ceil(baseCost * MERCENARY_PRICE_MULTIPLIER);
 
       return {
@@ -715,7 +738,8 @@ export class StructuresService {
         throw new BadRequestException('You must build a Mercenary Camp first');
       }
 
-      const campLevelDef = getBuildingLevel(BuildingType.MERCENARY_CAMP, campLevel);
+      // Phase 3: Using GameDataService
+      const campLevelDef = this.gameData.getBuilding(BuildingType.MERCENARY_CAMP, campLevel);
       const dailyMercStock = campLevelDef?.dailyMercStock ?? 0;
       const distribution = getMercenaryStockDistribution(dailyMercStock);
 
@@ -761,8 +785,8 @@ export class StructuresService {
           );
         }
 
-        const unitDef = getUnitByTypeAndLevel(unit.unitType as UnitType, 1);
-        const costPerUnit = Math.ceil((unitDef?.cost ?? 0) * MERCENARY_PRICE_MULTIPLIER);
+        const unitDef = this.gameData.getUnit(unit.unitType as UnitType, 1);
+        const costPerUnit = Math.ceil(Number(unitDef?.cost ?? 0) * MERCENARY_PRICE_MULTIPLIER);
         const lineCost = BigInt(costPerUnit) * BigInt(unit.quantity);
         totalGoldCost += lineCost;
 
