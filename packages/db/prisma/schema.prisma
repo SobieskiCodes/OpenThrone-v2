@@ -830,6 +830,166 @@ model GameSettings {
   @@map("game_settings")
 }
 
+// ─── Game Data Definitions (Cache-on-Boot) ──────────────────────────────────
+
+model Unit {
+  id          String   @id @default(cuid())
+  type        String   // UnitType: CITIZEN, OFFENSE, DEFENSE, SPY, SENTRY
+  level       Int
+  name        String
+  cost        BigInt
+
+  // Stats
+  offense     Int      @default(0)
+  defense     Int      @default(0)
+  spy         Int      @default(0)
+  sentry      Int      @default(0)
+
+  // Metadata
+  enabled     Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([type, level])
+  @@index([type, level])
+  @@index([enabled])
+  @@map("units")
+}
+
+model Item {
+  id          String   @id @default(cuid())
+  type        String   // ItemType: WEAPON, HELM, ARMOR, BOOTS, BRACERS, SHIELD
+  usage       String   // ItemUsage: OFFENSE, DEFENSE, SPY, SENTRY
+  level       Int      // Tier (1-5)
+  name        String
+  bonus       Int      // Stat bonus provided
+  cost        BigInt
+
+  // Metadata
+  enabled     Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([type, usage, level])
+  @@index([type, usage, level])
+  @@index([enabled])
+  @@map("items")
+}
+
+model Building {
+  id                   String   @id @default(cuid())
+  type                 String   // BuildingType: ARMORY, MERCENARY_CAMP, etc.
+  level                Int
+  name                 String
+  cost                 BigInt
+
+  // Requirements
+  player_level_req     Int      @default(1)
+
+  // Benefits
+  workers_provided     Int?
+  offense_bonus        Int      @default(0)
+  defense_bonus        Int      @default(0)
+  spy_bonus            Int      @default(0)
+  sentry_bonus         Int      @default(0)
+  income_bonus         Int      @default(0)
+  max_item_bonus       Int?     // For ARMORY
+  daily_merc_stock     Int?     // For MERCENARY_CAMP
+
+  // Metadata
+  enabled              Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  @@unique([type, level])
+  @@index([type, level])
+  @@index([enabled])
+  @@map("buildings")
+}
+
+model Fortification {
+  id                     String   @id @default(cuid())
+  level                  Int      @unique
+  name                   String
+  max_population         Int
+  max_land               Int
+  price                  BigInt
+  hitpoints              Int
+  gold_per_turn          Int
+  cost_per_repair_point  BigInt
+
+  // Metadata
+  enabled                Boolean  @default(true)
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+
+  @@index([enabled])
+  @@map("fortifications")
+}
+
+model BattleUpgrade {
+  id          String   @id @default(cuid())
+  type        String   // BattleUpgradeType: OFFENSE, DEFENSE, SPY, SENTRY
+  level       Int
+  name        String
+  bonus       Int      // Stat bonus per unit
+  cost        BigInt
+
+  // Metadata
+  enabled     Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([type, level])
+  @@index([type, level])
+  @@index([enabled])
+  @@map("battle_upgrades")
+}
+
+model EconomyUpgrade {
+  id          String   @id @default(cuid())
+  type        String   // EconomyUpgradeType: OFFENSE, DEFENSE, SPY, SENTRY
+  level       Int
+  name        String
+  bonus       Int      // Income bonus per unit
+  cost        BigInt
+
+  // Metadata
+  enabled     Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([type, level])
+  @@index([type, level])
+  @@index([enabled])
+  @@map("economy_upgrades")
+}
+
+model Race {
+  id                String   @id // UNDEAD, HUMAN, GOBLIN, ELF
+  name              String
+
+  // Bonuses (multipliers, e.g., 1.5 = +50%)
+  offense_bonus     Float    @default(0)
+  defense_bonus     Float    @default(0)
+  spy_bonus         Float    @default(0)
+  sentry_bonus      Float    @default(0)
+  income_bonus      Float    @default(0)
+  recruit_bonus     Float    @default(0)
+
+  // UI
+  description       String?
+  theme_color       String   @default("#6b46c1")
+
+  // Metadata
+  enabled           Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@index([enabled])
+  @@map("races")
+}
+
 // ─── Saved Combat Simulations ───────────────────────────────────────────────
 
 model SavedSimulation {

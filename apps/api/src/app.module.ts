@@ -26,6 +26,7 @@ import { GameModule } from './game/game.module';
 import { ShopModule } from './shop/shop.module';
 import { SettingsModule } from './settings/settings.module';
 import { SimulatorModule } from './simulator/simulator.module';
+import { GameDataModule } from './game-data/game-data.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SimulatorModule } from './simulator/simulator.module';
     EventEmitterModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
+    GameDataModule,
     GameModule,
     AuthModule,
     PlayerModule,
