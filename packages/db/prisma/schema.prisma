@@ -951,17 +951,22 @@ model Fortification {
 }
 
 model BattleUpgrade {
-  id          String   @id @default(cuid())
-  type        String   // BattleUpgradeType: OFFENSE, DEFENSE, SPY, SENTRY
-  level       Int
-  name        String
-  bonus       Int      // Stat bonus per unit
-  cost        BigInt
+  id                   String   @id @default(cuid())
+  type                 String   // BattleUpgradeType: OFFENSE, DEFENSE, SPY, SENTRY
+  level                Int
+  name                 String
+  siege_upgrade_level  Int      @default(0)
+  bonus                Int      // Stat bonus per unit
+  cost                 BigInt
+  units_covered        Int      @default(1)
+  min_unit_level       Int      @default(1)
+  killing_strength     Int      @default(0)
+  defense_strength     Int      @default(0)
 
   // Metadata
-  enabled     Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  enabled              Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
 
   @@unique([type, level])
   @@index([type, level])

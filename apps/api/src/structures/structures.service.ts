@@ -6,10 +6,10 @@ import { FortRepairedEvent } from '@openthrone/events';
 import { PlayerStateChangedEvent } from '../game/events';
 // Phase 3: Migrated Buildings to GameDataService (keeping import for rollback)
 // Phase 4: Migrated Fortifications to GameDataService (keeping import for rollback)
+// Phase 5: Migrated BattleUpgrades to GameDataService (keeping import for rollback)
 import {
   // Fortifications, getFortificationByLevel, getNextFortification, // Phase 4 migration
-  BattleUpgrades,
-  getBattleUpgradesByType,
+  // BattleUpgrades, getBattleUpgradesByType, // Phase 5 migration
   // getUnitByTypeAndLevel, // Phase 1 migration
   getLevelForXP,
   // Buildings, getBuildingDefinition, getBuildingLevel, getNextBuildingLevel, getMaxBuildingLevel, canUpgradeBuilding, // Phase 3 migration
@@ -306,7 +306,8 @@ export class StructuresService {
       definitions: {
         // Phase 4: Using GameDataService
         fortifications: this.gameData.getAllFortifications(),
-        battle: BattleUpgrades,
+        // Phase 5: Using GameDataService
+        battle: this.gameData.getAllBattleUpgrades(),
         // Phase 3: Using GameDataService
         buildings: this.gameData.getAllBuildings(),
       },
@@ -443,8 +444,8 @@ export class StructuresService {
       if (!economy) throw new BadRequestException('Player economy not found');
 
       // Find the battle upgrade definition
-      const allDefsForType = getBattleUpgradesByType(dto.upgradeType as BattleUpgradeType);
-      const def = allDefsForType.find((d) => d.level === dto.level);
+      // Phase 5: Using GameDataService
+      const def = this.gameData.getBattleUpgrade(dto.upgradeType, dto.level);
       if (!def) {
         throw new BadRequestException(`No battle upgrade found for ${dto.upgradeType} level ${dto.level}`);
       }
@@ -565,8 +566,8 @@ export class StructuresService {
 
       if (!economy) throw new BadRequestException('Player economy not found');
 
-      const allDefsForType = getBattleUpgradesByType(dto.upgradeType as BattleUpgradeType);
-      const def = allDefsForType.find((d) => d.level === dto.level);
+      // Phase 5: Using GameDataService
+      const def = this.gameData.getBattleUpgrade(dto.upgradeType, dto.level);
       if (!def) {
         throw new BadRequestException(`No battle upgrade found for ${dto.upgradeType} level ${dto.level}`);
       }

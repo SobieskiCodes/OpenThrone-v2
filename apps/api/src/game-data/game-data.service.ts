@@ -73,6 +73,21 @@ export interface FortificationDefinition {
   enabled: boolean;
 }
 
+export interface BattleUpgradeDefinition {
+  id: string;
+  type: string;
+  level: number;
+  name: string;
+  siegeUpgradeLevel: number;
+  bonus: number;
+  cost: bigint;
+  unitsCovered: number;
+  minUnitLevel: number;
+  killingStrength: number;
+  defenseStrength: number;
+  enabled: boolean;
+}
+
 @Injectable()
 export class GameDataService implements OnModuleInit {
   private readonly logger = new Logger(GameDataService.name);
@@ -82,7 +97,7 @@ export class GameDataService implements OnModuleInit {
   private items = new Map<string, ItemDefinition>();
   private buildings = new Map<string, BuildingDefinition>();
   private fortifications = new Map<number, FortificationDefinition>();
-  private battleUpgrades = new Map<string, any>();
+  private battleUpgrades = new Map<string, BattleUpgradeDefinition>();
   private economyUpgrades = new Map<string, any>();
   private races = new Map<string, any>();
   private config = new Map<string, any>();
@@ -214,7 +229,14 @@ export class GameDataService implements OnModuleInit {
 
       // Index battle upgrades by "TYPE_LEVEL"
       for (const upgrade of battleUpgradesFromDb) {
-        this.battleUpgrades.set(`${upgrade.type}_${upgrade.level}`, upgrade);
+        this.battleUpgrades.set(`${upgrade.type}_${upgrade.level}`, {
+          ...upgrade,
+          siegeUpgradeLevel: upgrade.siege_upgrade_level,
+          unitsCovered: upgrade.units_covered,
+          minUnitLevel: upgrade.min_unit_level,
+          killingStrength: upgrade.killing_strength,
+          defenseStrength: upgrade.defense_strength,
+        } as BattleUpgradeDefinition);
       }
 
       // Index economy upgrades by "TYPE_LEVEL"
