@@ -95,3 +95,7 @@ need to keep track of which pages need to return cache - its still annoying as s
 can this be ported to a mobile app - or do we need to revist the design lol
 
 admin ui can set starting gold in bank + cits per turn (and any otehr configurable)
+
+
+it would be pretty sick to have more achievement badges, 
+example: 10,000 kills gets you a Skull and Cross Bones badge. and more other little milestone markers
