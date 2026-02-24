@@ -99,6 +99,7 @@ const adminNavItems = [
       { label: 'Players', href: '/admin/players' },
       { label: 'Bots', href: '/admin/bots' },
       { label: 'Jobs', href: '/admin/jobs' },
+      { label: 'Game Data', href: '/admin/game-data' },
       { label: 'Settings', href: '/admin/settings' },
     ],
   },
